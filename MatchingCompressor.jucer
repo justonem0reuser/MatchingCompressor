@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<JUCERPROJECT id="x2lh5m" name="MatchingCompressor" projectType="audioplug"
+              useAppConfig="0" addUsingNamespaceToJuceHeader="0" displaySplashScreen="1"
+              jucerFormatVersion="1" pluginFormats="buildAAX,buildAU,buildAUv3,buildStandalone,buildVST,buildVST3"
+              pluginVST3Category="Analyzer,Dynamics,Fx,Mastering" headerPath="c:\usr\AlgLib"
+              companyName="Just1m0reApp" companyWebsite="https://github.com/justonem0reuser"
+              version="0.1.0" pluginAAXCategory="2,8192" pluginVSTCategory="kPlugCategEffect">
+  <MAINGROUP id="Fvr4G9" name="MatchingCompressor">
+    <GROUP id="{301F7B44-310F-A1B0-9B9E-202EDADBDA5F}" name="External">
+      <GROUP id="{B5D18667-3108-4C9A-6ED7-287C80B1D843}" name="AlgLib">
+        <FILE id="g1axJU" name="alglibinternal.cpp" compile="1" resource="0"
+              file="../../../../../usr/AlgLib/alglibinternal.cpp"/>
+        <FILE id="F0DfsQ" name="alglibinternal.h" compile="0" resource="0"
+              file="../../../../../usr/AlgLib/alglibinternal.h"/>
+        <FILE id="Cihi2O" name="alglibmisc.cpp" compile="1" resource="0" file="../../../../../usr/AlgLib/alglibmisc.cpp"/>
+        <FILE id="oSIZpo" name="alglibmisc.h" compile="0" resource="0" file="../../../../../usr/AlgLib/alglibmisc.h"/>
+        <FILE id="VQG120" name="ap.cpp" compile="1" resource="0" file="../../../../../usr/AlgLib/ap.cpp"/>
+        <FILE id="rDIqvy" name="ap.h" compile="0" resource="0" file="../../../../../usr/AlgLib/ap.h"/>
+        <FILE id="B9zGM4" name="dataanalysis.cpp" compile="1" resource="0"
+              file="../../../../../usr/AlgLib/dataanalysis.cpp"/>
+        <FILE id="r9aJpP" name="dataanalysis.h" compile="0" resource="0" file="../../../../../usr/AlgLib/dataanalysis.h"/>
+        <FILE id="W3EIyM" name="diffequations.cpp" compile="1" resource="0"
+              file="../../../../../usr/AlgLib/diffequations.cpp"/>
+        <FILE id="Mhp4Om" name="diffequations.h" compile="0" resource="0" file="../../../../../usr/AlgLib/diffequations.h"/>
+        <FILE id="n0UDkp" name="fasttransforms.cpp" compile="1" resource="0"
+              file="../../../../../usr/AlgLib/fasttransforms.cpp"/>
+        <FILE id="ZgQLo9" name="fasttransforms.h" compile="0" resource="0"
+              file="../../../../../usr/AlgLib/fasttransforms.h"/>
+        <FILE id="HI9VYv" name="integration.cpp" compile="1" resource="0" file="../../../../../usr/AlgLib/integration.cpp"/>
+        <FILE id="y8NwOt" name="integration.h" compile="0" resource="0" file="../../../../../usr/AlgLib/integration.h"/>
+        <FILE id="nioCiK" name="interpolation.cpp" compile="1" resource="0"
+              file="../../../../../usr/AlgLib/interpolation.cpp"/>
+        <FILE id="tfbk4I" name="interpolation.h" compile="0" resource="0" file="../../../../../usr/AlgLib/interpolation.h"/>
+        <FILE id="Nfxvl5" name="kernels_avx2.cpp" compile="1" resource="0"
+              file="../../../../../usr/AlgLib/kernels_avx2.cpp"/>
+        <FILE id="eiIJHk" name="kernels_avx2.h" compile="0" resource="0" file="../../../../../usr/AlgLib/kernels_avx2.h"/>
+        <FILE id="H7EwOv" name="kernels_fma.cpp" compile="1" resource="0" file="../../../../../usr/AlgLib/kernels_fma.cpp"/>
+        <FILE id="A9P1Za" name="kernels_fma.h" compile="0" resource="0" file="../../../../../usr/AlgLib/kernels_fma.h"/>
+        <FILE id="iE4aha" name="kernels_sse2.cpp" compile="1" resource="0"
+              file="../../../../../usr/AlgLib/kernels_sse2.cpp"/>
+        <FILE id="OjBITs" name="kernels_sse2.h" compile="0" resource="0" file="../../../../../usr/AlgLib/kernels_sse2.h"/>
+        <FILE id="P943e2" name="linalg.cpp" compile="1" resource="0" file="../../../../../usr/AlgLib/linalg.cpp"/>
+        <FILE id="FOxRie" name="linalg.h" compile="0" resource="0" file="../../../../../usr/AlgLib/linalg.h"/>
+        <FILE id="dRfliL" name="optimization.cpp" compile="1" resource="0"
+              file="../../../../../usr/AlgLib/optimization.cpp"/>
+        <FILE id="yWPfwe" name="optimization.h" compile="0" resource="0" file="../../../../../usr/AlgLib/optimization.h"/>
+        <FILE id="rpvjMe" name="solvers.cpp" compile="1" resource="0" file="../../../../../usr/AlgLib/solvers.cpp"/>
+        <FILE id="MDub45" name="solvers.h" compile="0" resource="0" file="../../../../../usr/AlgLib/solvers.h"/>
+        <FILE id="I4R6y5" name="specialfunctions.cpp" compile="1" resource="0"
+              file="../../../../../usr/AlgLib/specialfunctions.cpp"/>
+        <FILE id="b5bVV6" name="specialfunctions.h" compile="0" resource="0"
+              file="../../../../../usr/AlgLib/specialfunctions.h"/>
+        <FILE id="Wp8jZV" name="statistics.cpp" compile="1" resource="0" file="../../../../../usr/AlgLib/statistics.cpp"/>
+        <FILE id="wfmXDL" name="statistics.h" compile="0" resource="0" file="../../../../../usr/AlgLib/statistics.h"/>
+        <FILE id="mjak3G" name="stdafx.h" compile="0" resource="0" file="../../../../../usr/AlgLib/stdafx.h"/>
+      </GROUP>
+    </GROUP>
+    <GROUP id="{5675DB9D-B5E2-B4A5-632E-BB7947CCDD4A}" name="Assets">
+      <FILE id="M739Z2" name="background.jpg" compile="0" resource="1" file="Assets/background.jpg"/>
+      <FILE id="vBx2Zp" name="plotBackground.jpg" compile="0" resource="1"
+            file="Assets/plotBackground.jpg"/>
+      <FILE id="zpT7oS" name="slider.png" compile="0" resource="1" file="Assets/slider.png"/>
+      <FILE id="qRppCt" name="toggle-off.png" compile="0" resource="1" file="Assets/toggle-off.png"/>
+      <FILE id="OcLPmE" name="toggle-on.png" compile="0" resource="1" file="Assets/toggle-on.png"/>
+      <FILE id="YScN0A" name="tool-hover.png" compile="0" resource="1" file="Assets/tool-hover.png"/>
+      <FILE id="wct685" name="tool.png" compile="0" resource="1" file="Assets/tool.png"/>
+    </GROUP>
+    <GROUP id="{7CE26C6F-DCFE-0FFF-2DD4-22B14B317F53}" name="Source">
+      <GROUP id="{137E5EE6-9495-CF6F-DBDA-0DCADB94EA25}" name="DSP">
+        <FILE id="M9K5C6" name="DataCollector.cpp" compile="1" resource="0"
+              file="Source/DSP/DataCollector.cpp"/>
+        <FILE id="hsJv1V" name="DataCollector.h" compile="0" resource="0" file="Source/DSP/DataCollector.h"/>
+        <FILE id="aFhIy1" name="DynamicShaper.cpp" compile="1" resource="0"
+              file="Source/DSP/DynamicShaper.cpp"/>
+        <FILE id="W48CcJ" name="DynamicShaper.h" compile="0" resource="0" file="Source/DSP/DynamicShaper.h"/>
+      </GROUP>
+      <GROUP id="{00103A79-2FF9-F666-DCD1-9A2ACFE71930}" name="ParamsCalculator">
+        <FILE id="PFaS9f" name="CompParamsCalculator.cpp" compile="1" resource="0"
+              file="Source/ParamsCalculator/CompParamsCalculator.cpp"/>
+        <FILE id="uK2WEX" name="CompParamsCalculator.h" compile="0" resource="0"
+              file="Source/ParamsCalculator/CompParamsCalculator.h"/>
+        <FILE id="MSGQZo" name="CompParamsCalculatorEnv.cpp" compile="1" resource="0"
+              file="Source/ParamsCalculator/CompParamsCalculatorEnv.cpp"/>
+        <FILE id="ivCHfh" name="CompParamsCalculatorEnv.h" compile="0" resource="0"
+              file="Source/ParamsCalculator/CompParamsCalculatorEnv.h"/>
+        <FILE id="jTXRCM" name="CompParamsCalculatorEnv1D.cpp" compile="1"
+              resource="0" file="Source/ParamsCalculator/CompParamsCalculatorEnv1D.cpp"/>
+        <FILE id="uSXBZn" name="CompParamsCalculatorEnv1D.h" compile="0" resource="0"
+              file="Source/ParamsCalculator/CompParamsCalculatorEnv1D.h"/>
+        <FILE id="OPbdvK" name="CompParamsCalculatorEnv2D.cpp" compile="1"
+              resource="0" file="Source/ParamsCalculator/CompParamsCalculatorEnv2D.cpp"/>
+        <FILE id="BpCenW" name="CompParamsCalculatorEnv2D.h" compile="0" resource="0"
+              file="Source/ParamsCalculator/CompParamsCalculatorEnv2D.h"/>
+        <FILE id="UvM34d" name="CompParamsCalculatorNoEnv.cpp" compile="1"
+              resource="0" file="Source/ParamsCalculator/CompParamsCalculatorNoEnv.cpp"/>
+        <FILE id="UW2qpK" name="CompParamsCalculatorNoEnv.h" compile="0" resource="0"
+              file="Source/ParamsCalculator/CompParamsCalculatorNoEnv.h"/>
+        <FILE id="HqnWuJ" name="FuncAndGrad.h" compile="0" resource="0" file="Source/ParamsCalculator/FuncAndGrad.h"/>
+        <FILE id="cANUfu" name="HashEqualStructures.h" compile="0" resource="0"
+              file="Source/ParamsCalculator/HashEqualStructures.h"/>
+        <FILE id="KfHC38" name="QuantilesCalculator.cpp" compile="1" resource="0"
+              file="Source/ParamsCalculator/QuantilesCalculator.cpp"/>
+        <FILE id="sKS0HW" name="QuantilesCalculator.h" compile="0" resource="0"
+              file="Source/ParamsCalculator/QuantilesCalculator.h"/>
+      </GROUP>
+      <GROUP id="{7624D45F-E0B8-6F87-A0C4-F8B8115C91D8}" name="Components">
+        <FILE id="ck2Gyc" name="ComboBoxWithAttachment.cpp" compile="1" resource="0"
+              file="Source/Components/ComboBoxWithAttachment.cpp"/>
+        <FILE id="t10ubI" name="ComboBoxWithAttachment.h" compile="0" resource="0"
+              file="Source/Components/ComboBoxWithAttachment.h"/>
+        <FILE id="dxNCvu" name="CurvePlotComponent.cpp" compile="1" resource="0"
+              file="Source/Components/CurvePlotComponent.cpp"/>
+        <FILE id="nAV9FJ" name="CurvePlotComponent.h" compile="0" resource="0"
+              file="Source/Components/CurvePlotComponent.h"/>
+        <FILE id="c6KKbe" name="DataReceiver.cpp" compile="1" resource="0"
+              file="Source/Components/DataReceiver.cpp"/>
+        <FILE id="UWfXhH" name="DataReceiver.h" compile="0" resource="0" file="Source/Components/DataReceiver.h"/>
+        <FILE id="lKh2qr" name="PlotWithCoordinateSystemComponent.cpp" compile="1"
+              resource="0" file="Source/Components/PlotWithCoordinateSystemComponent.cpp"/>
+        <FILE id="FqJ1MS" name="PlotWithCoordinateSystemComponent.h" compile="0"
+              resource="0" file="Source/Components/PlotWithCoordinateSystemComponent.h"/>
+        <FILE id="tXlybP" name="SettingsComponent.cpp" compile="1" resource="0"
+              file="Source/Components/SettingsComponent.cpp"/>
+        <FILE id="GfZppc" name="SettingsComponent.h" compile="0" resource="0"
+              file="Source/Components/SettingsComponent.h"/>
+        <FILE id="DGzDwk" name="SettingsWithDataReceiver.cpp" compile="1" resource="0"
+              file="Source/Components/SettingsWithDataReceiver.cpp"/>
+        <FILE id="AFC2L5" name="SettingsWithDataReceiver.h" compile="0" resource="0"
+              file="Source/Components/SettingsWithDataReceiver.h"/>
+        <FILE id="G84rrA" name="SliderWithAttachment.cpp" compile="1" resource="0"
+              file="Source/Components/SliderWithAttachment.cpp"/>
+        <FILE id="rzDmIv" name="SliderWithAttachment.h" compile="0" resource="0"
+              file="Source/Components/SliderWithAttachment.h"/>
+        <FILE id="h2dtkf" name="ToggleButtonWithAttachment.cpp" compile="1"
+              resource="0" file="Source/Components/ToggleButtonWithAttachment.cpp"/>
+        <FILE id="rOMnY8" name="ToggleButtonWithAttachment.h" compile="0" resource="0"
+              file="Source/Components/ToggleButtonWithAttachment.h"/>
+      </GROUP>
+      <FILE id="dFt3md" name="Colours.h" compile="0" resource="0" file="Source/Colours.h"/>
+      <FILE id="PR23gj" name="Ranges.h" compile="0" resource="0" file="Source/Ranges.h"/>
+      <FILE id="vdWrVo" name="ExceptionHelper.h" compile="0" resource="0"
+            file="Source/ExceptionHelper.h"/>
+      <FILE id="zSPEuP" name="ComponentInitializerHelper.cpp" compile="1"
+            resource="0" file="Source/ComponentInitializerHelper.cpp"/>
+      <FILE id="uxS0Dw" name="ComponentInitializerHelper.h" compile="0" resource="0"
+            file="Source/ComponentInitializerHelper.h"/>
+      <FILE id="dvV4uP" name="MCLookAndFeel.cpp" compile="1" resource="0"
+            file="Source/MCLookAndFeel.cpp"/>
+      <FILE id="lCiowY" name="MCLookAndFeel.h" compile="0" resource="0" file="Source/MCLookAndFeel.h"/>
+      <FILE id="wqSrsj" name="ParameterInfo.h" compile="0" resource="0" file="Source/ParameterInfo.h"/>
+      <FILE id="zvGHPU" name="MatchWindow.cpp" compile="1" resource="0" file="Source/MatchWindow.cpp"/>
+      <FILE id="PsOzHm" name="MatchWindow.h" compile="0" resource="0" file="Source/MatchWindow.h"/>
+      <FILE id="qgQSHZ" name="PluginProcessor.cpp" compile="1" resource="0"
+            file="Source/PluginProcessor.cpp"/>
+      <FILE id="eGWM5A" name="PluginProcessor.h" compile="0" resource="0"
+            file="Source/PluginProcessor.h"/>
+      <FILE id="HOwcDo" name="PluginEditor.cpp" compile="1" resource="0"
+            file="Source/PluginEditor.cpp"/>
+      <FILE id="P81AQx" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
+      <FILE id="q5mJye" name="Messages.h" compile="0" resource="0" file="Source/Messages.h"/>
+    </GROUP>
+  </MAINGROUP>
+  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="0"/>
+  <EXPORTFORMATS>
+    <VS2022 targetFolder="Builds/VisualStudio2022">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="MatchingCompressor" enablePluginBinaryCopyStep="1"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="MatchingCompressor"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="../../juce-7.0.5-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../../juce-7.0.5-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../../juce-7.0.5-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_plugin_client" path="../../juce-7.0.5-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../../juce-7.0.5-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../../juce-7.0.5-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="../../juce-7.0.5-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../../juce-7.0.5-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_dsp" path="../../juce-7.0.5-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="../../juce-7.0.5-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="../../juce-7.0.5-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../../juce-7.0.5-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../../juce-7.0.5-windows/JUCE/modules"/>
+      </MODULEPATHS>
+    </VS2022>
+    <LINUX_MAKE targetFolder="Builds/LinuxMakefile">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug"/>
+        <CONFIGURATION isDebug="0" name="Release"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_audio_devices" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_audio_formats" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_audio_plugin_client" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_audio_processors" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_audio_utils" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_core" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_data_structures" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_dsp" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_events" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_graphics" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_gui_basics" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_gui_extra" path="C:\JUCE\8.0.1\modules"/>
+      </MODULEPATHS>
+    </LINUX_MAKE>
+    <XCODE_MAC targetFolder="Builds/MacOSX">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug"/>
+        <CONFIGURATION isDebug="0" name="Release"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_audio_devices" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_audio_formats" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_audio_plugin_client" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_audio_processors" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_audio_utils" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_core" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_data_structures" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_dsp" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_events" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_graphics" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_gui_basics" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_gui_extra" path="C:\JUCE\8.0.1\modules"/>
+      </MODULEPATHS>
+    </XCODE_MAC>
+    <VS2019 targetFolder="Builds/VisualStudio2019">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug"/>
+        <CONFIGURATION isDebug="0" name="Release"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_audio_devices" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_audio_formats" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_audio_plugin_client" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_audio_processors" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_audio_utils" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_core" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_data_structures" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_dsp" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_events" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_graphics" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_gui_basics" path="C:\JUCE\8.0.1\modules"/>
+        <MODULEPATH id="juce_gui_extra" path="C:\JUCE\8.0.1\modules"/>
+      </MODULEPATHS>
+    </VS2019>
+  </EXPORTFORMATS>
+  <MODULES>
+    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_plugin_client" showAllCode="1" useLocalCopy="0"
+            useGlobalPath="1"/>
+    <MODULE id="juce_audio_processors" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_utils" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+  </MODULES>
+</JUCERPROJECT>
