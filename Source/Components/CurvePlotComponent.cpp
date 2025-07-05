@@ -1,6 +1,5 @@
 #include "CurvePlotComponent.h"
-#include "../Messages.h"
-#include "../Colours.h"
+#include "../Data/Messages.h"
 
 CurvePlotComponent::CurvePlotComponent(
     const juce::Colour gridColour,

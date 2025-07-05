@@ -3,16 +3,15 @@
 #include "ParamsCalculator/CompParamsCalculatorEnv1D.h"
 #include "ParamsCalculator/CompParamsCalculatorEnv2D.h"
 #include "ParamsCalculator/CompParamsCalculatorNoEnv.h"
-#include "ComponentInitializerHelper.h"
-#include "Messages.h"
-#include "Ranges.h"
-#include "Colours.h"
+#include "Components/ComponentInitializerHelper.h"
+#include "Data/Messages.h"
+#include "Data/Ranges.h"
+#include "Data/Colours.h"
 
-MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(MatchCompressorAudioProcessor& p)
+MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
+    MatchCompressorAudioProcessor& p)
     : AudioProcessorEditor(&p),
     audioProcessor(p),
-    properties("properties"),
-    unchangedProperties(properties.getType()),
     kneesNumberComboBox(audioProcessor.apvts, kneesNumberId, juce::StringArray(std::vector<juce::String>(kneeIndexButtons.size()).data(), kneeIndexButtons.size())),
     channelAggregationTypeComboBox(audioProcessor.apvts, channelAggrerationTypeId, channelAggregationTypes),
     balFilterTypeComboBox(audioProcessor.apvts, balFilterTypeId, balFilterTypes),
@@ -22,7 +21,7 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(MatchCo
     kneeWidthSlider(audioProcessor.apvts, kneeWidthId + "0"),
     attackSlider(audioProcessor.apvts, attackId),
     releaseSlider(audioProcessor.apvts, releaseId),
-    matchButton("matchButton"),
+    toolButton("matchButton"),
     groupRect(0.f, 0.f, 0.f, 0.f),
     leftPanelBackground(juce::ImageCache::getFromMemory(
         BinaryData::background_jpg,
@@ -32,8 +31,6 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(MatchCo
         BinaryData::plotBackground_jpgSize)),
     standardRotaryParameters(gainSlider.getRotaryParameters())
 {
-    fillDefaultProperties();
-
     juce::LookAndFeel::setDefaultLookAndFeel(&laf);
 
     auto toolImage = juce::ImageCache::getFromMemory(
@@ -47,20 +44,18 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(MatchCo
         BinaryData::toggleon_png,
         BinaryData::toggleon_pngSize);
 
-    matchButton.setImages(true, true, true,
+    toolButton.setImages(true, true, true,
         toolImage, 1.0f, juce::Colours::transparentWhite,
         toolImageHover, 1.0f, juce::Colours::transparentWhite,
         toolImageHover, 1.0f, juce::Colours::transparentWhite);
-    matchButton.onClick = [this] { matchButtonClicked(); };
+    toolButton.onClick = [this] { toolButtonClicked(); };
 
-    ComponentInitializerHelper::initTextButton(this, resetButton, resetBtnStr, [this] { resetToCalculatedData(); });
+    ComponentInitializerHelper::initTextButton(
+        this, 
+        resetButton, 
+        resetBtnStr, 
+        [this] { resetToCalculatedData(); });
     resetButton.setEnabled(false);
-
-    auto buttonSwitcher = [safePtr = this->safePtr]()
-        {
-            if (auto* c = safePtr.getComponent())
-                c->updateAttachments();
-        };
 
     const std::string btnName = "kneeIndex";
     const std::string labelText = "Knee ";
@@ -73,7 +68,7 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(MatchCo
             toggleOnImage, 1.0f, juce::Colours::transparentWhite);
         kneeIndexButtons[i]->setClickingTogglesState(true);
         kneeIndexButtons[i]->setRadioGroupId(1, juce::NotificationType::dontSendNotification);
-        kneeIndexButtons[i]->onClick = buttonSwitcher;
+        kneeIndexButtons[i]->onClick = [this] { updateAttachments(); };
         addAndMakeVisible(*kneeIndexButtons[i]);
 
         kneeIndexLabels[i] = std::make_unique<juce::Label>();
@@ -142,7 +137,6 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(MatchCo
         {
             updateKneeIndexButtonsVisibility();
             freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberComboBox.getSelectedId());
-            //resetPassiveKnees();
             int checkedButtonIndex = getCheckedButtonIndex();
             if (checkedButtonIndex >= 0)
                 updateSlidersBounds(checkedButtonIndex, true, true);
@@ -168,7 +162,7 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(MatchCo
     addAndMakeVisible(kneesNumberComboBox);
     addAndMakeVisible(balFilterTypeComboBox);
     addAndMakeVisible(channelAggregationTypeComboBox);
-    addAndMakeVisible(matchButton);
+    addAndMakeVisible(toolButton);
     addAndMakeVisible(freeFormCurve.get());
 
     ComponentInitializerHelper::initLabel(this, kneesNumberLabel, &kneesNumberComboBox, false);
@@ -178,16 +172,22 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(MatchCo
     kneeIndexButtons[0]->setToggleState(true, true);
 
     setSize (leftPanelWidth + rightPanelWidth, 550);
+
+    matchWindow.reset(new MatchWindow(
+        audioProcessor.getMatchingData().properties,
+        audioProcessor.getMatchingData().parameterInfos,
+        audioProcessor.isInputBusConnected(0),
+        audioProcessor.isInputBusConnected(1)));
+    createController();
 }
 
 MatchCompressorAudioProcessorEditor::~MatchCompressorAudioProcessorEditor()
 {
-    if (matchWindow)
-        matchWindow->resetLookAndFeel();
-    audioProcessor.onPrepareToPlay = NULL;
-    audioProcessor.onPlayHeadStartPlaying = NULL;
-    audioProcessor.onPlayHeadStopPlaying = NULL;
-    audioProcessor.setMemoryFullFunc(NULL);
+    matchWindow->resetLookAndFeel();
+    audioProcessor.PrepareToPlay = NULL;
+    audioProcessor.PlayHeadStartPlaying = NULL;
+    audioProcessor.PlayHeadStopPlaying = NULL;
+    audioProcessor.DataCollectorMemoryFull = NULL;
 }
 
 //==============================================================================
@@ -247,7 +247,7 @@ void MatchCompressorAudioProcessorEditor::resized()
     bounds.removeFromRight(margin);
     bounds.removeFromTop(margin);
 
-    matchButton.setBounds(bounds.getRight() - matchButtonSize, bounds.getY(), matchButtonSize, matchButtonSize);
+    toolButton.setBounds(bounds.getRight() - matchButtonSize, bounds.getY(), matchButtonSize, matchButtonSize);
     bounds.removeFromTop(matchButtonSize + 2 * margin);
     groupRect.setX(bounds.getX() - margin);
     groupRect.setY(bounds.getY() - margin);
@@ -284,124 +284,34 @@ void MatchCompressorAudioProcessorEditor::resized()
     releaseSlider.setBounds(kneeWidthSlider.getX(), bounds.getY(), sliderWidth, sliderHeight);
 }
 
-//==============================================================================
-void MatchCompressorAudioProcessorEditor::fillDefaultProperties()
+BaseMatchView* MatchCompressorAudioProcessorEditor::getMatchView()
 {
-    auto channelAggregationTypeRange = audioProcessor.apvts.getParameterRange(channelAggrerationTypeId);
-
-    parameterInfos.clear();
-    // Sharp accuracy decreasing below -60 dB when optimizing in dBs;
-    // accuracy doesn't decreased when optimizing in gain units instead of dBs.
-    // For hard-knee optimization gainRegionsNumber=100, quantileRegionsNumber=1000 are enough
-    // and it makes the process significantly faster;
-    // For soft-knee optimization values around gainRegionsNumber=500, quantileRegionsNumber=5000 are needed.
-
-    parameterInfos.push_back(ParameterInfo(
-        setGainRegionsNumberId, "Gain regions number", 4000, 1000, 5000, 1, false, true));
-    parameterInfos.push_back(ParameterInfo(
-        setQuantileRegionsNumberId, "Quantile regions number", 400, 100, 1000, 1, false, true));
-    parameterInfos.push_back(ParameterInfo(
-        setKneesNumberId, "Knees number", 1, 1, DynamicShaper<float>::maxKneesNumber, 1, false, true));
-    parameterInfos.push_back(ParameterInfo(
-        setKneeTypeId, "Knee type", 1, kneeTypes));
-    parameterInfos.push_back(ParameterInfo(
-        setBalFilterTypeId, "Envelope type", 1, balFilterTypes));
-    parameterInfos.push_back(ParameterInfo(
-        setChannelAggregationTypeId, "Stereo processing", 1, channelAggregationTypes));
-    parameterInfos.push_back(ParameterInfo(
-        setAttackId, "Attack (ms)", 0.f, attackRange.start, attackRange.end, attackRange.interval, false, true));
-    parameterInfos.push_back(ParameterInfo(
-        setReleaseId, "Release (ms)", 0.f, releaseRange.start, releaseRange.end, releaseRange.interval, false, true));
-
-    for (int i = 0; i < parameterInfos.size(); i++)
-        properties.setProperty(
-            parameterInfos[i].name, parameterInfos[i].defaultValue, nullptr);
+    return matchWindow->getMatchView();
 }
 
 void MatchCompressorAudioProcessorEditor::resetToCalculatedData()
 {
-    int kneesNumber = properties.getProperty(setKneesNumberId);
-    int chAggrType = properties.getProperty(setChannelAggregationTypeId);
-    int filterType = properties.getProperty(setBalFilterTypeId);
-    float attackMs = properties.getProperty(setAttackId);
-    float releaseMs = properties.getProperty(setReleaseId);
-    kneesNumberComboBox.setSelectedId(kneesNumber, juce::NotificationType::sendNotification);
-    channelAggregationTypeComboBox.setSelectedId(chAggrType, juce::NotificationType::sendNotification);
-    balFilterTypeComboBox.setSelectedId(filterType, juce::NotificationType::sendNotification);
-    gainSlider.setValue(calculatedCompParams[0], juce::NotificationType::sendNotification); 
-    attackSlider.setValue(attackMs, juce::NotificationType::sendNotification);
-    releaseSlider.setValue(releaseMs, juce::NotificationType::sendNotification);
-
-    // double click return value it can be set 
-    // only for the sliders that always occupy a full possible range
-    gainSlider.setDoubleClickReturnValue(true, calculatedCompParams[0]);
-    attackSlider.setDoubleClickReturnValue(true, attackMs);
-    releaseSlider.setDoubleClickReturnValue(true, releaseMs);
-
-    DynamicShaper<float>::KneesArray thresholdsDb, ratios, widths;
-    for (int i = 0; i < kneesNumber; i++)
-    {
-        thresholdsDb[i] = calculatedCompParams[1 + i * 3];
-        ratios[i] = calculatedCompParams[2 + i * 3];
-        widths[i] = calculatedCompParams[3 + i * 3];
-    }
-    audioProcessor.setCompressorParameters(
-        thresholdsDb,
-        ratios,
-        widths,
-        calculatedCompParams[0],
-        kneesNumber);
     kneeIndexButtons[0]->setToggleState(true, true);
-    int checkedButtonIndex = getCheckedButtonIndex();
-    float ratioSliderValue =
-        calculatedCompParams[2] >= 1. ?
-        calculatedCompParams[2] :
-        2.f - 1.f / calculatedCompParams[2];
 
     thresholdSlider.setNormalisableRange({ thresholdRange.start, thresholdRange.end, thresholdRange.interval });
     thresholdSlider.setRotaryParameters(standardRotaryParameters);
-    thresholdSlider.setValue(calculatedCompParams[1], juce::NotificationType::sendNotification);
-    ratioSlider.setValue(ratioSliderValue, juce::NotificationType::sendNotification);
     kneeWidthSlider.setNormalisableRange({ kneeWidthRange.start, kneeWidthRange.end, kneeWidthRange.interval });
     kneeWidthSlider.setRotaryParameters(standardRotaryParameters);
-    kneeWidthSlider.setValue(calculatedCompParams[3], juce::NotificationType::sendNotification);
 
-    for (int i = 1; i < DynamicShaper<float>::maxKneesNumber; i++)
-    {
-        float t, r, kw;
-        if (i < kneesNumber)
-        {
-            t = calculatedCompParams[i * 3 + 1];
-            r = calculatedCompParams[i * 3 + 2];
-            if (r < 1)
-                r = 2.f - 1.f / r;
-            kw = calculatedCompParams[i * 3 + 3];
-        }
-        else
-        {
-            t = kw = 0.f;
-            r = ratioSliderValue;
-        }
+    juce::NullCheckedInvocation::invoke(ResetButtonClicked);
 
-        auto* par = audioProcessor.apvts.getParameter(thresholdId + std::to_string(i));
-        par->beginChangeGesture();
-        par->setValueNotifyingHost(thresholdRange.convertTo0to1(t));
-        par->endChangeGesture();
+    auto& matchingData = audioProcessor.getMatchingData();
+    int kneesNumber = matchingData.properties.getProperty(setKneesNumberId);
 
-        par = audioProcessor.apvts.getParameter(ratioId + std::to_string(i));
-        par->beginChangeGesture();
-        par->setValueNotifyingHost(ratioRange.convertTo0to1(r));
-        par->endChangeGesture();
+    // double click return value it can be set 
+    // only for the sliders that always occupy a full possible range
+    gainSlider.setDoubleClickReturnValue(true, matchingData.calculatedCompParams[0]);
+    attackSlider.setDoubleClickReturnValue(true, matchingData.properties.getProperty(setAttackId));
+    releaseSlider.setDoubleClickReturnValue(true, matchingData.properties.getProperty(setReleaseId));
 
-        par = audioProcessor.apvts.getParameter(kneeWidthId + std::to_string(i));
-        par->beginChangeGesture();
-        par->setValueNotifyingHost(kneeWidthRange.convertTo0to1(kw));
-        par->endChangeGesture();
-    }
+    updateSlidersBounds(0, true, true);
 
     freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumber);
-
-    audioProcessor.setNeedUpdate();
     repaint();
 }
 
@@ -452,7 +362,7 @@ void MatchCompressorAudioProcessorEditor::updateSliderBounds(
         maxValue == minValue) // both conditions are needed
     {
         slider.setNormalisableRange({ fullRange.start, fullRange.end, fullRange.interval });
-        slider.setRotaryParameters(standardRotaryParameters.startAngleRadians, standardRotaryParameters.endAngleRadians, standardRotaryParameters.stopAtEnd);
+        slider.setRotaryParameters(standardRotaryParameters);
         slider.setEnabled(false);
     }
     else
@@ -470,25 +380,26 @@ void MatchCompressorAudioProcessorEditor::updateSliderBounds(
 }
 
 void MatchCompressorAudioProcessorEditor::updateSlidersBounds(
-    int index,
+    int fromIndex,
     bool updateThreshold,
     bool updateKneeWidth)
 {
+    auto& apvts = audioProcessor.apvts;
     const float prevIndexBound =
-        index == 0 ?
+        fromIndex == 0 ?
         10.f * thresholdRange.start : // much less than it can really be
-        *audioProcessor.apvts.getRawParameterValue(thresholdId + std::to_string(index - 1)) + 0.5f *
-        *audioProcessor.apvts.getRawParameterValue(kneeWidthId + std::to_string(index - 1));
+        *apvts.getRawParameterValue(thresholdId + std::to_string(fromIndex - 1)) + 
+        *apvts.getRawParameterValue(kneeWidthId + std::to_string(fromIndex - 1)) * 0.5f;
     const float nextIndexBound =
-        index == kneesNumberComboBox.getSelectedId() - 1 ?
+        fromIndex == kneesNumberComboBox.getSelectedId() - 1 ?
         -10.f * thresholdRange.start : // much more than it can really be
-        *audioProcessor.apvts.getRawParameterValue(thresholdId + std::to_string(index + 1)) - 0.5f *
-        *audioProcessor.apvts.getRawParameterValue(kneeWidthId + std::to_string(index + 1));
+        *apvts.getRawParameterValue(thresholdId + std::to_string(fromIndex + 1)) - 
+        *apvts.getRawParameterValue(kneeWidthId + std::to_string(fromIndex + 1)) * 0.5f;
     
     float currentThreshold =
-        *audioProcessor.apvts.getRawParameterValue(thresholdId + std::to_string(index));
+        *apvts.getRawParameterValue(thresholdId + std::to_string(fromIndex));
     float currentKneeWidth =
-        *audioProcessor.apvts.getRawParameterValue(kneeWidthId + std::to_string(index));
+        *apvts.getRawParameterValue(kneeWidthId + std::to_string(fromIndex));
 
     if (updateThreshold)
     {
@@ -509,144 +420,48 @@ void MatchCompressorAudioProcessorEditor::updateSlidersBounds(
         updateSliderBounds(kneeWidthSlider, kneeWidthRange, kneeWidthRange.start, maxKValue);
     }
 
-    // update next knees enabling
-    if (index == kneesNumberComboBox.getSelectedId() - 1 &&
-        index < kneeIndexButtons.size() - 1)
+    juce::NullCheckedInvocation::invoke(BoundsChanged);
+
+    // update knees enabling
+    int kneesNumber = *apvts.getRawParameterValue(kneesNumberId);
+    for (int i = 0; i < kneeIndexButtons.size(); i++)
     {
-        float rightBound = std::min(currentThreshold + 0.5f * currentKneeWidth, 0.f);
-        for (int i = index + 1; i < kneeIndexButtons.size(); i++)
-        {
-            kneesNumberComboBox.setItemEnabled(i + 1, rightBound < 0.f);
-            currentThreshold = *audioProcessor.apvts.getRawParameterValue(thresholdId + std::to_string(i));
-            if (currentThreshold <= rightBound)
-            {
-                auto* par = audioProcessor.apvts.getParameter(thresholdId + std::to_string(i));
-                par->beginChangeGesture();
-                par->setValueNotifyingHost(thresholdRange.convertTo0to1(rightBound));
-                par->endChangeGesture();
-
-                par = audioProcessor.apvts.getParameter(kneeWidthId + std::to_string(i));
-                par->beginChangeGesture();
-                par->setValueNotifyingHost(kneeWidthRange.convertTo0to1(0.f));
-                par->endChangeGesture();
-            }
-            else
-            {
-                currentKneeWidth = *audioProcessor.apvts.getRawParameterValue(kneeWidthId + std::to_string(i));
-                float delta = currentThreshold - rightBound;
-                if (i < kneeIndexButtons.size() - 1)
-                    delta = std::min(delta, -currentThreshold);
-                if (0.5f * currentKneeWidth >= delta)
-                {
-                    auto* par = audioProcessor.apvts.getParameter(kneeWidthId + std::to_string(i));
-                    par->beginChangeGesture();
-                    par->setValueNotifyingHost(kneeWidthRange.convertTo0to1(2.f * delta));
-                    par->endChangeGesture();
-                    rightBound = std::min(2.f * currentThreshold - rightBound, 0.f);
-                }
-            }
-        }
-    }
-}
-
-void MatchCompressorAudioProcessorEditor::matchButtonClicked()
-{
-    if (!matchWindow)
-    {
-        std::function<void(bool, bool)> toogleFunc = 
-            [&](bool mainBus, bool sidechain) 
-            { 
-                audioProcessor.setDataCollectionBuses(mainBus, sidechain); 
-            };
-        matchWindow.reset(new MatchWindow(
-            properties, 
-            parameterInfos, 
-            audioProcessor.isInputBusConnected(0),
-            audioProcessor.isInputBusConnected(1),
-            toogleFunc));
-        matchWindow->addComponentListener(this);
-        audioProcessor.onPrepareToPlay = [&]
-            {
-                matchWindow.get()->setBusesConnected(
-                    audioProcessor.isInputBusConnected(0),
-                    audioProcessor.isInputBusConnected(1));
-            };
-
-    }
-    unchangedProperties.copyPropertiesFrom(properties, nullptr);
-    matchWindow->toFront(true);
-    matchWindow->setVisible(true);
-}
-
-void MatchCompressorAudioProcessorEditor::componentVisibilityChanged(Component& component)
-{
-    if (&component == matchWindow.get())
-    {
-        if (component.isVisible())
-        {
-            matchWindow.get()->startTimer();
-            if (audioProcessor.isPlayHeadPlaying())
-                matchWindow.get()->setToggleButtonsDisabled();
-            audioProcessor.onPlayHeadStartPlaying = [&]
-                {
-                    matchWindow.get()->setToggleButtonsDisabled();
-                    matchWindow.get()->setMustBeInFront(true);
-                };
-            audioProcessor.onPlayHeadStopPlaying = [&]
-                {
-                    endCollectingData(true, true);
-                    matchWindow->setMustBeInFront(true);
-                };
-            audioProcessor.setMemoryFullFunc([&]
-                {
-                    endCollectingData(true, false);
-                    matchWindow->setMustBeInFront(true);
-                });
-            matchWindow.get()->setOnTimer([&]
-                {
-                    if (matchWindow.get()->getMustBeInFront())
-                    {
-                        matchWindow.get()->toFront(false);
-                        matchWindow.get()->setMustBeInFront(false);
-                    }
-                });
-        }
+        if (i < kneesNumber)
+            kneesNumberComboBox.setItemEnabled(i + 1, true);
         else
         {
-            matchWindow.get()->stopTimer();
-            endCollectingData(false, true);
-            matchWindow.get()->timerCallback();
-            matchWindow.get()->setOnTimer(NULL);
-            audioProcessor.onPlayHeadStartPlaying = NULL;
-            audioProcessor.onPlayHeadStopPlaying = NULL;
-            audioProcessor.setMemoryFullFunc(NULL);
-            
-            auto& compParams = matchWindow->getResult();
-            if (compParams.size() < 4 || (compParams.size() - 1) % 3 != 0)
+            auto prevStr = std::to_string(i - 1);
+            float prevThreshold =
+                *apvts.getRawParameterValue(thresholdId + prevStr);
+            float prevKneeWidth =
+                *apvts.getRawParameterValue(kneeWidthId + prevStr);
+            float leftBound = std::min(prevThreshold + 0.5f * prevKneeWidth, 0.f);
+            kneesNumberComboBox.setItemEnabled(i + 1, leftBound < 0.f);
+        }
+    }
+}
+
+void MatchCompressorAudioProcessorEditor::createController()
+{
+    mainController = std::make_unique<MainController>(
+        this, 
+        audioProcessor);
+    
+    mainController->getMatchController().CompParamsCalculated = [this]
+        {
+            if (audioProcessor.getMatchingData().calculatedCompParams.size() < 4 ||
+                (audioProcessor.getMatchingData().calculatedCompParams.size() - 1) % 3 != 0)
                 return;
 
             resetButton.setEnabled(true);
-            calculatedCompParams = compParams;
-            freeFormCurve->setData(calculatedCompParams);
+            freeFormCurve->setData(audioProcessor.getMatchingData().calculatedCompParams);
             resetToCalculatedData();
-        }
-    }
+        };
 }
 
-void MatchCompressorAudioProcessorEditor::endCollectingData(bool saveData, bool resetButtonsState)
+void MatchCompressorAudioProcessorEditor::toolButtonClicked()
 {
-    auto* w = matchWindow.get();
-    std::vector<std::vector<float>> mainBusData, sideChainData;
-    double mainBusRate, sidechainRate;
-    audioProcessor.getCollectedData(mainBusData, mainBusRate, sideChainData, sidechainRate);
-    if (saveData)
-        w->setFromDataCollector(sideChainData, sidechainRate, mainBusData, mainBusRate);
-    if (resetButtonsState)
-    {
-        w->setBusesConnected(
-            audioProcessor.isInputBusConnected(0),
-            audioProcessor.isInputBusConnected(1));
-        w->setToggleButtonsUnchecked();
-    }
+    juce::NullCheckedInvocation::invoke(ToolButtonClicked);
+    matchWindow->toFront(true);
+    matchWindow->setVisible(true);
 }
-

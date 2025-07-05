@@ -1,7 +1,7 @@
 #include "MCLookAndFeel.h"
 #include "Components/SliderWithAttachment.h"
 #include "Components/ToggleButtonWithAttachment.h"
-#include "Colours.h"
+#include "Data/Colours.h"
 
 MCLookAndFeel::MCLookAndFeel():
     sliderImage(juce::ImageCache::getFromMemory(

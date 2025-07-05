@@ -1,20 +1,17 @@
 #include "SettingsWithDataReceiver.h"
-#include "../ComponentInitializerHelper.h"
-#include "../ExceptionHelper.h"
-#include "../Messages.h"
-#include "../ParamsCalculator/CompParamsCalculatorNoEnv.h"
-#include "../ParamsCalculator/CompParamsCalculatorEnv1D.h"
-#include "../ParamsCalculator/CompParamsCalculatorEnv2D.h"
+#include "ComponentInitializerHelper.h"
+#include "../Utilities/ExceptionHelper.h"
+#include "../Data/Messages.h"
 
 SettingsWithDataReceiver::SettingsWithDataReceiver(
-	Component* parent, 
-	juce::ValueTree& initProperties, 
-	std::vector<ParameterInfo>& parameterInfos,
-    bool isMainBusConnected, 
-    bool isSidechainConnected,
-    std::function<void(bool, bool)> toggleFunc):
-	SettingsComponent(parent, initProperties, parameterInfos),
-    dataReceiver(isMainBusConnected, isSidechainConnected, toggleFunc)
+    Component* parent,
+    juce::ValueTree& properties,
+    std::vector<ParameterInfo>& parameterInfos,
+    bool isMainBusConnected,
+    bool isSidechainConnected) :
+    SettingsComponent(parent, properties, parameterInfos),
+    dataReceiver(isMainBusConnected, isSidechainConnected),
+    mustBeInFront(false)
 {
     dataReceiver.setBounds(0, 0, width, 130);
     addAndMakeVisible(dataReceiver);
@@ -25,7 +22,9 @@ SettingsWithDataReceiver::SettingsWithDataReceiver(
     currentY = panel.getBottom() + 2 * margin;
     okButton.setButtonText(matchBtnStr);
     okButton.setBounds(margin, currentY, buttonWidth, componentHeight);
+    okButton.onClick = [this] { juce::NullCheckedInvocation::invoke(onOkButtonClicked); };
     cancelButton.setBounds(width - margin - buttonWidth, currentY, buttonWidth, componentHeight);
+    cancelButton.onClick = [this] { juce::NullCheckedInvocation::invoke(onCancelButtonClicked); };
 
     currentY = okButton.getBottom() + margin;
     setSize(width, currentY);
@@ -35,11 +34,6 @@ SettingsWithDataReceiver::SettingsWithDataReceiver(
             okButton.setEnabled(dataReceiver.isAllDataSet());
         };
     dataReceiver.onStateChanged();
-}
-
-std::vector<float>& SettingsWithDataReceiver::getResult()
-{
-    return compParams;
 }
 
 void SettingsWithDataReceiver::setBusesConnected(bool mainBus, bool sidechain)
@@ -57,20 +51,6 @@ void SettingsWithDataReceiver::setToggleButtonsUnchecked()
     dataReceiver.setToggleButtonsUnchecked();
 }
 
-void SettingsWithDataReceiver::setFromDataCollector(
-    std::vector<std::vector<float>>& refSamples,
-    double refSampleRate,
-    std::vector<std::vector<float>>& destSamples,
-    double destSampleRate)
-{
-    dataReceiver.setFromDataCollector(refSamples, refSampleRate, destSamples, destSampleRate);
-}
-
-void SettingsWithDataReceiver::setOnTimer(std::function<void()> func)
-{
-    dataReceiver.onTimer = func;
-}
-
 void SettingsWithDataReceiver::startTimer()
 {
     dataReceiver.startTimer(timerMs);
@@ -86,45 +66,28 @@ void SettingsWithDataReceiver::stopTimer()
     dataReceiver.stopTimer();
 }
 
-void SettingsWithDataReceiver::okButtonPressed()
+juce::Component* SettingsWithDataReceiver::getParent()
 {
-    try
-    {
-        calculateCompressorParameters();
-    }
-    catch (const std::exception& e)
-    {
-        ExceptionHelper::catchException(e, this);
-    }
-
-    initProperties.copyPropertiesFrom(editedProperties, nullptr);
-    parent->setVisible(false);
+    return parent;
 }
 
-void SettingsWithDataReceiver::calculateCompressorParameters()
+DataReceiver& SettingsWithDataReceiver::getDataReceiver()
 {
-    // choosing an algorithm
-    float attackMs = editedProperties.getProperty(setAttackId);
-    float releaseMs = editedProperties.getProperty(setReleaseId);
-    int channelAggregationTypeInt = editedProperties.getProperty(setChannelAggregationTypeId);
-    int gainRegionsNumber = editedProperties.getProperty(setGainRegionsNumberId);
+    return dataReceiver;
+}
 
-    std::vector<std::vector<float>> refSamples, destSamples;
-    double refSampleRate, destSampleRate;
-    dataReceiver.getReceivedData(refSamples, refSampleRate, destSamples, destSampleRate);
+bool SettingsWithDataReceiver::getMustBeInFront() const
+{
+    return mustBeInFront;
+}
 
-    std::unique_ptr<CompParamsCalculator> calculator;
-    if (attackMs == 0 && releaseMs == 0 &&
-        (destSamples.size() == 1 || channelAggregationTypeInt == 1))
-        calculator.reset(new CompParamsCalculatorNoEnv());
-    else if (destSamples[0].size() * destSamples.size() < gainRegionsNumber)
-        calculator.reset(new CompParamsCalculatorEnv1D());
-    else
-        calculator.reset(new CompParamsCalculatorEnv2D());
-    
-    compParams = calculator->calculateCompressorParameters(
-        refSamples, refSampleRate,
-        destSamples, destSampleRate,
-        editedProperties);
+void SettingsWithDataReceiver::setMustBeInFront(bool mustBeInFront)
+{
+    this->mustBeInFront = mustBeInFront;
+}
+
+void SettingsWithDataReceiver::catchException(const std::exception& e, juce::Component* parent)
+{
+    ExceptionHelper::catchException(e, parent);
 }
 

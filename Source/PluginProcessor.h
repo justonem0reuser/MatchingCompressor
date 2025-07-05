@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include "DSP/DynamicShaper.h"
 #include "DSP/DataCollector.h"
+#include "Data/MatchingData.h"
 
 //==============================================================================
 using Chain = juce::dsp::ProcessorChain<
@@ -26,9 +27,10 @@ class MatchCompressorAudioProcessor  : public juce::AudioProcessor
 public:
     juce::AudioProcessorValueTreeState apvts{ *this, nullptr, "Parameters", createParameterLayout() };
 
-    std::function<void()> onPrepareToPlay;
-    std::function<void()> onPlayHeadStartPlaying;
-    std::function<void()> onPlayHeadStopPlaying;
+    std::function<void()> PrepareToPlay;
+    std::function<void()> PlayHeadStartPlaying;
+    std::function<void()> PlayHeadStopPlaying;
+    std::function<void()> DataCollectorMemoryFull;
 
     MatchCompressorAudioProcessor();
 
@@ -69,7 +71,6 @@ public:
     bool isInputBusConnected(int i);
     bool isPlayHeadPlaying() const;
     void setDataCollectionBuses(bool mainBus, bool sidechain);
-    void setMemoryFullFunc(std::function<void()> func);
     void getCollectedData(
         std::vector<std::vector<float>>& mainBusData,
         double& mainBusRate,
@@ -86,6 +87,8 @@ public:
         int kneesNumber);
     void updateCompressorParameters();
 
+    MatchingData& getMatchingData();
+
 private:
     Chain chain;
     
@@ -100,6 +103,8 @@ private:
     KneesArray thresholdDbs, ratios, widthDbs;
     float gainDb;
     int kneesNumber;
+
+    MatchingData matchingData;
     
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     

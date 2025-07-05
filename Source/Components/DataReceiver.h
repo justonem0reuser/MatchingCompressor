@@ -1,30 +1,31 @@
 #pragma once
 #include <JuceHeader.h>
+#include "BaseDataReceiver.h"
+#include "../Data/MatchingData.h"
 
-class DataReceiver : public juce::Component, public juce::Timer
+class DataReceiver : 
+	public juce::Component, 
+	public BaseDataReceiver,
+	public juce::Timer
 {
 public:
-	std::function<void()> onStateChanged;
-	std::function<void()> onTimer;
-	
+	std::function<void()> TimerTicked;
+
 	DataReceiver(
 		bool isMainBusConnected,
-		bool isSidechainConnected,
-		std::function<void(bool, bool)> toggleFunc);
+		bool isSidechainConnected);
+
+	void setRefDataState(SetDataState state) override;
+	void setDestDataState(SetDataState state) override;
+	bool isReadRefFromStreamEnabled() override;
+	bool isReadDestFromStreamEnabled() override;
+	void setNeedChangeRefLabelText() override;
+	void setNeedChangeDestLabelText() override;
+	void setBusesConnected(bool mainBus, bool sidechain) override;
+
 	bool isAllDataSet() const;
-	void getReceivedData(
-		std::vector<std::vector<float>>& refSamples,
-		double& refSampleRate,
-		std::vector<std::vector<float>>& destSamples,
-		double& destSampleRate) const;
-	void setBusesConnected(bool mainBus, bool sidechain);
 	void setToggleButtonsDisabled();
 	void setToggleButtonsUnchecked();
-	void setFromDataCollector(
-		std::vector<std::vector<float>>& refSamples,
-		double refSampleRate,
-		std::vector<std::vector<float>>& destSamples,
-		double destSampleRate);
 	void timerCallback() override;
 	void resized() override;
 
@@ -41,15 +42,8 @@ private:
 	juce::Label refIsSetLabel, destIsSetLabel;
 
 	std::unique_ptr<juce::FileChooser> chooser;
-	juce::AudioFormatManager formatManager;
 	std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
 
-	std::vector<std::vector<float>> refSamples, destSamples;
-	std::vector<std::vector<float>> newRefSamples, newDestSamples;
-	double refSampleRate = 0, destSampleRate = 0;
-	double newRefSampleRate = 0, newDestSampleRate = 0;
-
-	std::function<void(bool, bool)> mToggleFuncBool;
 	bool refEnabled, destEnabled;
 	bool refChecked = false, destChecked = false;
 	bool needChangeToggleButtonsState = true,
@@ -59,14 +53,4 @@ private:
 	juce::String refToggleButtonText, destToggleButtonText;
 
 	void openFile(bool isRef);
-	void readFromFile(
-		juce::File file,
-		bool excludeZeroSamples,
-		std::vector<std::vector<float>>& res,
-		double& sampleRate);
-	static void checkSourceDestFileData(
-		std::vector<std::vector<float>> samples,
-		double sampleRate,
-		bool isFile,
-		bool isRef);
 };

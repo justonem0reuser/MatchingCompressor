@@ -2,7 +2,8 @@
 #include <JuceHeader.h>
 #include "PlotWithCoordinateSystemComponent.h"
 
-class CurvePlotComponent : public PlotWithCoordinateSystemComponent
+class CurvePlotComponent : 
+    public PlotWithCoordinateSystemComponent
 {
 public:
     constexpr static float margin = 5.f;

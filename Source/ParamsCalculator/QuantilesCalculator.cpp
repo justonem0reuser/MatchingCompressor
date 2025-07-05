@@ -1,6 +1,6 @@
 #include "QuantilesCalculator.h"
 #include <JuceHeader.h>
-#include "../Messages.h"
+#include "../Data/Messages.h"
 
 std::vector<float> QuantilesCalculator::calculateQuantiles(
     std::vector<std::vector<float>>& input,

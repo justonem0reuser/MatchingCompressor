@@ -1,8 +1,8 @@
 #pragma once
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
-#include "Messages.h"
-#include "Ranges.h"
+#include "Data/Messages.h"
+#include "Data/Ranges.h"
 
 using ChannelAggregationType = DynamicShaper<float>::ChannelAggregationType;
 
@@ -21,6 +21,10 @@ MatchCompressorAudioProcessor::MatchCompressorAudioProcessor()
     chain.setBypassed<ChainPositions::MainBusCollector>(true);
     chain.setBypassed<ChainPositions::SidechainCollector>(true);
     chain.setBypassed<ChainPositions::CompressorExpander>(false);
+    chain.get<ChainPositions::MainBusCollector>().onMemoryFull = [this] 
+        { juce::NullCheckedInvocation::invoke(DataCollectorMemoryFull); };
+    chain.get<ChainPositions::SidechainCollector>().onMemoryFull = [this] 
+        { juce::NullCheckedInvocation::invoke(DataCollectorMemoryFull); };
 }
 
 //==============================================================================
@@ -41,7 +45,7 @@ void MatchCompressorAudioProcessor::prepareToPlay(double sampleRate, int samples
     sidechainCollector.prepare(spec);
     sidechainCollector.setStartChannelNumber(mainBusNumChannels);
 
-    juce::NullCheckedInvocation::invoke(onPrepareToPlay);
+    juce::NullCheckedInvocation::invoke(PrepareToPlay);
 
     updateCompressorParameters();
 }
@@ -93,7 +97,7 @@ void MatchCompressorAudioProcessor::processBlock(
                 chain.get<ChainPositions::SidechainCollector>().reset();
             chain.setBypassed<ChainPositions::MainBusCollector>(!collectMainBusData);
             chain.setBypassed<ChainPositions::SidechainCollector>(!collectSidechainData);
-            juce::NullCheckedInvocation::invoke(onPlayHeadStartPlaying);
+            juce::NullCheckedInvocation::invoke(PlayHeadStartPlaying);
         }
         juce::dsp::AudioBlock<float> block(buffer);
         juce::dsp::ProcessContextReplacing<float> context(block);
@@ -104,7 +108,7 @@ void MatchCompressorAudioProcessor::processBlock(
         chain.setBypassed<ChainPositions::MainBusCollector>(true);
         chain.setBypassed<ChainPositions::SidechainCollector>(true);
         chain.get<ChainPositions::CompressorExpander>().reset();
-        juce::NullCheckedInvocation::invoke(onPlayHeadStopPlaying);
+        juce::NullCheckedInvocation::invoke(PlayHeadStopPlaying);
     }
     prevIsPlayHeadPlaying = currentIsPlayHeadPlaying;
 }
@@ -223,12 +227,6 @@ void MatchCompressorAudioProcessor::setDataCollectionBuses(bool mainBus, bool si
     collectSidechainData = sidechain;
 }
 
-void MatchCompressorAudioProcessor::setMemoryFullFunc(std::function<void()> func)
-{
-    chain.get<ChainPositions::MainBusCollector>().onMemoryFull = func;
-    chain.get<ChainPositions::SidechainCollector>().onMemoryFull = func;
-}
-
 void MatchCompressorAudioProcessor::getCollectedData(
     std::vector<std::vector<float>>& mainBusData, 
     double& mainBusRate,
@@ -344,17 +342,22 @@ void MatchCompressorAudioProcessor::updateCompressorParameters()
     needUpdate = false;
 }
 
+MatchingData& MatchCompressorAudioProcessor::getMatchingData()
+{
+    return matchingData;
+}
+
 //==============================================================================
 
 juce::AudioProcessorValueTreeState::ParameterLayout MatchCompressorAudioProcessor::createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
     layout.add(std::make_unique<juce::AudioParameterInt>(
-        kneesNumberId, "Knees number", 1, DynamicShaper<float>::maxKneesNumber, 1));
+        kneesNumberId, "Knees number", (int)kneesNumberRange.start, (int)kneesNumberRange.end, 1));
     layout.add(std::make_unique<juce::AudioParameterInt>(
-        balFilterTypeId, "Envelope type", 1, 2, 1));
+        balFilterTypeId, "Envelope type", (int)envelopeTypeRange.start, (int)envelopeTypeRange.end, 1));
     layout.add(std::make_unique<juce::AudioParameterInt>(
-        channelAggrerationTypeId, "Stereo processing", 1, 3, 1));
+        channelAggrerationTypeId, "Stereo processing", (int)channelAggregationTypeRange.start, (int)channelAggregationTypeRange.end, 1));
     layout.add(std::make_unique<juce::AudioParameterFloat>(
         attackId, "Attack", attackRange, 0.1f, "ms"));
     layout.add(std::make_unique<juce::AudioParameterFloat>(

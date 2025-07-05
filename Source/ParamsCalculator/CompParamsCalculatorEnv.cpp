@@ -1,7 +1,7 @@
 #include "CompParamsCalculatorEnv.h"
 #include "QuantilesCalculator.h"
-#include "../Messages.h"
-#include "../Ranges.h"
+#include "../Data/Messages.h"
+#include "../Data/Ranges.h"
 #include "FuncAndGrad.h"
 #include "interpolation.h"
 

@@ -3,30 +3,29 @@
 #include <JuceHeader.h>
 #include "SettingsComponent.h"
 #include "DataReceiver.h"
+#include "BaseMatchView.h"
 
-class SettingsWithDataReceiver  : public SettingsComponent
+class SettingsWithDataReceiver  : public SettingsComponent, public BaseMatchView
 { 
 public:
 	SettingsWithDataReceiver(
 		Component* parent,
-		juce::ValueTree& initProperties,
+		juce::ValueTree& properties,
 		std::vector<ParameterInfo>& parameterInfos,
 		bool isMainBusConnected, 
-		bool isSidechainConnected,
-		std::function<void(bool, bool)> toggleFunc);
-	std::vector<float>& getResult();
-	void setBusesConnected(bool mainBus, bool sidechain);
-	void setToggleButtonsDisabled();
-	void setToggleButtonsUnchecked();
-	void setFromDataCollector(
-		std::vector<std::vector<float>>& refSamples,
-		double refSampleRate,
-		std::vector<std::vector<float>>& destSamples,
-		double destSampleRate);
-	void setOnTimer(std::function<void()> func);
-	void startTimer();
-	void timerCallback();
-	void stopTimer();
+		bool isSidechainConnected);
+	void setBusesConnected(bool mainBus, bool sidechain) override;
+	void setToggleButtonsDisabled() override;
+	void setToggleButtonsUnchecked() override;
+	void startTimer() override;
+	void timerCallback() override;
+	void stopTimer() override;
+	juce::Component* getParent() override;
+	DataReceiver& getDataReceiver();
+	bool getMustBeInFront() const override;
+	void setMustBeInFront(bool mustBeInFront) override;
+	void catchException(const std::exception& e, juce::Component* parent) override;
+
 
 private:
 	const int timerMs = 50;
@@ -34,10 +33,7 @@ private:
 
 	DataReceiver dataReceiver;
 
-	std::vector<float> refStat, destStat, compParams;
-
-	void okButtonPressed() override;
-	void calculateCompressorParameters();
+	bool mustBeInFront;
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SettingsWithDataReceiver)
 };

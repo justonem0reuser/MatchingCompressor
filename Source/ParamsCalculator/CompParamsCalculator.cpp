@@ -1,5 +1,5 @@
 #include "CompParamsCalculator.h"
-#include "../Ranges.h"
+#include "../Data/Ranges.h"
 
 void CompParamsCalculator::setInitGuessAndBounds(
     int kneesNumber,

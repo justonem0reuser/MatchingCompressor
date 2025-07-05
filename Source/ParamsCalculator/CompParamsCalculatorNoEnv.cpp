@@ -1,6 +1,6 @@
 #include "CompParamsCalculatorNoEnv.h"
 #include "QuantilesCalculator.h"
-#include "../Messages.h"
+#include "../Data/Messages.h"
 #include "FuncAndGrad.h"
 #include "interpolation.h"
 

@@ -1,29 +1,27 @@
 #include "DataReceiver.h"
-#include "../Messages.h"
-#include "../ExceptionHelper.h"
-#include "../ComponentInitializerHelper.h"
+#include "../Data/Messages.h"
+#include "../Utilities/ExceptionHelper.h"
+#include "ComponentInitializerHelper.h"
 
 DataReceiver::DataReceiver(
     bool isMainBusConnected, bool 
-    isSidechainConnected, 
-    std::function<void(bool, bool)> toggleFunc):
+    isSidechainConnected):
     refEnabled(isSidechainConnected),
     destEnabled(isMainBusConnected),
     refToggleButtonText(isSidechainConnected ? readFromSidechainBusStr : sidechainBusIsDisconnectedStr),
-    destToggleButtonText(isMainBusConnected ? readFromMainBusStr : mainBusIsDisconnectedStr),
-    mToggleFuncBool(toggleFunc)
-
+    destToggleButtonText(isMainBusConnected ? readFromMainBusStr : mainBusIsDisconnectedStr)
 {
-    formatManager.registerBasicFormats();
-    auto refToggleFunc = [&] {
+    auto refToggleFunc = [this] {
         refChecked = readRefFromStreamButton.getToggleState();
-        mToggleFuncBool(
+        juce::NullCheckedInvocation::invoke(
+            onCollectFromBusStateChanged,
             readDestFromStreamButton.getToggleState(),
             readRefFromStreamButton.getToggleState());
         };
-    auto destToggleFunc = [&] {
+    auto destToggleFunc = [this] {
         destChecked = readDestFromStreamButton.getToggleState();
-        mToggleFuncBool(
+        juce::NullCheckedInvocation::invoke(
+            onCollectFromBusStateChanged,
             readDestFromStreamButton.getToggleState(),
             readRefFromStreamButton.getToggleState());
         };
@@ -52,21 +50,51 @@ DataReceiver::DataReceiver(
     destLabel.setText(destAudioStr, juce::NotificationType::dontSendNotification);
 }
 
+void DataReceiver::setRefDataState(SetDataState state)
+{
+    isRefDataSet = state != SetDataState::NotSet;
+    refIsSetLabel.setText(
+        state == SetDataState::SetFromBus ? refSetFromBusStr :
+        state == SetDataState::SetFromFile ? refSetFromFileStr :
+        "",
+        juce::NotificationType::dontSendNotification);
+    refIsSetLabel.repaint();
+}
+
+void DataReceiver::setDestDataState(SetDataState state)
+{
+    isDestDataSet = state != SetDataState::NotSet;
+    destIsSetLabel.setText(
+        state == SetDataState::SetFromBus ? destSetFromBusStr :
+        state == SetDataState::SetFromFile ? destSetFromFileStr :
+        "",
+        juce::NotificationType::dontSendNotification);
+    destIsSetLabel.repaint();
+}
+
+bool DataReceiver::isReadRefFromStreamEnabled()
+{
+    return readRefFromStreamButton.getToggleState();
+}
+
+bool DataReceiver::isReadDestFromStreamEnabled()
+{
+    return readDestFromStreamButton.getToggleState();
+}
+
+void DataReceiver::setNeedChangeRefLabelText()
+{
+    needChangeRefLabelText = true;
+}
+
+void DataReceiver::setNeedChangeDestLabelText()
+{
+    needChangeDestLabelText = true;
+}
+
 bool DataReceiver::isAllDataSet() const
 {
     return isRefDataSet && isDestDataSet;
-}
-
-void DataReceiver::getReceivedData(
-    std::vector<std::vector<float>>& refSamples,
-    double& refSampleRate,
-    std::vector<std::vector<float>>& destSamples,
-    double& destSampleRate) const
-{
-    refSamples = this->refSamples;
-    refSampleRate = this->refSampleRate;
-    destSamples = this->destSamples;
-    destSampleRate = this->destSampleRate;
 }
 
 void DataReceiver::setBusesConnected(bool mainBus, bool sidechain)
@@ -102,26 +130,6 @@ void DataReceiver::setToggleButtonsUnchecked()
     }
 }
 
-void DataReceiver::setFromDataCollector(
-    std::vector<std::vector<float>>& refSamples,
-    double refSampleRate,
-    std::vector<std::vector<float>>& destSamples,
-    double destSampleRate)
-{
-    if (readRefFromStreamButton.getToggleState())
-    {
-        newRefSamples = refSamples;
-        newRefSampleRate = refSampleRate;
-        needChangeRefLabelText = true;
-    }
-    if (readDestFromStreamButton.getToggleState())
-    {
-        newDestSamples = destSamples;
-        newDestSampleRate = destSampleRate;
-        needChangeDestLabelText = true;
-    }
-}
-
 void DataReceiver::timerCallback()
 {
     if (needChangeToggleButtonsState)
@@ -140,23 +148,15 @@ void DataReceiver::timerCallback()
     {
         if (needChangeRefLabelText)
         {
-            checkSourceDestFileData(newRefSamples, newRefSampleRate, false, true);
-            refSamples = newRefSamples;
-            refSampleRate = newRefSampleRate;
-            isRefDataSet = true;
-            refIsSetLabel.setText(refSetFromBusStr, juce::NotificationType::dontSendNotification);
-            refIsSetLabel.repaint();
+            juce::NullCheckedInvocation::invoke(onRefReceivedFromBus);
+            setRefDataState(SetDataState::SetFromBus);
             juce::NullCheckedInvocation::invoke(onStateChanged);
 
         }
         if (needChangeDestLabelText)
         {
-            checkSourceDestFileData(newDestSamples, newDestSampleRate, false, false);
-            destSamples = newDestSamples;
-            destSampleRate = newDestSampleRate;
-            isDestDataSet = true;
-            destIsSetLabel.setText(destSetFromBusStr, juce::NotificationType::dontSendNotification);
-            destIsSetLabel.repaint();
+            juce::NullCheckedInvocation::invoke(onDestReceivedFromBus);
+            setDestDataState(SetDataState::SetFromBus);
             juce::NullCheckedInvocation::invoke(onStateChanged);
         }
     }
@@ -167,8 +167,7 @@ void DataReceiver::timerCallback()
     needChangeRefLabelText = false;
     needChangeDestLabelText = false;
 
-    juce::NullCheckedInvocation::invoke(onTimer);
-
+    juce::NullCheckedInvocation::invoke(TimerTicked);
 }
 
 void DataReceiver::resized()
@@ -206,28 +205,7 @@ void DataReceiver::openFile(bool isRef)
             {
                 auto file = fc.getResult();
                 if (file != juce::File{})
-                {
-                    std::vector<std::vector<float>> newSamples;
-                    double newSampleRate;
-                    readFromFile(file, true, newSamples, newSampleRate);
-                    checkSourceDestFileData(newSamples, newSampleRate, true, isRef);
-                    if (isRef)
-                    {
-                        refSamples = newSamples;
-                        refSampleRate = newSampleRate;
-                        isRefDataSet = true;
-                        refIsSetLabel.setText(refSetFromFileStr, juce::NotificationType::dontSendNotification);
-                        refIsSetLabel.repaint();
-                    }
-                    else
-                    {
-                        destSamples = newSamples;
-                        destSampleRate = newSampleRate;
-                        isDestDataSet = true;
-                        destIsSetLabel.setText(destSetFromFileStr, juce::NotificationType::dontSendNotification);
-                        destIsSetLabel.repaint();
-                    }
-                }
+                    juce::NullCheckedInvocation::invoke(onFileChosen, file, isRef);
             }
             catch (const std::exception& e)
             {
@@ -236,86 +214,4 @@ void DataReceiver::openFile(bool isRef)
             juce::NullCheckedInvocation::invoke(onStateChanged);
         };
     chooser->launchAsync(chooserFlags, function);
-}
-
-void DataReceiver::readFromFile(
-    juce::File file,
-    bool excludeZeroSamples,
-    std::vector<std::vector<float>>& res,
-    double& sampleRate)
-{
-    sampleRate = 0.0;
-
-    if (file != juce::File{})
-    {
-        std::unique_ptr<juce::AudioFormatReader> reader(
-            formatManager.createReaderFor(file));
-        if (reader != nullptr)
-        {
-            auto length = reader->lengthInSamples;
-            auto numChannels = reader->numChannels;
-            sampleRate = reader->sampleRate;
-            if (length > 0 && numChannels > 0 && sampleRate > 0)
-            {
-                juce::AudioBuffer<float> buffer(numChannels, length);
-                buffer.clear();
-                if (reader->read(buffer.getArrayOfWritePointers(), numChannels, 0, length))
-                {
-                    res.clear();
-                    for (int i = 0; i < numChannels; i++)
-                    {
-                        res.push_back(std::vector<float>{});
-                        res[i].reserve(length);
-                    }
-                    if (excludeZeroSamples)
-                        for (int i = 0; i < length; i++)
-                        { 
-                            bool isZero = true;
-                            for (int j = 0; j < numChannels; j++)
-                                isZero &= buffer.getSample(j, i) == 0;
-                            if (!isZero)
-                                for (int j = 0; j < numChannels; j++)
-                                    res[j].push_back(buffer.getSample(j, i));
-                        }
-                    else
-                        for (int j = 0; j < numChannels; j++)
-                        {
-                            auto* readPointer = buffer.getReadPointer(j);
-                            res[j].insert(res[j].begin(), readPointer, readPointer + length);
-                        }
-
-                }
-            }
-        }
-    }
-}
-
-void DataReceiver::checkSourceDestFileData(
-    std::vector<std::vector<float>> samples,
-    double sampleRate,
-    bool isFile,
-    bool isRef)
-{
-    try
-    {
-        if (sampleRate <= 0)
-            throw std::exception(sampleRateIsNullExStr.getCharPointer());
-        if (samples.size() <= 0 || samples.size() > 2)
-            throw std::exception(numChannelsIsNullExStr.getCharPointer());
-        if (samples[0].size() <= 0)
-            throw std::exception(lengthIsNullExStr.getCharPointer());
-        if (samples.size() > 1)
-            for (int i = 1; i < samples.size(); i++)
-                if (samples[i].size() != samples[0].size())
-                    throw std::exception(corruptedChannelExStr.getCharPointer());
-    }
-    catch (const std::exception& e)
-    {
-        auto res(
-            isFile ? (isRef ? refFileExStr : destFileExStr) :
-            (isRef ? refStreamExStr : destStreamExStr));
-        int i = res.length();
-        res.append(e.what(), 500);
-        throw std::exception(res.getCharPointer());
-    }
 }

@@ -1,5 +1,5 @@
 #include "SliderWithAttachment.h"
-#include "../Messages.h"
+#include "../Data/Messages.h"
 
 SliderWithAttachment::SliderWithAttachment(
     juce::AudioProcessorValueTreeState& apvts, 

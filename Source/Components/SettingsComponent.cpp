@@ -2,15 +2,12 @@
 
 SettingsComponent::SettingsComponent(
     Component* parent,
-    juce::ValueTree& initProperties,
+    juce::ValueTree& properties,
     std::vector<ParameterInfo>& parameterInfos) :
     parent(parent),
-    initProperties(initProperties),
-    editedProperties("editedProperties")
+    properties(properties)
 {
-    editedProperties.copyPropertiesFrom(initProperties, nullptr);
-
-    propComps = createPropertyComponents(initProperties, parameterInfos);
+    propComps = createPropertyComponents(parameterInfos);
     panel.addProperties(propComps, margin);
 
     int currentY = margin;
@@ -21,12 +18,10 @@ SettingsComponent::SettingsComponent(
     addAndMakeVisible(&okButton);
     okButton.setButtonText("OK");
     okButton.setBounds(margin, currentY, buttonWidth, componentHeight);
-    okButton.onClick = [this] { okButtonPressed(); };
 
     addAndMakeVisible(&cancelButton);
     cancelButton.setButtonText("Cancel");
     cancelButton.setBounds(width - margin - buttonWidth, currentY, buttonWidth, componentHeight);
-    cancelButton.onClick = [this] { cancelButtonPressed(); };
     currentY += componentHeight + margin;
 
     setSize(width, currentY);
@@ -44,27 +39,14 @@ void SettingsComponent::resetLookAndFeel()
             comp->getChildComponent(j)->setLookAndFeel(nullptr);
 }
 
-void SettingsComponent::cancelButtonPressed()
-{
-    editedProperties.copyPropertiesFrom(initProperties, nullptr);
-    parent->setVisible(false);
-}
-
-void SettingsComponent::okButtonPressed()
-{
-    initProperties.copyPropertiesFrom(editedProperties, nullptr);
-    parent->setVisible(false);
-}
-
 juce::Array<juce::PropertyComponent*> SettingsComponent::createPropertyComponents(
-    juce::ValueTree& initProperties, 
     std::vector<ParameterInfo>& parameterInfos)
 {
     juce::Array<juce::PropertyComponent*> components;
     for (int i = 0; i < parameterInfos.size(); i++)
     {
         auto& info = parameterInfos[i];
-        auto prop = editedProperties.getPropertyAsValue(info.name, nullptr);
+        auto prop = properties.getPropertyAsValue(info.name, nullptr);
         if (info.isBoolean)
             components.add(new juce::BooleanPropertyComponent(
                 prop, info.text, ""));
