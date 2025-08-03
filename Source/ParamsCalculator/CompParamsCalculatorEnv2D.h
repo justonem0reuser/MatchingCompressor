@@ -1,6 +1,11 @@
 #pragma once
 #include "CompParamsCalculatorEnv.h"
 
+/// <summary>
+/// Matching compressor parameters calculation realization
+/// optimized for the case when overall sample count is much greater 
+/// than the gain bean number.
+/// </summary>
 class CompParamsCalculatorEnv2D : public CompParamsCalculatorEnv
 {
 private:

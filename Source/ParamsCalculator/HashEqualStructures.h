@@ -1,5 +1,8 @@
 #pragma once
 
+/// <summary>
+/// Structure for calculating the inner std::unordered_map key from alglib array
+/// </summary>
 struct Real1DArrayHash {
     size_t operator()(const alglib::real_1d_array& v) const
     {
@@ -12,6 +15,9 @@ struct Real1DArrayHash {
     }
 };
 
+/// <summary>
+/// Structure for comparing std::unordered_map keys that are alglib arrays
+/// </summary>
 struct Real1DArrayEqual {
     bool operator()(const alglib::real_1d_array& lhs, const alglib::real_1d_array& rhs) const
     {

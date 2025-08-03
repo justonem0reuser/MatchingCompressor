@@ -3,6 +3,9 @@
 #include "../Data/MatchingData.h"
 #include "DataReceiverController.h"
 
+/// <summary>
+/// Match window component controller
+/// </summary>
 class MatchController
 {
 public:

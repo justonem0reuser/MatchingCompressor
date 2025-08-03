@@ -3,8 +3,10 @@
 #include "../Components/BaseMainView.h"
 #include "../PluginProcessor.h"
 
-class MainController:
-	public juce::ComponentListener
+/// <summary>
+/// Main window controller
+/// </summary>
+class MainController
 {
 public:
 	MainController(

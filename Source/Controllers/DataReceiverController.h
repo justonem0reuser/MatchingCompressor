@@ -5,6 +5,10 @@
 #include "../Data/MatchingData.h"
 #include "../Utilities/AudioFileReader.h"
 
+/// <summary>
+/// Controller for audio data receiving component
+/// that is a part of matching window component
+/// </summary>
 class DataReceiverController
 {
 public:
@@ -29,10 +33,10 @@ private:
 	MatchCompressorAudioProcessor& processor;
 	AudioFileReader audioFileReader;
 
-	void getFromFile(juce::File& file, bool isRef);
 	void checkAndSaveData(
 		std::vector<std::vector<float>> samples,
 		double sampleRate,
 		bool isFile,
 		bool isRef);
+	void setFromFile(juce::File& file, bool isRef);
 };

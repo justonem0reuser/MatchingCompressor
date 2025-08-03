@@ -1,10 +1,16 @@
 #pragma once
 #include <JuceHeader.h>
-#include "../Utilities/SetDataState.h"
 
 class BaseDataReceiver
 {
 public:
+	enum SetDataState
+	{
+		NotSet,
+		SetFromFile,
+		SetFromBus
+	};
+
 	std::function<void(juce::File& file, bool isRef)> onFileChosen;
 	std::function<void()> onRefReceivedFromBus;
 	std::function<void()> onDestReceivedFromBus;

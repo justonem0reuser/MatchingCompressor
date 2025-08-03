@@ -2,12 +2,20 @@
 
 #include <JuceHeader.h>
 
+/// <summary>
+/// Collects input data from bus in real-time
+/// for saving it in memory
+/// </summary>
 template <typename SampleType>
 class DataCollector
 {
 public:
 	std::function<void()> onMemoryFull;
 
+	/// <summary>
+	/// Audio block processing
+	/// (called from AudioProcessor processBlock method).
+	/// </summary>
 	template <typename ProcessContext>
 	void process(const ProcessContext& context) noexcept
 	{
@@ -68,10 +76,32 @@ public:
 		}
 	}
 	
+	/// <summary>
+	/// Audio block processing preparation
+	/// (called from AudioProcessor prepareToPlay method).
+	/// </summary>
 	void prepare(const juce::dsp::ProcessSpec& spec);
+	
 	void reset() noexcept;
 
+	/// <summary>
+	/// Saves the collected data to the parameters
+	/// </summary>
+	/// <param name="data">audio data</param>
+	/// <param name="rate">sample rate</param>
+	/// <remarks>
+	/// For optimizing purposes, data is checking before saving:
+	/// if both channels are equal or one channel contains only silence
+	/// then audio is considered as mono and only one channel is kept.
+	/// </remarks>
 	void getData(std::vector<std::vector<SampleType>>& data, double& rate);
+	
+	/// <summary>
+	/// Sets start input channel
+	/// </summary>
+	/// <param name="startChannelNumber">
+	/// 0 for main bus; > 0 for sidechain
+	/// </param>
 	void setStartChannelNumber(int startChannelNumber);
 
 private:

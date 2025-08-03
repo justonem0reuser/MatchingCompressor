@@ -11,7 +11,7 @@ DataReceiverController::DataReceiverController(
 {
     this->dataReceiver->onFileChosen = [this](juce::File& file, bool isRef) 
         { 
-            getFromFile(file, isRef); 
+            setFromFile(file, isRef); 
         };
     this->dataReceiver->onRefReceivedFromBus = [this] 
         { 
@@ -59,18 +59,6 @@ void DataReceiverController::getReceivedData(
     destSampleRate = matchingData.destSampleRate;
 }
 
-void DataReceiverController::getFromFile(juce::File& file, bool isRef)
-{
-	std::vector<std::vector<float>> newSamples;
-	double newSampleRate;
-	audioFileReader.readFromFile(file, true, newSamples, newSampleRate);
-    checkAndSaveData(newSamples, newSampleRate, true, isRef);
-    if (isRef)
-        dataReceiver->setRefDataState(SetDataState::SetFromFile);
-    else
-        dataReceiver->setDestDataState(SetDataState::SetFromFile);
-}
-
 void DataReceiverController::checkAndSaveData(
 	std::vector<std::vector<float>> samples, 
 	double sampleRate, 
@@ -110,4 +98,16 @@ void DataReceiverController::checkAndSaveData(
         res.append(e.what(), 500);
         throw std::exception(res.getCharPointer());
     }
+}
+
+void DataReceiverController::setFromFile(juce::File& file, bool isRef)
+{
+    std::vector<std::vector<float>> newSamples;
+    double newSampleRate;
+    audioFileReader.readFromFile(file, true, newSamples, newSampleRate);
+    checkAndSaveData(newSamples, newSampleRate, true, isRef);
+    if (isRef)
+        dataReceiver->setRefDataState(BaseDataReceiver::SetDataState::SetFromFile);
+    else
+        dataReceiver->setDestDataState(BaseDataReceiver::SetDataState::SetFromFile);
 }

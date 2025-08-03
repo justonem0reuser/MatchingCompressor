@@ -4,6 +4,11 @@
 
 using EnvCalculationType = juce::dsp::BallisticsFilterLevelCalculationType;
 
+/// <summary>
+/// The core audio processing class - 
+/// up-to-three knees compressor/expander
+/// </summary>
+/// <typeparam name="SampleType"></typeparam>
 template <typename SampleType>
 class DynamicShaper
 {
@@ -23,9 +28,18 @@ public:
 
     DynamicShaper();
 
+    /// <summary>
+    /// Audio block processing preparation
+    /// (called from AudioProcessor prepareToPlay method).
+    /// </summary>
     virtual void prepare(const juce::dsp::ProcessSpec& spec);
+    
     void reset();
 
+    /// <summary>
+    /// Audio block processing
+    /// (called from AudioProcessor processBlock method).
+    /// </summary>
     template <typename ProcessContext>
     void process(const ProcessContext& context) noexcept
     {

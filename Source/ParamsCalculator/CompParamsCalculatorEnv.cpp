@@ -2,7 +2,6 @@
 #include "QuantilesCalculator.h"
 #include "../Data/Messages.h"
 #include "../Data/Ranges.h"
-#include "FuncAndGrad.h"
 #include "interpolation.h"
 
 std::vector<float>& CompParamsCalculatorEnv::getY(const alglib::real_1d_array& c)
@@ -17,7 +16,7 @@ std::vector<float>& CompParamsCalculatorEnv::getY(const alglib::real_1d_array& c
             calculateFunction(destSamples, c) :
             calculateNoEnvelopeFunction(destSamples, c);
 
-        double fine = FuncAndGrad::calculateFine(c);
+        double fine = calculateFine(c);
         if (fine > 0.)
             for (auto i = 0; i < calculatedFunctions[c].size(); i++)
                 calculatedFunctions[c][i] += fine;
@@ -114,7 +113,7 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
     lsfitsetcond(state, epsx, maxits);
     lsfitsetbc(state, bndl, bndu);
     lsfitsetscale(state, s);
-    lsfitfit(state, FuncAndGrad::comp_func, nullptr, this);
+    lsfitfit(state, calculateFunctional, nullptr, this);
     lsfitresults(state, c, rep);
 
     if (rep.terminationtype < 0)
@@ -129,7 +128,7 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
             c[3 + 3 * i] = 0.5f * (kneeWidthRange.start + kneeWidthRange.end);
         }
         lsfitsetbc(state, bndl, bndu);
-        lsfitfit(state, FuncAndGrad::comp_func, nullptr, this);
+        lsfitfit(state, calculateFunctional, nullptr, this);
         lsfitresults(state, c, rep);
 
         if (rep.terminationtype < 0)
@@ -137,6 +136,19 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
     }
     
     return resArrayToVector(c);
+}
+
+void CompParamsCalculatorEnv::calculateFunctional(
+    const alglib::real_1d_array& c, 
+    const alglib::real_1d_array& x, 
+    double& func, 
+    void* ptr)
+{
+    int index = (int)x[0];
+    auto* calculator = (CompParamsCalculatorEnv*)ptr;
+    auto& yVector = calculator->getY(c);
+    auto coeff = juce::Decibels::decibelsToGain(c[0]);
+    func = yVector[index] * coeff;
 }
 
 std::vector<float> CompParamsCalculatorEnv::calculateNoEnvelopeFunction(

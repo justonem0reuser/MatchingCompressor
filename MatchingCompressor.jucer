@@ -78,7 +78,6 @@
               file="Source/Utilities/CurveCalculator.h"/>
         <FILE id="nQzZU8" name="ExceptionHelper.h" compile="0" resource="0"
               file="Source/Utilities/ExceptionHelper.h"/>
-        <FILE id="PciGI1" name="SetDataState.h" compile="0" resource="0" file="Source/Utilities/SetDataState.h"/>
       </GROUP>
       <GROUP id="{77886A67-4BA8-2A17-32C1-F382537DAC87}" name="Controllers">
         <FILE id="cfxNsI" name="DataReceiverController.cpp" compile="1" resource="0"
@@ -134,7 +133,6 @@
               resource="0" file="Source/ParamsCalculator/CompParamsCalculatorNoEnv.cpp"/>
         <FILE id="UW2qpK" name="CompParamsCalculatorNoEnv.h" compile="0" resource="0"
               file="Source/ParamsCalculator/CompParamsCalculatorNoEnv.h"/>
-        <FILE id="HqnWuJ" name="FuncAndGrad.h" compile="0" resource="0" file="Source/ParamsCalculator/FuncAndGrad.h"/>
         <FILE id="cANUfu" name="HashEqualStructures.h" compile="0" resource="0"
               file="Source/ParamsCalculator/HashEqualStructures.h"/>
         <FILE id="KfHC38" name="QuantilesCalculator.cpp" compile="1" resource="0"

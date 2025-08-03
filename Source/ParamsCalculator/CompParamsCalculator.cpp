@@ -1,6 +1,49 @@
 #include "CompParamsCalculator.h"
 #include "../Data/Ranges.h"
 
+double CompParamsCalculator::calculateFine(
+    const alglib::real_1d_array& c, 
+    alglib::real_1d_array* gradPtr)
+{
+    int size = (c.length() - 1) / 3;
+    if (size <= 1)
+        return 0;
+    double fine = 0;
+    for (int i = 1; i < size; i++)
+    {
+        int prevKneeInd = 3 * i;
+        int curKneeInd = prevKneeInd + 3;
+        int prevTInd = prevKneeInd - 2;
+        int curTInd = prevKneeInd + 1;
+
+        auto curKnee =
+            c[curKneeInd] >= DynamicShaper<float>::minKneeWidth ?
+            c[curKneeInd] : 0.0;
+        auto prevKnee =
+            c[prevKneeInd] >= DynamicShaper<float>::minKneeWidth ?
+            c[prevKneeInd] : 0.0;
+
+        auto curLeftBound = c[curTInd] - 0.5 * curKnee;
+        auto prevRightBound = c[prevTInd] + 0.5 * prevKnee;
+
+        auto fineDelta = curLeftBound - prevRightBound - fineThreshold;
+        if (fineDelta < 0.0)
+        {
+            fine += fineCoeff * fineDelta * fineDelta;
+            if (gradPtr != nullptr)
+            {
+                auto grad = *gradPtr;
+                double valueToAdd = 2.0 * fineCoeff * fineDelta;
+                grad[prevTInd] += valueToAdd;
+                grad[prevKneeInd] += valueToAdd;
+                grad[curTInd] -= valueToAdd; // -
+                grad[curKneeInd] += valueToAdd;
+            }
+        }
+    }
+    return fine;
+}
+
 void CompParamsCalculator::setInitGuessAndBounds(
     int kneesNumber,
     KneeType kneeType,
