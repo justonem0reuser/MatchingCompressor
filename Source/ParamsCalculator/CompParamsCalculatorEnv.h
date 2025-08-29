@@ -27,7 +27,6 @@ protected:
     std::vector<std::vector<float>> destSamples;
     int gainRegionsNumber;
     int quantileRegionsNumber;
-    bool isEnvelopeNeeded;
     EnvCalculationType balFilterType;
     ChannelAggregationType channelAggregationType;
 
@@ -53,11 +52,6 @@ protected:
     virtual std::vector<float> calculateFunction(
         std::vector<std::vector<float>>& samples,
         const alglib::real_1d_array& parameters) = 0;
-
-    // for compressing if attack == release == 0
-    std::vector<float> calculateNoEnvelopeFunction(
-        std::vector<std::vector<float>>& input,
-        const alglib::real_1d_array& params);
 
     void setCompParameters(const alglib::real_1d_array& params);
 

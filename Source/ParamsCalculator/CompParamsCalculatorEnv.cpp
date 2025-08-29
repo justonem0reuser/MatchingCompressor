@@ -11,10 +11,7 @@ std::vector<float>& CompParamsCalculatorEnv::getY(const alglib::real_1d_array& c
     {
         auto yChannelsNum = destSamples.size();
         auto ySamplesNum = destSamples[0].size();
-        calculatedFunctions[c] =
-            isEnvelopeNeeded ?
-            calculateFunction(destSamples, c) :
-            calculateNoEnvelopeFunction(destSamples, c);
+        calculatedFunctions[c] = calculateFunction(destSamples, c);
 
         double fine = calculateFine(c);
         if (fine > 0.)
@@ -65,19 +62,14 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
     auto yNumChannels = destSamples.size();
     auto yLength = destSamples[0].size();
 
-    isEnvelopeNeeded =
-        attackMs != 0. || releaseMs != 0. ||
-        (yNumChannels > 1 && channelAggregationType != ChannelAggregationType::separate);
-
     spec.maximumBlockSize = 1000; // will not be used
 
     calculatedFunctions.clear();
-    if (isEnvelopeNeeded)
-        calculateEnvelopeStatistics(
-            this->destSamples, 
-            refSampleRate, 
-            attackMs, 
-            releaseMs);
+    calculateEnvelopeStatistics(
+        this->destSamples, 
+        refSampleRate, 
+        attackMs, 
+        releaseMs);
 
     auto referenceDensityFunction = 
         QuantilesCalculator::calculateQuantiles(
@@ -149,31 +141,6 @@ void CompParamsCalculatorEnv::calculateFunctional(
     auto& yVector = calculator->getY(c);
     auto coeff = juce::Decibels::decibelsToGain(c[0]);
     func = yVector[index] * coeff;
-}
-
-std::vector<float> CompParamsCalculatorEnv::calculateNoEnvelopeFunction(
-    std::vector<std::vector<float>>& input,
-    const alglib::real_1d_array& params)
-{
-    auto numChannels = input.size();
-    auto numSamples = input[0].size();
-    auto size = numChannels * numSamples;
-    if (size <= quantileRegionsNumber)
-        throw std::exception(numRegionsTooBigExStr.getCharPointer());
-
-    std::vector<std::vector<float>> y;
-    y.push_back(std::vector<float>{});
-    y[0].resize(size);
-    setCompParameters(params);
-
-    auto index = 0;
-    for (auto i = 0; i < numChannels; i++)
-        for (auto j = 0; j < numSamples; j++)
-        {
-            auto sample = input[i][j];
-            y[0][index++] = dynamicProcessor.calculateGain(sample, std::fabsf(sample));
-        }
-    return QuantilesCalculator::calculateQuantiles(y, gainRegionsNumber, quantileRegionsNumber);
 }
 
 void CompParamsCalculatorEnv::setCompParameters(const alglib::real_1d_array& params)
