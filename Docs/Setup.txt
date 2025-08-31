@@ -1,19 +1,14 @@
 This project uses JUCE framework (www.juce.com) and Alglib library (www.alglib.net).
 To build this project, you should have JUCE and Alglib for C++ installed.
 
-Building the application:
+Building the plugin:
 1. Open the MatchingCompressor.jucer file using the Projucer (the IDE tool for creating and managing JUCE projects).
 2. In "File -> Global paths" window choose your OS and correct "Path to JUCE" and "JUCE modules" according to your JUCE directories.
 3. In "Settings -> Header Search Path" enter the path name for your Alglib files.
 4. Select the exporter that your need, press "Save and open in IDE" button.
 5. Build the solution.
 
+-----
 The project is still under development.
 Comments, bug reports, questions are appreciated.
-
-----------
-GUI images are taken from the following sources:
-www.texturelabs.org
-www.freepik.com
-www.hiclipart.com
 

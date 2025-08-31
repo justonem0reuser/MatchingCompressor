@@ -1,0 +1,9 @@
+This project uses:
+JUCE framework (https://juce.com);
+Alglib library (https://alglib.net).
+
+GUI images are taken from the following sources:
+https://texturelabs.org
+https://freepik.com
+https://hiclipart.com
+
