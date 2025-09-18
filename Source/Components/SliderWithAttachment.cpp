@@ -11,7 +11,7 @@ SliderWithAttachment::SliderWithAttachment(
     setSliderStyle(juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag);
     setTextBoxStyle(Slider::TextEntryBoxPosition::TextBoxBelow, false, 60, 15);
     setEnabled(true);
-    setName(apvts.getParameter(id)->getName(1000));
+    setNameFromParameter(apvts.getParameter(id));
 }
 
 void SliderWithAttachment::changeParameter(const juce::String& newId)
@@ -19,11 +19,20 @@ void SliderWithAttachment::changeParameter(const juce::String& newId)
     isParameterChanging = true;
     attachment.reset();
     attachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, newId, *this);
-    setName(apvts.getParameter(newId)->getName(1000));
+    setNameFromParameter(apvts.getParameter(newId));
     isParameterChanging = false;
 }
 
 bool SliderWithAttachment::getIsParameterChanging()
 {
     return isParameterChanging;
+}
+
+void SliderWithAttachment::setNameFromParameter(juce::RangedAudioParameter* parameter)
+{
+    auto name = parameter->getName(1000);
+    auto label = parameter->getLabel();
+    if (label.isNotEmpty())
+        name += " (" + label + ")";
+    setName(name);
 }

@@ -47,15 +47,15 @@ void MCLookAndFeel::drawRotarySlider(
     int diameter, rx, ry;
     if (width > height)
     {
-        diameter = height;
+        diameter = height - sliderReducing;
         rx = x + (width - height) / 2;
-        ry = y + 10;
+        ry = y + sliderTopMargin;
     }
     else
     {
-        diameter = width;
+        diameter = width - sliderReducing;
         rx = x;
-        ry = y + 10 + (height - width) / 2;
+        ry = y + sliderTopMargin + (height - width) / 2;
     }
 
     // another color is set for linear sliders

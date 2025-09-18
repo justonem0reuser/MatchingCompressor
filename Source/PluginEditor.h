@@ -29,10 +29,11 @@ public:
 
 private:
     const int margin = 10;
-    const int leftPanelWidth = 430;
+    const int leftPanelWidth = 446;
     const int rightPanelWidth = 300;
-    const int sliderWidth = 128;
-    const int sliderHeight = sliderWidth + 30;
+    const int sliderImageWidth = 128;
+    const int sliderWidth = 140;
+    const int sliderHeight = sliderImageWidth + 30;
     const int matchButtonSize = 60;
     const int kneeIndexButtonSize = 46;
     const int comboBoxHeight = 25;

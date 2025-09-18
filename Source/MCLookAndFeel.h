@@ -33,6 +33,8 @@ public:
 
 private:
 	const int defaultPropertyComponentLabelWidth = 250;
+	const int sliderReducing = 12;
+	const int sliderTopMargin = 15;
 
 	juce::Image sliderImage, toggleOffImage, toggleOnImage, resizableWindowBackground;
 };

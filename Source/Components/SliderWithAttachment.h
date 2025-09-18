@@ -12,6 +12,8 @@ private:
 	std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
 	juce::AudioProcessorValueTreeState& apvts;
 	bool isParameterChanging;
+
+	void setNameFromParameter(juce::RangedAudioParameter* parameter);
 	
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SliderWithAttachment)
 };

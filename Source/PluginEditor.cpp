@@ -249,8 +249,8 @@ void MatchCompressorAudioProcessorEditor::resized()
 
     toolButton.setBounds(bounds.getRight() - matchButtonSize, bounds.getY(), matchButtonSize, matchButtonSize);
     bounds.removeFromTop(matchButtonSize + 2 * margin);
-    groupRect.setX(bounds.getX() - margin);
-    groupRect.setY(bounds.getY() - margin);
+    groupRect.setX(bounds.getX() - margin + 1);
+    groupRect.setY(bounds.getY() - margin + 1);
 
     auto buttonsNumber = kneeIndexButtons.size();
     auto buttonAndLabelWidth = (bounds.getWidth()) / buttonsNumber - margin;
@@ -269,9 +269,9 @@ void MatchCompressorAudioProcessorEditor::resized()
     x = bounds.getX();
     y = bounds.getY();
     thresholdSlider.setBounds(x, y, sliderWidth, sliderHeight);
-    x += sliderWidth + margin;
+    x += sliderWidth;
     ratioSlider.setBounds(x, y, sliderWidth, sliderHeight);
-    x += sliderWidth + margin;
+    x += sliderWidth;
     kneeWidthSlider.setBounds(x, y, sliderWidth, sliderHeight);
 
     groupRect.setRight(bounds.getRight() + margin - 1);
