@@ -9,10 +9,7 @@ std::vector<float>& CompParamsCalculatorEnv::getY(const alglib::real_1d_array& c
     //c : Gain, Threshold, 1/Ratio, Knee weight, attack, release
     if (calculatedFunctions.count(c) == 0)
     {
-        auto yChannelsNum = destSamples.size();
-        auto ySamplesNum = destSamples[0].size();
         calculatedFunctions[c] = calculateFunction(destSamples, c);
-
         double fine = calculateFine(c);
         if (fine > 0.)
             for (auto i = 0; i < calculatedFunctions[c].size(); i++)
@@ -59,8 +56,6 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
     float releaseMs = properties.getProperty(setReleaseId);
 
     this->destSamples = destSamples;
-    auto yNumChannels = destSamples.size();
-    auto yLength = destSamples[0].size();
 
     spec.maximumBlockSize = 1000; // will not be used
 
@@ -83,7 +78,6 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
     alglib::lsfitreport rep;
 
     setInitGuessAndBounds(kneesNumber, kneeType, c, bndl, bndu);
-    int cLength = 3 * kneesNumber + 1;
     x.setlength(quantileRegionsNumber, 1);
     y.setlength(quantileRegionsNumber);
     s.setlength(3 * kneesNumber + 1);

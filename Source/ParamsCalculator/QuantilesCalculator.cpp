@@ -41,8 +41,8 @@ std::vector<float> QuantilesCalculator::calculateQuantilesPrecise(
     res.resize(quantilesNumber);
     for (int i = 0; i < quantilesNumber; i++)
     {
-        int index = static_cast<int>(size * (i + 0.5) / quantilesNumber);
-        res[i] = gainStat[index];
+        int gainStatIndex = static_cast<int>(size * (i + 0.5) / quantilesNumber);
+        res[i] = gainStat[gainStatIndex];
     }
     return res;
 }
@@ -89,7 +89,6 @@ std::vector<int> QuantilesCalculator::calculateDensityFunc(
     int beanCount)
 {
     std::vector<int> densFunc;
-    float densFuncBeanWidth = 1.f / beanCount;
     densFunc.resize(beanCount);
     auto numChannels = samples.size();
     auto numSamples = samples[0].size();

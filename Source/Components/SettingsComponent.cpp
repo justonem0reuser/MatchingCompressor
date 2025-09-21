@@ -53,8 +53,8 @@ juce::Array<juce::PropertyComponent*> SettingsComponent::createPropertyComponent
         else if (info.isTextChoice)
         {
             juce::Array<juce::var> values;
-            for (int i = 1; i <= info.choices.size(); i++)
-                values.add(i);
+            for (int j = 1; j <= info.choices.size(); j++)
+                values.add(j);
             auto* comp = new juce::ChoicePropertyComponent(
                 prop, info.text, info.choices, values);
             for (int j = 0; j < comp->getNumChildComponents(); j++)

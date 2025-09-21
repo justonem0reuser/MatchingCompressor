@@ -110,8 +110,9 @@ private:
 	std::vector<std::vector<SampleType>> data;
 	double sampleRate;
 	int channelNumber;
-	bool isLeftZero, isRightZero;
-	bool areChannelsEqual;
+	bool isLeftZero = true;
+	bool isRightZero = true;
+	bool areChannelsEqual = true;
 	int dataMaxSize;
 	int startChannelNumber = 0;
 };

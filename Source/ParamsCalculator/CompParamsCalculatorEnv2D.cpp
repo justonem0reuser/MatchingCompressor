@@ -32,8 +32,6 @@ void CompParamsCalculatorEnv2D::calculateEnvelopeStatistics(
         channelAggregationType);
     dynamicProcessor.prepare(spec);
 
-    auto size = numChannels * numSamples;
-
     if (numChannels == 1)
     {
         for (size_t i = 0; i < numSamples; i++)

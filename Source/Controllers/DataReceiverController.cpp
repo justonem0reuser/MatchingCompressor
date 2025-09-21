@@ -94,7 +94,6 @@ void DataReceiverController::checkAndSaveData(
         auto res(
             isFile ? (isRef ? refFileExStr : destFileExStr) :
             (isRef ? refStreamExStr : destStreamExStr));
-        int i = res.length();
         res.append(e.what(), 500);
         throw std::exception(res.getCharPointer());
     }
