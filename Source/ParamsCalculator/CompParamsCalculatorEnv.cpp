@@ -103,7 +103,7 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
     lsfitresults(state, c, rep);
 
     if (rep.terminationtype < 0)
-        throw std::exception(cannotCalculateErrStr.getCharPointer());
+        throw std::runtime_error(cannotCalculateErrStr.toStdString());
 
     if (kneeType == KneeType::soft)
     {
@@ -118,7 +118,7 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
         lsfitresults(state, c, rep);
 
         if (rep.terminationtype < 0)
-            throw std::exception(cannotCalculateErrStr.getCharPointer());
+            throw std::runtime_error(cannotCalculateErrStr.toStdString());
     }
     
     return resArrayToVector(c);

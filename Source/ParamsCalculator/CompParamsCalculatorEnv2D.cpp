@@ -37,7 +37,7 @@ void CompParamsCalculatorEnv2D::calculateEnvelopeStatistics(
         for (size_t i = 0; i < numSamples; i++)
         {
             float sample = samples[0][i];
-            float sAbs = std::fabsf(sample);
+            float sAbs = std::fabs(sample);
             float env = dynamicProcessor.calculateEnv(0, sample);
             int i1 = std::min((int)(sAbs * gainRegionsNumber), gainRegionsNumber - 1);
             int i2 = std::min((int)(env * gainRegionsNumber), gainRegionsNumber - 1);
@@ -50,8 +50,8 @@ void CompParamsCalculatorEnv2D::calculateEnvelopeStatistics(
         {
             float sample0 = samples[0][i];
             float sample1 = samples[1][i];
-            float sAbs0 = std::fabsf(sample0);
-            float sAbs1 = std::fabsf(sample1);
+            float sAbs0 = std::fabs(sample0);
+            float sAbs1 = std::fabs(sample1);
             auto env = dynamicProcessor.calculateStereoEnv(sample0, sample1);
             int i1 = std::min((int)(sAbs0 * gainRegionsNumber), gainRegionsNumber - 1);
             int i2 = std::min((int)(env.first * gainRegionsNumber), gainRegionsNumber - 1);
@@ -84,11 +84,11 @@ std::vector<int> CompParamsCalculatorEnv2D::calculateYDensity(
             {
                 float env = (j + 0.5f) * delta;
                 float y = dynamicProcessor.calculateGain(x, env);
-                auto index = (int)(std::fabsf(y) * size);
+                auto index = (int)(std::fabs(y) * size);
                 if (index < 0) // for overflow
                     index = size - 1;
                 else
-                    index = std::min((int)(std::fabsf(y) * size), size - 1);
+                    index = std::min((int)(std::fabs(y) * size), size - 1);
                 res[index] += xEnvTable[i][j];
             }
         }

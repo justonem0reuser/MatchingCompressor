@@ -362,7 +362,8 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-*.iss
+post_build_plugin.cmake
 Output/
 Builds/
+CmakeBuild/
 JuceLibraryCode/

@@ -1,0 +1,171 @@
+cmake_minimum_required(VERSION 3.22)
+project("MatchingCompressor")
+
+#Change this if your AlgLib path is different 
+set(ALGLIB "${CMAKE_SOURCE_DIR}/../AlgLib/alglib-cpp/src")
+
+#Change this if your JUCE path is different
+set(JUCE_PATH "${CMAKE_SOURCE_DIR}/../JUCE")
+set(JUCE_INCLUDE_DIR "${JUCE_PATH}/modules")
+
+set(BUILD_STANDALONE_DEFAULT ON)
+if(DEFINED ENV{CI})
+    set(BUILD_STANDALONE_DEFAULT OFF)
+endif()
+option(BUILD_STANDALONE "Build Standalone" ${BUILD_STANDALONE_DEFAULT})
+
+include_directories(${ALGLIB})
+include_directories(${JUCE_INCLUDE_DIR})
+
+add_subdirectory(${JUCE_PATH} JUCE_build)
+
+#find_package(JUCE CONFIG REQUIRED)
+#add_subdirectory(juce)
+
+set(JUCE_PLUGIN_FORMATS VST3 AU AUv3 AAX)
+if(BUILD_STANDALONE)
+    list(APPEND JUCE_PLUGIN_FORMATS Standalone)
+endif()
+
+set(PLUGIN_VERSION_DEFAULT "0.1.0")
+if(NOT DEFINED VERSION)
+    set(VERSION ${PLUGIN_VERSION_DEFAULT})
+endif()
+
+juce_add_plugin(MatchingCompressor
+  VERSION ${VERSION}
+  PRODUCT_NAME "MatchingCompressor"
+  COMPANY_NAME "Just1m0reApp"
+  COMPANY_WEBSITE "https://github.com/justonem0reuser"
+
+  FORMATS ${JUCE_PLUGIN_FORMATS}
+
+  VST3_CATEGORIES
+    "Analyzer"
+    "Dynamics"
+    "Fx"
+    "Mastering"
+  VST2_CATEGORY "kPlugCategEffect"
+)
+
+juce_generate_juce_header(MatchingCompressor)
+
+target_compile_definitions(MatchingCompressor
+  PUBLIC
+    JUCE_STRICT_REFCOUNTEDPOINTER=1
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0
+    JUCE_WEB_BROWSER=0
+)
+
+if (MSVC)
+    target_compile_options(MatchingCompressor PRIVATE
+        $<$<CONFIG:Release>:/O2 /DNDEBUG /GL>
+    )
+
+    target_link_options(MatchingCompressor PRIVATE
+        $<$<CONFIG:Release>:/OPT:REF /OPT:ICF /INCREMENTAL:NO /LTCG>
+    )
+endif()
+
+if(UNIX AND NOT APPLE)
+    target_link_options(MatchingCompressor PRIVATE
+        -static-libstdc++
+        -static-libgcc
+)
+endif()
+
+target_sources(MatchingCompressor
+  PRIVATE
+    "${ALGLIB}/alglibinternal.cpp"
+    "${ALGLIB}/alglibmisc.cpp"
+    "${ALGLIB}/ap.cpp"
+    "${ALGLIB}/dataanalysis.cpp"
+    "${ALGLIB}/diffequations.cpp"
+    "${ALGLIB}/fasttransforms.cpp"
+    "${ALGLIB}/integration.cpp"
+    "${ALGLIB}/interpolation.cpp"
+    "${ALGLIB}/kernels_avx2.cpp"
+    "${ALGLIB}/kernels_fma.cpp"
+    "${ALGLIB}/kernels_sse2.cpp"
+    "${ALGLIB}/linalg.cpp"
+    "${ALGLIB}/optimization.cpp"
+    "${ALGLIB}/solvers.cpp"
+    "${ALGLIB}/specialfunctions.cpp"
+    "${ALGLIB}/statistics.cpp"
+    "Source/Components/ComboBoxWithAttachment.cpp"
+    "Source/Components/ComponentInitializerHelper.cpp"
+    "Source/Components/CurvePlotComponent.cpp"
+    "Source/Components/DataReceiver.cpp"
+    "Source/Components/PlotWithCoordinateSystemComponent.cpp"
+    "Source/Components/SettingsComponent.cpp"
+    "Source/Components/SettingsWithDataReceiver.cpp"
+    "Source/Components/SliderWithAttachment.cpp"
+    "Source/Components/ToggleButtonWithAttachment.cpp"
+    "Source/Controllers/DataReceiverController.cpp"
+    "Source/Controllers/MainController.cpp"
+    "Source/Controllers/MatchController.cpp"
+    "Source/DSP/DataCollector.cpp"
+    "Source/DSP/DynamicShaper.cpp"
+    "Source/Data/MatchingData.cpp"
+    "Source/MatchWindow.cpp"
+    "Source/ParamsCalculator/CompParamsCalculator.cpp"
+    "Source/ParamsCalculator/CompParamsCalculatorEnv.cpp"
+    "Source/ParamsCalculator/CompParamsCalculatorEnv1D.cpp"
+    "Source/ParamsCalculator/CompParamsCalculatorEnv2D.cpp"
+    "Source/ParamsCalculator/CompParamsCalculatorNoEnv.cpp"
+    "Source/ParamsCalculator/QuantilesCalculator.cpp"
+    "Source/PluginEditor.cpp"
+    "Source/PluginProcessor.cpp"
+    "Source/MCLookAndFeel.cpp"
+    "Source/Utilities/AudioFileReader.cpp"
+    "Source/Utilities/CurveCalculator.cpp"
+)
+
+juce_add_binary_data(MatchingCompressor_BinaryData
+  SOURCES
+    "Assets/background.jpg"
+    "Assets/plotBackground.jpg"
+    "Assets/slider.png"
+    "Assets/toggle-off.png"
+    "Assets/toggle-on.png"
+    "Assets/tool-hover.png"
+    "Assets/tool.png"
+)
+
+target_link_libraries(MatchingCompressor
+  PRIVATE
+    MatchingCompressor_BinaryData
+    juce::juce_audio_basics
+    juce::juce_audio_devices
+    juce::juce_audio_formats
+    juce::juce_audio_plugin_client
+    juce::juce_audio_processors
+    juce::juce_audio_utils
+    juce::juce_core
+    juce::juce_data_structures
+    juce::juce_dsp
+    juce::juce_events
+    juce::juce_graphics
+    juce::juce_gui_basics
+    juce::juce_gui_extra
+  PUBLIC
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_lto_flags
+    juce::juce_recommended_warning_flags
+)
+
+# This allows to add additional steps after building:
+# for example, to copy the plugin to the common VST3 directory
+# and run a DAW app.
+
+set(POST_BUILD_SCRIPT "${CMAKE_CURRENT_LIST_DIR}/post_build_plugin.cmake")
+
+if(EXISTS "${POST_BUILD_SCRIPT}")
+    add_custom_command(TARGET MatchingCompressor_VST3 POST_BUILD
+        COMMAND ${CMAKE_COMMAND} 
+            -DPLUGIN_PATH="$<TARGET_FILE:MatchingCompressor_VST3>"
+            -DPOST_BUILD_SCRIPT="${POST_BUILD_SCRIPT}"
+            -P "${POST_BUILD_SCRIPT}"
+    )
+endif()

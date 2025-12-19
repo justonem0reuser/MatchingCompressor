@@ -152,23 +152,23 @@ std::pair<SampleType, SampleType> DynamicShaper<SampleType>::calculateStereoEnv(
     {
     case ChannelAggregationType::separate:
     {
-        auto env0 = envelopeFilter.processSample(0, inputValue0);
-        auto env1 = envelopeFilter.processSample(1, inputValue1);
+        SampleType env0 = envelopeFilter.processSample(0, inputValue0);
+        SampleType env1 = envelopeFilter.processSample(1, inputValue1);
         return std::pair<SampleType, SampleType> {env0, env1};
     }
     case ChannelAggregationType::max:
     {
-        auto maxValue = std::fmax(std::fabsf(inputValue0), std::fabs(inputValue1));
-        auto env = envelopeFilter.processSample(0, maxValue);
+        SampleType maxValue = std::fmax(std::fabs(inputValue0), std::fabs(inputValue1));
+        SampleType env = envelopeFilter.processSample(0, maxValue);
         return std::pair<SampleType, SampleType> {env, env};
     }
     case ChannelAggregationType::mean:
     {
-        auto meanValue =
+        SampleType meanValue =
             balFilterType == EnvCalculationType::peak ?
             0.5f * (std::fabs(inputValue0) + std::fabs(inputValue1)) :
             std::sqrt(0.5f * (inputValue0 * inputValue0 + inputValue1 * inputValue1));
-        auto env = envelopeFilter.processSample(0, meanValue);
+        SampleType env = envelopeFilter.processSample(0, meanValue);
         return std::pair<SampleType, SampleType> {env, env};
     }
     default:

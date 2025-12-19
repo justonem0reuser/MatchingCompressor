@@ -1,0 +1,315 @@
+name: Auto release
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+env:
+  JUCE_VERSION: 8.0.1
+  ALGLIB_VERSION: 4.00.0
+
+jobs:
+  set-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set_version.outputs.VERSION }}
+    steps:
+      - id: set_version
+        run: |
+          MAJOR=$(date +%y%m)
+          MINOR=$(date +%d%H)
+          PATCH=$(date +%M%S)
+          BUILD=0
+          VERSION_NUM="${MAJOR}.${MINOR}.${PATCH}.${BUILD}"
+          echo "VERSION=$VERSION_NUM" >> $GITHUB_OUTPUT 
+
+  setup-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore JUCE Cache
+        uses: actions/cache@v4
+        with:
+          path: JUCE
+          key: juce-linux-${{ env.JUCE_VERSION }}
+
+      - name: Clone JUCE
+        run: |
+          if [ ! -d "JUCE" ]; then
+            echo "JUCE not found in cache, cloning version $JUCE_VERSION..."
+            git clone --branch $JUCE_VERSION --depth 1 https://github.com/juce-framework/JUCE.git JUCE
+          else
+            echo "JUCE found in cache"
+          fi
+
+      - name: Restore AlgLib Cache
+        uses: actions/cache@v4
+        with:
+          path: AlgLib
+          key: alglib-linux-${{ env.ALGLIB_VERSION }}
+
+      - name: Download AlgLib
+        run: |
+          if [ ! -d "AlgLib" ]; then
+            echo "AlgLib not found in cache, downloading..."
+            mkdir -p third_party
+            curl -L https://www.alglib.net/translator/re/alglib-${ALGLIB_VERSION}.cpp.gpl.zip -o alglib.zip
+            unzip alglib.zip -d AlgLib
+            rm alglib.zip
+          else
+            echo "AlgLib found in cache"
+          fi
+
+  setup-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Restore JUCE Cache
+        uses: actions/cache@v4
+        with:
+          path: JUCE
+          key: juce-windows-${{ env.JUCE_VERSION }}
+
+      - name: Setup and Build JUCE
+        run: |
+          if (-not (Test-Path JUCE)) {
+            Write-Host "JUCE not found in cache, cloning version $env:JUCE_VERSION..."
+            git clone --branch $env:JUCE_VERSION --depth 1 https://github.com/juce-framework/JUCE.git JUCE
+          } else {
+            Write-Host "JUCE found in cache"
+          }
+
+      - name: Restore AlgLib Cache
+        uses: actions/cache@v4
+        with:
+          path: AlgLib
+          key: alglib-windows-${{ env.ALGLIB_VERSION }}
+
+      - name: Setup AlgLib
+        run: |
+          if (-not (Test-Path AlgLib)) {
+            Write-Host "AlgLib not found in cache, downloading..."
+            New-Item -ItemType Directory -Force -Path third_party
+            Invoke-WebRequest -Uri https://www.alglib.net/translator/re/alglib-$env:ALGLIB_VERSION.cpp.gpl.zip -OutFile alglib.zip
+            Expand-Archive alglib.zip -DestinationPath AlgLib
+            Remove-Item alglib.zip
+          } else {
+            Write-Host "AlgLib found in cache"
+          }
+
+      - name: Restore Inno Setup Cache
+        uses: actions/cache@v4
+        with:
+          path: inno-setup
+          key: inno-setup-6
+
+      - name: Download Inno Setup (if not cached)
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "inno-setup/ISCC.exe")) {
+          New-Item -ItemType Directory -Force -Path inno-setup
+          Invoke-WebRequest "https://jrsoftware.org/download.php/is.exe" -OutFile "inno-setup/is.exe"
+          Start-Process "inno-setup/is.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /DIR=$PWD/inno-setup" -Wait
+          }
+
+  build-linux:
+    runs-on: ubuntu-22.04
+    # container: ubuntu:20.04
+    needs:
+      - set-version    
+      - setup-linux
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+            path: TheProject
+
+      - name: Install dependencies
+        env: # is not necessary unless this works inside a container
+          DEBIAN_FRONTEND: noninteractive
+          TZ: Etc/UTC
+
+        # "apt-get" without "sudo" for working inside a container 
+        # "apt-get install -y build-essential cmake" for working inside a container
+        run: | 
+            sudo apt-get update 
+            sudo apt-get install -y libasound2-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libfreetype6-dev libfontconfig1-dev
+            pkg-config --cflags freetype2
+
+      - uses: actions/cache@v4
+        with:
+          path: JUCE
+          key: juce-linux-${{ env.JUCE_VERSION }}
+
+      - uses: actions/cache@v4
+        with:
+          path: AlgLib
+          key: alglib-linux-${{ env.ALGLIB_VERSION }}
+
+      - name: Configure CMake
+        run: |
+          export CFLAGS="-I/usr/include/freetype2"
+          export CXXFLAGS="-I/usr/include/freetype2"
+          mkdir -p build
+          cd build
+          cmake ../TheProject -DCMAKE_BUILD_TYPE=Release -DVERSION=${{ needs.set-version.outputs.version }}
+
+      - name: Build Project
+        run: |
+          cd build
+          cmake --build . --config Release -- -j$(nproc)
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-vst3-linux
+          path: ./build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3
+
+  build-windows:
+    runs-on: windows-latest
+    needs:
+      - set-version    
+      - setup-windows
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+            path: TheProject
+
+      - uses: actions/cache@v4
+        with:
+          path: JUCE
+          key: juce-windows-${{ env.JUCE_VERSION }}
+
+      - uses: actions/cache@v4
+        with:
+          path: AlgLib
+          key: alglib-windows-${{ env.ALGLIB_VERSION }}
+
+      - uses: actions/cache@v4
+        with:
+          path: inno-setup
+          key: inno-setup-6
+
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path TheProject/build
+          cd TheProject/build
+          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DVERSION=${{ needs.set-version.outputs.version }}
+
+      - name: Build Project
+        run: |
+          cd TheProject/build
+          cmake --build . --config Release
+
+      - name: Upload build VST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-vst3-windows
+          path: ./TheProject/build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3
+
+      - name: Set version in Inno Setup script
+        shell: pwsh
+        run: |
+          $version = "${{ needs.set-version.outputs.version }}"
+          $file = 'TheProject/setup.iss'
+          (Get-Content $file) -replace '#define MyAppVersion .*', "#define MyAppVersion `"$version`"" |
+            Set-Content $file -Encoding UTF8
+          
+          # In case of file format error use this version instead of the last command:
+          #$content = Get-Content $file -Raw
+          #$newContent = $content -replace '(?m)^#define MyAppVersion .*', "#define MyAppVersion `"$version`""
+          #[System.IO.File]::WriteAllText($file, $newContent, [System.Text.Encoding]::UTF8)  
+          
+      - name: Build Installer
+        shell: pwsh
+        run: |
+          $issPath = "$PWD/TheProject/setup.iss"
+          $outputDir = "$PWD/TheProject/build/inno"
+          New-Item -ItemType Directory -Force -Path $outputDir
+          
+          $isccPath = "$PWD/inno-setup/ISCC.exe"
+          & $isccPath /O"$outputDir" $issPath
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-ins-windows
+          path: ./TheProject/build/inno
+
+  release-linux:
+    needs:
+      - set-version
+      - build-linux
+
+    runs-on: ubuntu-latest  
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: output-vst3-linux
+          path: MatchingCompressor.vst3
+
+      - name: Archive VST3 plugin
+        run: |
+          tar -czf MatchingCompressor-vst3-linux-${{ needs.set-version.outputs.version }}-alpha.tar.gz MatchingCompressor.vst3
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: Linux-VST3-v${{ needs.set-version.outputs.version }}-alpha
+          name: Linux VST3 v${{ needs.set-version.outputs.version }}-alpha
+          prerelease: true
+          files: MatchingCompressor-vst3-linux-${{ needs.set-version.outputs.version }}-alpha.tar.gz
+
+  release-windows:
+    needs:
+      - set-version
+      - build-windows
+
+    runs-on: windows-latest  
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download VST3 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: output-vst3-windows
+          path: MatchingCompressor.vst3
+
+      - name: Archive VST3 plugin
+        shell: pwsh
+        run: |
+          $zipName = "MatchingCompressor-vst3-windows-${{ needs.set-version.outputs.version }}-alpha.zip"
+          Compress-Archive -Path "MatchingCompressor.vst3" -DestinationPath $zipName
+
+      - name: Create VST3 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: Win-VST3-no_ins-v${{ needs.set-version.outputs.version }}-alpha
+          name: Windows VST3 (no installer) v${{ needs.set-version.outputs.version }}-alpha
+          prerelease: true
+          files: MatchingCompressor-vst3-windows-${{ needs.set-version.outputs.version }}-alpha.zip
+
+      - name: Download installator artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: output-ins-windows
+          path: MatchingCompressor-installer
+
+      - name: Create installator GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: Win-VST3-install-v${{ needs.set-version.outputs.version }}-alpha
+          name: Windows VST3 (with installer) v${{ needs.set-version.outputs.version }}-alpha
+          prerelease: true
+          files: MatchingCompressor-installer/MatchingCompressor.exe

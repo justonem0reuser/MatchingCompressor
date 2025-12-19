@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 
-static class QuantilesCalculator
+class QuantilesCalculator
 {
 public:
     static std::vector<float> calculateQuantiles(

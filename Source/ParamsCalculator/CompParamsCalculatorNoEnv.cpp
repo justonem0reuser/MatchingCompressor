@@ -27,7 +27,7 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
     jassert(destSamples.size() == 1 || channelAggregationTypeInt == 1);
 
     if (quantRegNum < 2)
-        throw std::exception(regionsNumberTooSmall.getCharPointer());
+        throw std::runtime_error(regionsNumberTooSmall.toStdString());
     std::vector<float> localReferenceStat, localDestStat;
     localReferenceStat = QuantilesCalculator::calculateQuantiles(refSamples, gainRegNum, quantRegNum);
     localDestStat = QuantilesCalculator::calculateQuantiles(destSamples, gainRegNum, quantRegNum);
@@ -54,7 +54,7 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
     lsfitresults(state, c, rep);
 
     if (rep.terminationtype < 0)
-        throw std::exception(cannotCalculateErrStr.getCharPointer());
+        throw std::runtime_error(cannotCalculateErrStr.toStdString());
     return resArrayToVector(c);
 }
 

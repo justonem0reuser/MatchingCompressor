@@ -1,7 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
 
-static class ComponentInitializerHelper
+class ComponentInitializerHelper
 {
 public:
     static void initLabel(

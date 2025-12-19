@@ -1,7 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
 
-static class ExceptionHelper
+class ExceptionHelper
 {
 public:
 	static void catchException(const std::exception& e, juce::Component* parent)

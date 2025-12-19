@@ -11,7 +11,7 @@ std::vector<float> QuantilesCalculator::calculateQuantiles(
     auto numSamples = input[0].size();
     auto size = numChannels * numSamples;
     if (size <= quantilesNumber)
-        throw std::exception(numRegionsTooBigExStr.getCharPointer());
+        throw std::runtime_error(numRegionsTooBigExStr.toStdString());
 
     if (size <= gainRegionsNumber * 100)
         return calculateQuantilesPrecise(input, quantilesNumber);

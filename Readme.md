@@ -1,4 +1,4 @@
-# Matching compressor
+# Matching compressor 
 
 Matching Compressor is the up-to-three knees compressor/expander that provides the possibility to match dynamic characteristics of one audio to another. Namely, if you have a reference audio with your "ideal" dynamic parameters and an audio you want to sound similar then this plugin can analyze both of them and determine the compressor/expander parameters that will be the best match. 
 

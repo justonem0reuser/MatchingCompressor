@@ -68,15 +68,15 @@ void DataReceiverController::checkAndSaveData(
     try
     {
         if (sampleRate <= 0)
-            throw std::exception(sampleRateIsNullExStr.getCharPointer());
+            throw std::runtime_error(sampleRateIsNullExStr.toStdString());
         if (samples.size() <= 0 || samples.size() > 2)
-            throw std::exception(numChannelsIsNullExStr.getCharPointer());
+            throw std::runtime_error(numChannelsIsNullExStr.toStdString());
         if (samples[0].size() <= 0)
-            throw std::exception(lengthIsNullExStr.getCharPointer());
+            throw std::runtime_error(lengthIsNullExStr.toStdString());
         if (samples.size() > 1)
             for (int i = 1; i < samples.size(); i++)
                 if (samples[i].size() != samples[0].size())
-                    throw std::exception(corruptedChannelExStr.getCharPointer());
+                    throw std::runtime_error(corruptedChannelExStr.toStdString());
 
         if (isRef)
         {
@@ -95,7 +95,7 @@ void DataReceiverController::checkAndSaveData(
             isFile ? (isRef ? refFileExStr : destFileExStr) :
             (isRef ? refStreamExStr : destStreamExStr));
         res.append(e.what(), 500);
-        throw std::exception(res.getCharPointer());
+        throw std::runtime_error(res.toStdString());
     }
 }
 
