@@ -139,34 +139,43 @@ build/MatchingCompressor_artefacts/Release/
 
 ## Installation
 
-### macOS
+After building, install the plugins to standard system locations:
 
 ```bash
-# VST3
-cp -r build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3 ~/Library/Audio/Plug-Ins/VST3/
+# Modern CMake style
+cmake --install build
 
-# Audio Unit
-cp -r build/MatchingCompressor_artefacts/Release/AU/MatchingCompressor.component ~/Library/Audio/Plug-Ins/Components/
+# Or traditional Unix style (from build directory)
+cd build && make install
 ```
 
-### Linux
+This installs to the standard plugin directories:
 
+| Platform | Plugin | Location |
+|----------|--------|----------|
+| macOS | AU | `~/Library/Audio/Plug-Ins/Components/` |
+| macOS | VST3 | `~/Library/Audio/Plug-Ins/VST3/` |
+| Linux | VST3 | `~/.vst3/` |
+| Windows | VST3 | `C:\Program Files\Common Files\VST3\` |
+
+### Manual Installation
+
+Alternatively, copy the plugins manually:
+
+#### macOS
 ```bash
-# VST3 (user install)
+cp -r build/MatchingCompressor_artefacts/Release/AU/MatchingCompressor.component ~/Library/Audio/Plug-Ins/Components/
+cp -r build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3 ~/Library/Audio/Plug-Ins/VST3/
+```
+
+#### Linux
+```bash
 mkdir -p ~/.vst3
 cp -r build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3 ~/.vst3/
-
-# VST3 (system-wide)
-sudo cp -r build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3 /usr/lib/vst3/
 ```
 
-### Windows
-
-Copy `MatchingCompressor.vst3` to one of:
-- `C:\Program Files\Common Files\VST3\` (system-wide)
-- `%LOCALAPPDATA%\Programs\Common\VST3\` (user install)
-
-Or run the installer from the releases page.
+#### Windows
+Copy `build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3` to `C:\Program Files\Common Files\VST3\`
 
 ## Troubleshooting
 
