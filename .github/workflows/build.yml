@@ -27,42 +27,6 @@ jobs:
           VERSION_NUM="${MAJOR}.${MINOR}.${PATCH}.${BUILD}"
           echo "VERSION=$VERSION_NUM" >> $GITHUB_OUTPUT 
 
-  setup-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Restore JUCE Cache
-        uses: actions/cache@v4
-        with:
-          path: JUCE
-          key: juce-linux-${{ env.JUCE_VERSION }}
-
-      - name: Clone JUCE
-        run: |
-          if [ ! -d "JUCE" ]; then
-            echo "JUCE not found in cache, cloning version $JUCE_VERSION..."
-            git clone --branch $JUCE_VERSION --depth 1 https://github.com/juce-framework/JUCE.git JUCE
-          else
-            echo "JUCE found in cache"
-          fi
-
-      - name: Restore AlgLib Cache
-        uses: actions/cache@v4
-        with:
-          path: AlgLib
-          key: alglib-linux-${{ env.ALGLIB_VERSION }}
-
-      - name: Download AlgLib
-        run: |
-          if [ ! -d "AlgLib" ]; then
-            echo "AlgLib not found in cache, downloading..."
-            mkdir -p third_party
-            curl -L https://www.alglib.net/translator/re/alglib-${ALGLIB_VERSION}.cpp.gpl.zip -o alglib.zip
-            unzip alglib.zip -d AlgLib
-            rm alglib.zip
-          else
-            echo "AlgLib found in cache"
-          fi
-
   setup-windows:
     runs-on: windows-latest
     steps:
@@ -114,58 +78,42 @@ jobs:
           Start-Process "inno-setup/is.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /DIR=$PWD/inno-setup" -Wait
           }
 
-  build-linux:
-    runs-on: ubuntu-22.04
-    # container: ubuntu:20.04
-    needs:
-      - set-version    
-      - setup-linux
-
+  setup-linux:
+    runs-on: ubuntu-latest
+    needs: setup-windows # Two parallel requests to AlgLib site can cause a timeout error
     steps:
-      - uses: actions/checkout@v3
-        with:
-            path: TheProject
-
-      - name: Install dependencies
-        env: # is not necessary unless this works inside a container
-          DEBIAN_FRONTEND: noninteractive
-          TZ: Etc/UTC
-
-        # "apt-get" without "sudo" for working inside a container 
-        # "apt-get install -y build-essential cmake" for working inside a container
-        run: | 
-            sudo apt-get update 
-            sudo apt-get install -y libasound2-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libfreetype6-dev libfontconfig1-dev
-            pkg-config --cflags freetype2
-
-      - uses: actions/cache@v4
+      - name: Restore JUCE Cache
+        uses: actions/cache@v4
         with:
           path: JUCE
           key: juce-linux-${{ env.JUCE_VERSION }}
 
-      - uses: actions/cache@v4
+      - name: Clone JUCE
+        run: |
+          if [ ! -d "JUCE" ]; then
+            echo "JUCE not found in cache, cloning version $JUCE_VERSION..."
+            git clone --branch $JUCE_VERSION --depth 1 https://github.com/juce-framework/JUCE.git JUCE
+          else
+            echo "JUCE found in cache"
+          fi
+
+      - name: Restore AlgLib Cache
+        uses: actions/cache@v4
         with:
           path: AlgLib
           key: alglib-linux-${{ env.ALGLIB_VERSION }}
 
-      - name: Configure CMake
+      - name: Download AlgLib
         run: |
-          export CFLAGS="-I/usr/include/freetype2"
-          export CXXFLAGS="-I/usr/include/freetype2"
-          mkdir -p build
-          cd build
-          cmake ../TheProject -DCMAKE_BUILD_TYPE=Release -DVERSION=${{ needs.set-version.outputs.version }}
-
-      - name: Build Project
-        run: |
-          cd build
-          cmake --build . --config Release -- -j$(nproc)
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: output-vst3-linux
-          path: ./build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3
+          if [ ! -d "AlgLib" ]; then
+            echo "AlgLib not found in cache, downloading..."
+            mkdir -p third_party
+            curl -L https://www.alglib.net/translator/re/alglib-${ALGLIB_VERSION}.cpp.gpl.zip -o alglib.zip
+            unzip alglib.zip -d AlgLib
+            rm alglib.zip
+          else
+            echo "AlgLib found in cache"
+          fi
 
   build-windows:
     runs-on: windows-latest
@@ -240,34 +188,58 @@ jobs:
           name: output-ins-windows
           path: ./TheProject/build/inno
 
-  release-linux:
+  build-linux:
+    runs-on: ubuntu-22.04
+    # container: ubuntu:20.04
     needs:
-      - set-version
-      - build-linux
-
-    runs-on: ubuntu-latest  
-
-    permissions:
-      contents: write
+      - set-version    
+      - setup-linux
 
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v3
+        with:
+            path: TheProject
+
+      - name: Install dependencies
+        env: # is not necessary unless this works inside a container
+          DEBIAN_FRONTEND: noninteractive
+          TZ: Etc/UTC
+
+        # "apt-get" without "sudo" for working inside a container 
+        # "apt-get install -y build-essential cmake" for working inside a container
+        run: | 
+            sudo apt-get update 
+            sudo apt-get install -y libasound2-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libfreetype6-dev libfontconfig1-dev
+            pkg-config --cflags freetype2
+
+      - uses: actions/cache@v4
+        with:
+          path: JUCE
+          key: juce-linux-${{ env.JUCE_VERSION }}
+
+      - uses: actions/cache@v4
+        with:
+          path: AlgLib
+          key: alglib-linux-${{ env.ALGLIB_VERSION }}
+
+      - name: Configure CMake
+        run: |
+          export CFLAGS="-I/usr/include/freetype2"
+          export CXXFLAGS="-I/usr/include/freetype2"
+          mkdir -p build
+          cd build
+          cmake ../TheProject -DCMAKE_BUILD_TYPE=Release -DVERSION=${{ needs.set-version.outputs.version }}
+
+      - name: Build Project
+        run: |
+          cd build
+          cmake --build . --config Release -- -j$(nproc)
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: output-vst3-linux
-          path: MatchingCompressor.vst3
-
-      - name: Archive VST3 plugin
-        run: |
-          tar -czf MatchingCompressor-vst3-linux-${{ needs.set-version.outputs.version }}-alpha.tar.gz MatchingCompressor.vst3
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: Linux-VST3-v${{ needs.set-version.outputs.version }}-alpha
-          name: Linux VST3 v${{ needs.set-version.outputs.version }}-alpha
-          prerelease: true
-          files: MatchingCompressor-vst3-linux-${{ needs.set-version.outputs.version }}-alpha.tar.gz
+          path: ./build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3
 
   release-windows:
     needs:
@@ -313,3 +285,34 @@ jobs:
           name: Windows VST3 (with installer) v${{ needs.set-version.outputs.version }}-alpha
           prerelease: true
           files: MatchingCompressor-installer/MatchingCompressor.exe
+
+  release-linux:
+    needs:
+      - set-version
+      - build-linux
+
+    runs-on: ubuntu-latest  
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: output-vst3-linux
+          path: MatchingCompressor.vst3
+
+      - name: Archive VST3 plugin
+        run: |
+          tar -czf MatchingCompressor-vst3-linux-${{ needs.set-version.outputs.version }}-alpha.tar.gz MatchingCompressor.vst3
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: Linux-VST3-v${{ needs.set-version.outputs.version }}-alpha
+          name: Linux VST3 v${{ needs.set-version.outputs.version }}-alpha
+          prerelease: true
+          files: MatchingCompressor-vst3-linux-${{ needs.set-version.outputs.version }}-alpha.tar.gz
+
+
