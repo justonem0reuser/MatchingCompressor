@@ -1,12 +1,26 @@
 cmake_minimum_required(VERSION 3.22)
 project("MatchingCompressor")
 
-#Change this if your AlgLib path is different 
-set(ALGLIB "${CMAKE_SOURCE_DIR}/../AlgLib/alglib-cpp/src")
+include(FetchContent)
 
-#Change this if your JUCE path is different
-set(JUCE_PATH "${CMAKE_SOURCE_DIR}/../JUCE")
-set(JUCE_INCLUDE_DIR "${JUCE_PATH}/modules")
+# Fetch JUCE
+set(JUCE_VERSION "8.0.1")
+FetchContent_Declare(
+    JUCE
+    GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
+    GIT_TAG ${JUCE_VERSION}
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(JUCE)
+
+# Fetch AlgLib
+set(ALGLIB_VERSION "4.00.0")
+FetchContent_Declare(
+    AlgLib
+    URL https://www.alglib.net/translator/re/alglib-${ALGLIB_VERSION}.cpp.gpl.zip
+)
+FetchContent_MakeAvailable(AlgLib)
+set(ALGLIB "${alglib_SOURCE_DIR}/src")
 
 set(BUILD_STANDALONE_DEFAULT ON)
 if(DEFINED ENV{CI})
@@ -15,12 +29,6 @@ endif()
 option(BUILD_STANDALONE "Build Standalone" ${BUILD_STANDALONE_DEFAULT})
 
 include_directories(${ALGLIB})
-include_directories(${JUCE_INCLUDE_DIR})
-
-add_subdirectory(${JUCE_PATH} JUCE_build)
-
-#find_package(JUCE CONFIG REQUIRED)
-#add_subdirectory(juce)
 
 set(JUCE_PLUGIN_FORMATS VST3 AU AUv3 AAX)
 if(BUILD_STANDALONE)
