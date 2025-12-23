@@ -13,7 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.set_version.outputs.VERSION }}
+      juce_version: ${{ steps.read_versions.outputs.JUCE_VERSION }}
+      alglib_version: ${{ steps.read_versions.outputs.ALGLIB_VERSION }}
     steps:
+      - uses: actions/checkout@v4
+    
       - id: set_version
         run: |
           MAJOR=$(date +%y%m)
@@ -23,6 +27,15 @@ jobs:
           VERSION_NUM="${MAJOR}.${MINOR}.${PATCH}.${BUILD}"
           echo "VERSION=$VERSION_NUM" >> $GITHUB_OUTPUT 
 
+      - name: Read versions from CMakeLists.txt
+        id: read_versions
+        run: |
+          file="CMakeLists.txt"
+          juce=$(grep -oP 'set\(\s*JUCE_VERSION\s*"\K[^"]+' "$file" || true)
+          alglib=$(grep -oP 'set\(\s*ALGLIB_VERSION\s*"\K[^"]+' "$file" || true)
+          echo "JUCE_VERSION=$juce" >> $GITHUB_OUTPUT
+          echo "ALGLIB_VERSION=$alglib" >> $GITHUB_OUTPUT
+
   build-windows:
     runs-on: windows-latest
     needs:
@@ -30,27 +43,70 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+            path: TheProject
 
-      - name: Cache dependencies
+      - name: Restore cache
         uses: actions/cache@v4
         with:
-          path: build/_deps
-          key: deps-windows-juce8.0.4-alglib4.00.0
+          path: third-party
+          key: windows-deps-${{ needs.set-version.outputs.juce_version }}-${{ needs.set-version.outputs.alglib_version }}
+
+      - name: Download Inno Setup (if not cached)
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "$PWD/third-party/inno-setup/ISCC.exe")) {
+              New-Item -ItemType Directory -Force -Path third-party/inno-setup
+              Invoke-WebRequest "https://jrsoftware.org/download.php/is.exe" -OutFile "third-party/inno-setup/is.exe"
+              Start-Process "third-party/inno-setup/is.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /DIR=$PWD/third-party/inno-setup" -Wait
+          }
 
       - name: Configure CMake
+        shell: pwsh
         run: |
-          if (!(Test-Path build)) { mkdir build }
-          cd build
-          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DVERSION=${{ needs.set-version.outputs.version }}
+          New-Item -ItemType Directory -Force -Path TheProject/build
+          cd TheProject/build
+          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DVERSION="${{ needs.set-version.outputs.version }}"
 
       - name: Build Project
-        run: cmake --build build --config Release
+        run: |
+          cd TheProject/build
+          cmake --build . --config Release --parallel
 
-      - name: Upload VST3 artifact
+      - name: Upload build VST artifact
         uses: actions/upload-artifact@v4
         with:
           name: output-vst3-windows
-          path: ./build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3
+          path: ./TheProject/build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3
+
+      - name: Set version in Inno Setup script
+        shell: pwsh
+        run: |
+          $version = "${{ needs.set-version.outputs.version }}"
+          $file = 'TheProject/setup.iss'
+          (Get-Content $file) -replace '#define MyAppVersion .*', "#define MyAppVersion `"$version`"" |
+            Set-Content $file -Encoding UTF8
+          
+          # In case of file format error use this version instead of the last command:
+          #$content = Get-Content $file -Raw
+          #$newContent = $content -replace '(?m)^#define MyAppVersion .*', "#define MyAppVersion `"$version`""
+          #[System.IO.File]::WriteAllText($file, $newContent, [System.Text.Encoding]::UTF8)  
+          
+      - name: Build Installer
+        shell: pwsh
+        run: |
+          $issPath = "$PWD/TheProject/setup.iss"
+          $outputDir = "$PWD/TheProject/build/inno"
+          New-Item -ItemType Directory -Force -Path $outputDir
+          
+          $isccPath = "$PWD/third-party/inno-setup/ISCC.exe"
+          & $isccPath /O"$outputDir" $issPath
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-ins-windows
+          path: ./TheProject/build/inno
 
   build-linux:
     runs-on: ubuntu-22.04
@@ -59,14 +115,30 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+            path: TheProject
 
-      - name: Cache dependencies
+      # Unlike Windows and MacOS cache, Linux cache doesn't include JUCE build files
+      # as building JUCE requires additional dependencies installation,
+      # therefore dependency version conflicts can occur
+      # between JUCE and MatchingCompressor.
+      - name: Restore cache
         uses: actions/cache@v4
         with:
-          path: build/_deps
-          key: deps-linux-juce8.0.4-alglib4.00.0
+          path: |
+              third-party/alglib-${{ needs.set-version.outputs.alglib_version }}
+              third-party/juce-${{ needs.set-version.outputs.juce_version }}/juce-src
+          key: linux-deps-${{ needs.set-version.outputs.juce_version }}-${{ needs.set-version.outputs.alglib_version }}
 
       - name: Install dependencies
+        
+        # for working inside a container
+        #env: 
+        #  DEBIAN_FRONTEND: noninteractive
+        #  TZ: Etc/UTC
+        
+        # "apt-get" without "sudo" for working inside a container 
+        # "apt-get install -y build-essential cmake" for working inside a container
         run: |
           sudo apt-get update
           sudo apt-get install -y libasound2-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libfreetype6-dev libfontconfig1-dev
@@ -75,7 +147,8 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DVERSION=${{ needs.set-version.outputs.version }}
+          cmake ../TheProject -DCMAKE_BUILD_TYPE=Release -DVERSION=${{ needs.set-version.outputs.version }}
+          pkg-config --cflags freetype2
 
       - name: Build Project
         run: cmake --build build --config Release -- -j$(nproc)
@@ -93,18 +166,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+            path: TheProject
 
-      - name: Cache dependencies
+      - name: Restore cache
         uses: actions/cache@v4
         with:
-          path: build/_deps
-          key: deps-macos-juce8.0.4-alglib4.00.0
+          path: third-party
+          key: macos-deps-${{ needs.set-version.outputs.juce_version }}-${{ needs.set-version.outputs.alglib_version }}
 
       - name: Configure CMake
         run: |
           mkdir -p build
           cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DVERSION=${{ needs.set-version.outputs.version }}
+          cmake ../TheProject -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DVERSION=${{ needs.set-version.outputs.version }}
 
       - name: Build Project
         run: |
@@ -141,6 +216,12 @@ jobs:
           name: output-vst3-windows
           path: MatchingCompressor.vst3
 
+      - name: Download installator artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: output-ins-windows
+          path: MatchingCompressor-installer
+
       - name: Archive VST3 plugin
         shell: pwsh
         run: |
@@ -153,7 +234,9 @@ jobs:
           tag_name: Win-VST3-v${{ needs.set-version.outputs.version }}-alpha
           name: Windows VST3 v${{ needs.set-version.outputs.version }}-alpha
           prerelease: true
-          files: MatchingCompressor-vst3-windows-${{ needs.set-version.outputs.version }}-alpha.zip
+          files: |
+              MatchingCompressor-vst3-windows-${{ needs.set-version.outputs.version }}-alpha.zip
+              MatchingCompressor-installer/MatchingCompressor-installer.exe
 
   release-linux:
     needs:
@@ -185,4 +268,60 @@ jobs:
           prerelease: true
           files: MatchingCompressor-vst3-linux-${{ needs.set-version.outputs.version }}-alpha.tar.gz
 
+  release-macos:
+    needs:
+      - set-version
+      - build-macos
+
+    runs-on: macos-latest
+
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download VST3 artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: output-vst3-macos
+        path: MatchingCompressor.vst3
+
+    - name: Download AU artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: output-au-macos
+        path: MatchingCompressor.component
+
+    - name: Create README for dev release
+      run: |
+        cat <<EOF > README-dev.txt
+        This macOS build is NOT signed or notarized.
+        For developers and advanced users only.
+
+        Apple Gatekeeper may block this plugin. To run it:
+        xattr -dr com.apple.quarantine MatchingCompressor.vst3
+        xattr -dr com.apple.quarantine MatchingCompressor.component
+
+        Use at your own risk.
+        EOF
+
+    - name: Archive VST3 plugin
+      run: |
+        tar -czf MatchingCompressor-vst3-macos-${{ needs.set-version.outputs.version }}-alpha.tar.gz \
+          MatchingCompressor.vst3 README-dev.txt
+
+    - name: Archive AU plugin
+      run: |
+        tar -czf MatchingCompressor-au-macos-${{ needs.set-version.outputs.version }}-alpha.tar.gz \
+          MatchingCompressor.component README-dev.txt
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: MacOS-dev-only-v${{ needs.set-version.outputs.version }}-alpha
+        name: MacOS VST AU v${{ needs.set-version.outputs.version }}-alpha (developers only)
+        prerelease: true
+        files: |
+          README-dev.txt
+          MatchingCompressor-vst3-macos-${{ needs.set-version.outputs.version }}-alpha.tar.gz
+          MatchingCompressor-au-macos-${{ needs.set-version.outputs.version }}-alpha.tar.gz
 

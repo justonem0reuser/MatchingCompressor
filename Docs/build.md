@@ -1,15 +1,20 @@
-# Building MatchingCompressor
+﻿# Building MatchingCompressor
 
-This document describes how to build the MatchingCompressor VST plugin from source.
+There are two ways to build the MatchingCompressor VST/AU plugin from source: by using Cmake or Projucer (included in JUCE).
+This document describes both of them.
 
-## Prerequisites
+## Building using Cmake
 
-### All Platforms
+**Warning:** The CMake workflow fetches external dependencies outside the project directory (to `../third-party/`) to make them reusable for several projects. This makes the project not fully isolated. Changes to shared external dependencies may affect the build.
+
+### Prerequisites
+
+#### All Platforms
 - **CMake** 3.22 or higher
 - **C++17** compatible compiler
 - **Git** (for fetching JUCE)
 
-### macOS
+#### macOS
 - **Xcode Command Line Tools** or full Xcode
 - macOS 10.13 or later recommended
 
@@ -18,7 +23,7 @@ xcode-select --install
 brew install cmake  # if not already installed
 ```
 
-### Linux (Ubuntu/Debian)
+#### Linux (Ubuntu/Debian)
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
@@ -36,7 +41,7 @@ sudo apt-get install -y \
     libwebkit2gtk-4.0-dev
 ```
 
-### Linux (Fedora/RHEL)
+#### Linux (Fedora/RHEL)
 ```bash
 sudo dnf install -y \
     gcc-c++ \
@@ -53,13 +58,13 @@ sudo dnf install -y \
     webkit2gtk3-devel
 ```
 
-### Windows
+#### Windows
 - **Visual Studio 2019** or later with C++ workload
 - **CMake** (can be installed via Visual Studio Installer)
 
-## Building
+### Building
 
-### Quick Start (All Platforms)
+#### Quick Start (All Platforms)
 
 ```bash
 # Clone the repository
@@ -76,7 +81,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . --config Release
 ```
 
-### Build Options
+#### Build Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -89,9 +94,9 @@ Example with options:
 cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_STANDALONE=ON -DVERSION=1.0.0
 ```
 
-### Platform-Specific Notes
+#### Platform-Specific Notes
 
-#### macOS
+##### macOS
 Builds produce:
 - `MatchingCompressor.vst3` - VST3 plugin
 - `MatchingCompressor.component` - Audio Unit plugin
@@ -102,7 +107,7 @@ Builds produce:
 cmake --build . --config Release -- -j$(sysctl -n hw.ncpu)
 ```
 
-#### Linux
+##### Linux
 Builds produce:
 - `MatchingCompressor.vst3` - VST3 plugin
 - `MatchingCompressor` - Standalone application (if enabled)
@@ -112,7 +117,7 @@ Builds produce:
 cmake --build . --config Release -- -j$(nproc)
 ```
 
-#### Windows
+##### Windows
 Builds produce:
 - `MatchingCompressor.vst3` - VST3 plugin
 - `MatchingCompressor.exe` - Standalone application (if enabled)
@@ -123,9 +128,32 @@ cmake .. -G "Visual Studio 17 2022" -A x64
 cmake --build . --config Release
 ```
 
+## Building using Projucer (Windows/MacOS)
+
+### Prerequisites
+- **JUCE** with **Projucer** 8.0.0 or higher
+- **AlgLib** 4.00.0
+- **Visual Studio 2019** or later with C++ workload (for Windows)
+- **XCode** (for MacOS)
+- **Make** (for Linux)
+
+### Building
+
+- Clone the repository or download the source code.
+- Open the `MatchingCompressor.jucer` file using the Projucer (the IDE tool for creating and managing JUCE projects).
+- In `File → Global paths` window choose your OS (Windows or MacOS) and correct `Path to JUCE` and `JUCE modules` according to your JUCE directories.
+- In `Settings → Header Search Path` enter the path name for your **Alglib** source files.
+- Select the exporter that your need, press `Save and open in IDE` button (on the right of the `Selected exporter` combo-box).
+- On Windows and MacOS: in your IDE, choose the required target: VST3, AU or Standalone.
+- Build the solution using Visual Studio on Windows, XCode on MacOS or Make on Linux.
+
+
 ## Build Artifacts
 
-After a successful build, artifacts are located in:
+After a successful build, artifacts location depends on the option you use.
+
+### CMake
+
 ```
 build/MatchingCompressor_artefacts/Release/
 ├── VST3/
@@ -137,16 +165,42 @@ build/MatchingCompressor_artefacts/Release/
 └── ...
 ```
 
+### Projucer + Visual Studio (Windows)
+
+```
+Builds/VisualStudio2022/x64/Release/ # or another Visual Studio version
+├── VST3/
+│   └── MatchingCompressor.vst3
+├── Standalone Plugin/
+│   └── MatchingCompressor.exe
+└── ...
+```
+
+### Projucer + XCode (MacOS)
+
+```
+Builds/MacOSX/build/Release/ 
+├── VST3/
+│   └── MatchingCompressor.vst3
+├── AU/
+│   └── MatchingCompressor.component
+├── MatchingCompressor.app
+└── ...
+```
+
+
 ## Installation
+
+### Automatic Installation (CMake)
 
 After building, install the plugins to standard system locations:
 
 ```bash
 # Modern CMake style
-cmake --install build
+cmake --install build/Release # or build/Debug
 
-# Or traditional Unix style (from build directory)
-cd build && make install
+# Or traditional Unix style (from build/Release directory)
+cd build/Release && make install # or build/Debug
 ```
 
 This installs to the standard plugin directories:
@@ -160,7 +214,9 @@ This installs to the standard plugin directories:
 
 ### Manual Installation
 
-Alternatively, copy the plugins manually:
+Alternatively, you can copy the plugins manually.
+The commands below are for the paths generated by CMake.
+Use the correct paths depending on your build option. 
 
 #### macOS
 ```bash
@@ -177,10 +233,16 @@ cp -r build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3 ~/
 #### Windows
 Copy `build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3` to `C:\Program Files\Common Files\VST3\`
 
+
 ## Troubleshooting
 
 ### CMake cannot find dependencies
-Dependencies (JUCE, AlgLib) are fetched automatically via CMake's FetchContent. Ensure you have internet access during the first configure step.
+Dependencies (JUCE, AlgLib) are fetched automatically. Ensure you have internet access during the first configure step.
+
+### Projucer: The path to your JUCE folder is incorrect
+In `File → Global paths` correct `Path to JUCE` and `JUCE modules` directory, then press `Re-scan JUCE Modules` button.
+`Path to JUCE` should point the main JUCE directory (in which Projucer executed file is located) and `JUCE modules` should point to its `\modules` subfolder.
+Use only absolute paths.
 
 ### Linux: Missing development libraries
 If you see errors about missing headers, install the development packages listed in Prerequisites.
@@ -188,17 +250,23 @@ If you see errors about missing headers, install the development packages listed
 ### macOS: Code signing issues
 For local development, the plugin is ad-hoc signed. For distribution, you'll need an Apple Developer certificate.
 
-### Build is slow
+### CMake build is slow
 The first build downloads JUCE (~200MB) and compiles it. Subsequent builds are faster. Use parallel builds:
 ```bash
 cmake --build . --config Release -j8
 ```
 
+### Windows: Fails to install the built plugin
+Ensure that you have the right to write to `C:\Program Files\Common Files\VST3\` directory (i.e., have Admin rights).
+Alternatively, you can write to the per-user directory `C:\Users\<User>\Documents\VST3\`. Just ensure that your DAW reads this directory while scanning for VST plugins.
+
+
 ## Dependencies
 
-The following dependencies are automatically fetched during configuration:
+To build using Projucer, you should download the following dependencies manually.
+When building using CMake, these dependencies are automatically fetched during configuration.
 
 | Dependency | Version | License |
 |------------|---------|---------|
-| [JUCE](https://juce.com/) | 8.0.1 | GPLv3 / Commercial |
+| [JUCE](https://juce.com/) | 8.0.12 | AGPLv3 / Commercial |
 | [AlgLib](https://www.alglib.net/) | 4.00.0 | GPLv2+ |
