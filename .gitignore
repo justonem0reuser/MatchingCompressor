@@ -367,3 +367,4 @@ Output/
 Builds/
 CmakeBuild/
 JuceLibraryCode/
+build/

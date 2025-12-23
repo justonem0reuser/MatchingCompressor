@@ -1,12 +1,26 @@
 cmake_minimum_required(VERSION 3.22)
 project("MatchingCompressor")
 
-#Change this if your AlgLib path is different 
-set(ALGLIB "${CMAKE_SOURCE_DIR}/../AlgLib/alglib-cpp/src")
+include(FetchContent)
 
-#Change this if your JUCE path is different
-set(JUCE_PATH "${CMAKE_SOURCE_DIR}/../JUCE")
-set(JUCE_INCLUDE_DIR "${JUCE_PATH}/modules")
+# Fetch JUCE
+set(JUCE_VERSION "8.0.4")
+FetchContent_Declare(
+    JUCE
+    GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
+    GIT_TAG ${JUCE_VERSION}
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(JUCE)
+
+# Fetch AlgLib
+set(ALGLIB_VERSION "4.00.0")
+FetchContent_Declare(
+    AlgLib
+    URL https://www.alglib.net/translator/re/alglib-${ALGLIB_VERSION}.cpp.gpl.zip
+)
+FetchContent_MakeAvailable(AlgLib)
+set(ALGLIB "${alglib_SOURCE_DIR}/src")
 
 set(BUILD_STANDALONE_DEFAULT ON)
 if(DEFINED ENV{CI})
@@ -15,12 +29,6 @@ endif()
 option(BUILD_STANDALONE "Build Standalone" ${BUILD_STANDALONE_DEFAULT})
 
 include_directories(${ALGLIB})
-include_directories(${JUCE_INCLUDE_DIR})
-
-add_subdirectory(${JUCE_PATH} JUCE_build)
-
-#find_package(JUCE CONFIG REQUIRED)
-#add_subdirectory(juce)
 
 set(JUCE_PLUGIN_FORMATS VST3 AU AUv3 AAX)
 if(BUILD_STANDALONE)
@@ -38,7 +46,12 @@ juce_add_plugin(MatchingCompressor
   COMPANY_NAME "Just1m0reApp"
   COMPANY_WEBSITE "https://github.com/justonem0reuser"
 
+  PLUGIN_MANUFACTURER_CODE Jmor
+  PLUGIN_CODE Mtcp
+
   FORMATS ${JUCE_PLUGIN_FORMATS}
+
+  AU_MAIN_TYPE kAudioUnitType_Effect
 
   VST3_CATEGORIES
     "Analyzer"
@@ -155,17 +168,36 @@ target_link_libraries(MatchingCompressor
     juce::juce_recommended_warning_flags
 )
 
-# This allows to add additional steps after building:
-# for example, to copy the plugin to the common VST3 directory
-# and run a DAW app.
+# Installation targets
+# Usage: cmake --install build
 
-set(POST_BUILD_SCRIPT "${CMAKE_CURRENT_LIST_DIR}/post_build_plugin.cmake")
-
-if(EXISTS "${POST_BUILD_SCRIPT}")
-    add_custom_command(TARGET MatchingCompressor_VST3 POST_BUILD
-        COMMAND ${CMAKE_COMMAND} 
-            -DPLUGIN_PATH="$<TARGET_FILE:MatchingCompressor_VST3>"
-            -DPOST_BUILD_SCRIPT="${POST_BUILD_SCRIPT}"
-            -P "${POST_BUILD_SCRIPT}"
-    )
+if(APPLE)
+    install(CODE "
+        file(INSTALL
+            DESTINATION \"\$ENV{HOME}/Library/Audio/Plug-Ins/Components\"
+            TYPE DIRECTORY
+            FILES \"${CMAKE_BINARY_DIR}/MatchingCompressor_artefacts/\$<CONFIG>/AU/MatchingCompressor.component\"
+        )
+        file(INSTALL
+            DESTINATION \"\$ENV{HOME}/Library/Audio/Plug-Ins/VST3\"
+            TYPE DIRECTORY
+            FILES \"${CMAKE_BINARY_DIR}/MatchingCompressor_artefacts/\$<CONFIG>/VST3/MatchingCompressor.vst3\"
+        )
+    ")
+elseif(UNIX)
+    install(CODE "
+        file(INSTALL
+            DESTINATION \"\$ENV{HOME}/.vst3\"
+            TYPE DIRECTORY
+            FILES \"${CMAKE_BINARY_DIR}/MatchingCompressor_artefacts/\$<CONFIG>/VST3/MatchingCompressor.vst3\"
+        )
+    ")
+elseif(WIN32)
+    install(CODE "
+        file(INSTALL
+            DESTINATION \"\$ENV{PROGRAMFILES}/Common Files/VST3\"
+            TYPE DIRECTORY
+            FILES \"${CMAKE_BINARY_DIR}/MatchingCompressor_artefacts/\$<CONFIG>/VST3/MatchingCompressor.vst3\"
+        )
+    ")
 endif()
