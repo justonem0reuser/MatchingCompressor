@@ -3,9 +3,7 @@
 There are two ways to build the MatchingCompressor VST/AU plugin from source: by using Cmake or Projucer (included in JUCE).
 This document describes both of them.
 
-## Building using Cmake
-
-**Warning:** The CMake workflow fetches external dependencies outside the project directory (to `../third-party/`) to make them reusable for several projects. This makes the project not fully isolated. Changes to shared external dependencies may affect the build.
+## Building using Cmake 
 
 ### Prerequisites
 
@@ -127,6 +125,29 @@ Builds produce:
 cmake .. -G "Visual Studio 17 2022" -A x64
 cmake --build . --config Release
 ```
+
+### Additional configuration
+
+You can use additional files to change CMake behavior. These files will not be included in the project as their names are added to `.gitignore`.
+
+* Add `config.cmake` to change third-party dependencies directory. 
+
+    For example, if you want to fetch external dependencies outside the project directory to make them reusable for several projects, you can add the following `config.cmake`:
+
+    ```cmake
+    set(THIRD_PARTY_DIR "${CMAKE_SOURCE_DIR}/../third-party")
+    ```
+
+* Add `post_build_plugin.cmake` to perform additional steps after plugin installation (see *Installation* section below).
+
+    For example, if you want to run your DAW, this file can contain the following commands:
+
+    ```cmake
+    if(WIN32)
+        set(DAW_EXE "C:/Program Files/REAPER (x64)/reaper.exe")
+        execute_process(COMMAND "${DAW_EXE}")
+    endif()    
+    ```
 
 ## Building using Projucer (Windows/MacOS)
 

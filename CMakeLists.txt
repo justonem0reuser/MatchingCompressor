@@ -6,8 +6,14 @@ include(FetchContent)
 set(JUCE_VERSION "8.0.12")
 set(ALGLIB_VERSION "4.00.0")
 
-# Set external directory for reusing
-set(THIRD_PARTY_DIR "${CMAKE_SOURCE_DIR}/../third-party")
+# config.cmake can be added to specify another directory for external dependencies
+if(EXISTS "${CMAKE_SOURCE_DIR}/config.cmake")
+    include("${CMAKE_SOURCE_DIR}/config.cmake") # for THIRD_PARTY_DIR
+endif()
+if (NOT DEFINED THIRD_PARTY_DIR)
+    set(THIRD_PARTY_DIR "${CMAKE_SOURCE_DIR}/build/_deps")
+endif()
+
 set(FETCHCONTENT_BASE_DIR "${THIRD_PARTY_DIR}/juce-${JUCE_VERSION}")
 set(ALGLIB_DIR "${THIRD_PARTY_DIR}/alglib-${ALGLIB_VERSION}")
 set(ALGLIB_ARCHIVE "${ALGLIB_DIR}/alglib.zip")
@@ -17,8 +23,8 @@ set(ALGLIB_URL "https://www.alglib.net/translator/re/alglib-${ALGLIB_VERSION}.cp
 
 # Fetch JUCE
 FetchContent_Declare(
-    JUCE
-    GIT_REPOSITORY ${JUCE_URL}
+    JUCE 
+    GIT_REPOSITORY ${JUCE_URL} 
     GIT_TAG ${JUCE_VERSION}
     GIT_SHALLOW TRUE
 )

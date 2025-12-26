@@ -2,11 +2,7 @@ name: Auto release
 
 on:
   push:
-    branches:
-      - master
   pull_request:
-    branches:
-      - master
 
 jobs:
   set-version:
@@ -43,47 +39,45 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-            path: TheProject
 
       - name: Restore cache
         uses: actions/cache@v4
         with:
-          path: third-party
+          path: build/_deps
           key: windows-deps-${{ needs.set-version.outputs.juce_version }}-${{ needs.set-version.outputs.alglib_version }}
 
       - name: Download Inno Setup (if not cached)
         shell: pwsh
         run: |
-          if (-not (Test-Path "$PWD/third-party/inno-setup/ISCC.exe")) {
-              New-Item -ItemType Directory -Force -Path third-party/inno-setup
-              Invoke-WebRequest "https://jrsoftware.org/download.php/is.exe" -OutFile "third-party/inno-setup/is.exe"
-              Start-Process "third-party/inno-setup/is.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /DIR=$PWD/third-party/inno-setup" -Wait
+          if (-not (Test-Path "$PWD/build/_deps/inno-setup/ISCC.exe")) {
+              New-Item -ItemType Directory -Force -Path build/_deps/inno-setup
+              Invoke-WebRequest "https://jrsoftware.org/download.php/is.exe" -OutFile "build/_deps/inno-setup/is.exe"
+              Start-Process "build/_deps/inno-setup/is.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /DIR=$PWD/build/_deps/inno-setup" -Wait
           }
 
       - name: Configure CMake
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path TheProject/build
-          cd TheProject/build
+          New-Item -ItemType Directory -Force -Path build
+          cd build
           cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DVERSION="${{ needs.set-version.outputs.version }}"
 
       - name: Build Project
         run: |
-          cd TheProject/build
+          cd build
           cmake --build . --config Release --parallel
 
       - name: Upload build VST artifact
         uses: actions/upload-artifact@v4
         with:
           name: output-vst3-windows
-          path: ./TheProject/build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3
+          path: ./build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3
 
       - name: Set version in Inno Setup script
         shell: pwsh
         run: |
           $version = "${{ needs.set-version.outputs.version }}"
-          $file = 'TheProject/setup.iss'
+          $file = 'setup.iss'
           (Get-Content $file) -replace '#define MyAppVersion .*', "#define MyAppVersion `"$version`"" |
             Set-Content $file -Encoding UTF8
           
@@ -95,18 +89,18 @@ jobs:
       - name: Build Installer
         shell: pwsh
         run: |
-          $issPath = "$PWD/TheProject/setup.iss"
-          $outputDir = "$PWD/TheProject/build/inno"
+          $issPath = "$PWD/setup.iss"
+          $outputDir = "$PWD/build/inno"
           New-Item -ItemType Directory -Force -Path $outputDir
           
-          $isccPath = "$PWD/third-party/inno-setup/ISCC.exe"
+          $isccPath = "$PWD/build/_deps/inno-setup/ISCC.exe"
           & $isccPath /O"$outputDir" $issPath
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: output-ins-windows
-          path: ./TheProject/build/inno
+          path: ./build/inno
 
   build-linux:
     runs-on: ubuntu-22.04
@@ -115,8 +109,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-            path: TheProject
 
       # Unlike Windows and MacOS cache, Linux cache doesn't include JUCE build files
       # as building JUCE requires additional dependencies installation,
@@ -126,8 +118,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-              third-party/alglib-${{ needs.set-version.outputs.alglib_version }}
-              third-party/juce-${{ needs.set-version.outputs.juce_version }}/juce-src
+              build/_deps/alglib-${{ needs.set-version.outputs.alglib_version }}
+              build/_deps/juce-${{ needs.set-version.outputs.juce_version }}/juce-src
           key: linux-deps-${{ needs.set-version.outputs.juce_version }}-${{ needs.set-version.outputs.alglib_version }}
 
       - name: Install dependencies
@@ -147,7 +139,7 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake ../TheProject -DCMAKE_BUILD_TYPE=Release -DVERSION=${{ needs.set-version.outputs.version }}
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DVERSION=${{ needs.set-version.outputs.version }}
           pkg-config --cflags freetype2
 
       - name: Build Project
@@ -166,20 +158,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-            path: TheProject
 
       - name: Restore cache
         uses: actions/cache@v4
         with:
-          path: third-party
+          path: build/_deps
           key: macos-deps-${{ needs.set-version.outputs.juce_version }}-${{ needs.set-version.outputs.alglib_version }}
 
       - name: Configure CMake
         run: |
           mkdir -p build
           cd build
-          cmake ../TheProject -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DVERSION=${{ needs.set-version.outputs.version }}
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DVERSION=${{ needs.set-version.outputs.version }}
 
       - name: Build Project
         run: |
@@ -202,7 +192,7 @@ jobs:
     needs:
       - set-version
       - build-windows
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
 
     runs-on: windows-latest
 
@@ -242,7 +232,7 @@ jobs:
     needs:
       - set-version
       - build-linux
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
 
     runs-on: ubuntu-latest
 
@@ -272,6 +262,7 @@ jobs:
     needs:
       - set-version
       - build-macos
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
 
     runs-on: macos-latest
 
