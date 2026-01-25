@@ -90,6 +90,8 @@ public:
     MatchingData& getMatchingData();
 
 private:
+    const int stateVersion = 2;
+
     Chain chain;
     
     // for data collecting

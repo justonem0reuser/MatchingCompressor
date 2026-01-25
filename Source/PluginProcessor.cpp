@@ -189,15 +189,37 @@ void MatchCompressorAudioProcessor::changeProgramName (int index, const juce::St
 //==============================================================================
 void MatchCompressorAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
+    juce::ValueTree tree("PluginState");
+    tree.addChild(apvts.copyState(), -1, nullptr);
+    tree.addChild(matchingData.initProperties.createCopy(), -1, nullptr);
+    tree.setProperty("version", stateVersion, nullptr);
     juce::MemoryOutputStream mos(destData, true);
-    apvts.state.writeToStream(mos);
+    tree.writeToStream(mos);
 }
 
-void MatchCompressorAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void MatchCompressorAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
     auto tree = juce::ValueTree::readFromData(data, sizeInBytes);
-    if (tree.isValid())
+    if (!tree.isValid())
+        return;
+
+    int version = tree.getProperty("version", 0);
+    if (version < 2)
+    {
         apvts.replaceState(tree);
+        return;
+    }
+
+    auto params = tree.getChildWithName(apvts.state.getType());
+    if (params.isValid())
+        apvts.replaceState(params);
+
+    auto matchingParams = tree.getChildWithName(matchingData.initProperties.getType());
+    if (matchingParams.isValid())
+    {
+        matchingData.initProperties.copyPropertiesFrom(matchingParams, nullptr);
+        matchingData.properties.copyPropertiesFrom(matchingParams, nullptr);
+    }
 }
 
 // Data collecting

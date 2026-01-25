@@ -26,9 +26,9 @@ MatchingData::MatchingData():
     parameterInfos.push_back(ParameterInfo(
         setChannelAggregationTypeId, "Stereo processing", 1, channelAggregationTypes));
     parameterInfos.push_back(ParameterInfo(
-        setAttackId, "Attack (ms)", 0.f, attackRange.start, attackRange.end, attackRange.interval, false, true));
+        setAttackId, "Attack (ms)", 10.f, attackRange.start, attackRange.end, attackRange.interval, false, true));
     parameterInfos.push_back(ParameterInfo(
-        setReleaseId, "Release (ms)", 0.f, releaseRange.start, releaseRange.end, releaseRange.interval, false, true));
+        setReleaseId, "Release (ms)", 100.f, releaseRange.start, releaseRange.end, releaseRange.interval, false, true));
 
     for (int i = 0; i < parameterInfos.size(); i++)
         properties.setProperty(
