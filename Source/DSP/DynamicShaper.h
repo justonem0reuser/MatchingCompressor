@@ -59,9 +59,13 @@ public:
         {
             auto* inputSamples = inputBlock.getChannelPointer(0);
             auto* outputSamples = outputBlock.getChannelPointer(0);
+            SampleType env;
 
             for (auto i = 0; i < numSamples; i++)
-                outputSamples[i] = processSample(0, inputSamples[i]);
+            {
+                env = envelopeFilter.processSample(0, inputSamples[i]);
+                outputSamples[i] = calculateGain(inputSamples[i], env);
+            }
         }
         else
         {
@@ -70,11 +74,42 @@ public:
             auto* outputSamples0 = outputBlock.getChannelPointer(0);
             auto* outputSamples1 = outputBlock.getChannelPointer(1);
 
-            for (auto i = 0; i < numSamples; i++)
+            switch (channelAggregationType)
             {
-                auto samplePair = processStereoSample(inputSamples0[i], inputSamples1[i]);
-                outputSamples0[i] = samplePair.first;
-                outputSamples1[i] = samplePair.second;
+            case ChannelAggregationType::separate:
+            {
+                SampleType env0, env1;
+                for (auto i = 0; i < numSamples; i++)
+                {
+                    env0 = envelopeFilter.processSample(0, inputSamples0[i]);
+                    env1 = envelopeFilter.processSample(1, inputSamples1[i]);
+                    outputSamples0[i] = calculateGain(inputSamples0[i], env0);
+                    outputSamples1[i] = calculateGain(inputSamples1[i], env1);
+                }
+                break;
+            }
+            case ChannelAggregationType::max:
+            {
+                SampleType env;
+                for (auto i = 0; i < numSamples; i++)
+                {
+                    env = calculateStereoEnvMax(inputSamples0[i], inputSamples1[i]);
+                    outputSamples0[i] = calculateGain(inputSamples0[i], env);
+                    outputSamples1[i] = calculateGain(inputSamples1[i], env);
+                }
+                break;
+            }
+            case ChannelAggregationType::mean:
+            {
+                SampleType env;
+                for (auto i = 0; i < numSamples; i++)
+                {
+                    env = calculateStereoEnvMean(inputSamples0[i], inputSamples1[i]);
+                    outputSamples0[i] = calculateGain(inputSamples0[i], env);
+                    outputSamples1[i] = calculateGain(inputSamples1[i], env);
+                }
+                break;
+            }
             }
         }
     }
@@ -105,13 +140,15 @@ public:
         int kneesNumber);
 
     // processing
-    SampleType processSample(int channel, SampleType inputValue);
-    std::pair<SampleType, SampleType> processStereoSample(SampleType inputValue0, SampleType inputValue1);
+    inline SampleType calculateGain(SampleType inputValue, SampleType envValue);
+    
+    // for non-realtime calls
     SampleType calculateEnv(int channel, SampleType inputValue);
-    std::pair<SampleType, SampleType> calculateStereoEnv(SampleType inputValue0, SampleType inputValue1);
-    SampleType calculateGain(SampleType inputValue, SampleType envValue);
+    void calculateStereoEnv(SampleType inputValue0, SampleType inputValue1, SampleType& env0, SampleType& env1);
 
 private:
+    constexpr static SampleType dbToGainCoeff = 0.1660964047443681;
+
     int size = 0;
     int channelsNumber = 0;
     double sampleRate = 44100.0;
@@ -124,6 +161,7 @@ private:
         threshold, 
         thresholdInverse, 
         ratioInverseMinusOne,
+        powCoeff,
         kneeLeftBoundDb,
         kneeLeftBound,
         kneeRightBound,
@@ -133,12 +171,16 @@ private:
 
     juce::dsp::BallisticsFilter<SampleType> envelopeFilter;
 
-    int findKneeIndex(SampleType value);
     void updateOneKneeGain(int kneeIndex, bool updateNextGains);
     void updateOneKneeParameters(
         SampleType newThreshold,
         SampleType newRatio,
         SampleType newWidthDb,
         int kneeIndex);
-};
 
+    inline SampleType calculateStereoEnvMax(SampleType inputValue0, SampleType inputValue1);
+    inline SampleType calculateStereoEnvMean(SampleType inputValue0, SampleType inputValue1);
+
+    // quicker version of juce::Decibels::decibelsToGain
+    static inline SampleType dbToGain(SampleType decibels);
+};

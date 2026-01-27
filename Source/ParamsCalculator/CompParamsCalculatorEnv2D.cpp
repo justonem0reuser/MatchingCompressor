@@ -52,12 +52,13 @@ void CompParamsCalculatorEnv2D::calculateEnvelopeStatistics(
             float sample1 = samples[1][i];
             float sAbs0 = std::fabs(sample0);
             float sAbs1 = std::fabs(sample1);
-            auto env = dynamicProcessor.calculateStereoEnv(sample0, sample1);
+            float out0, out1;
+            dynamicProcessor.calculateStereoEnv(sample0, sample1, out0, out1);
             int i1 = std::min((int)(sAbs0 * gainRegionsNumber), gainRegionsNumber - 1);
-            int i2 = std::min((int)(env.first * gainRegionsNumber), gainRegionsNumber - 1);
+            int i2 = std::min((int)(out0 * gainRegionsNumber), gainRegionsNumber - 1);
             xEnvTable[i1][i2]++;
             i1 = std::min((int)(sAbs1 * gainRegionsNumber), gainRegionsNumber - 1);
-            i2 = std::min((int)(env.second * gainRegionsNumber), gainRegionsNumber - 1);
+            i2 = std::min((int)(out1 * gainRegionsNumber), gainRegionsNumber - 1);
             xEnvTable[i1][i2]++;
         }
     }

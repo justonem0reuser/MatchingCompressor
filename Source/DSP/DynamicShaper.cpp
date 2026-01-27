@@ -6,7 +6,7 @@ DynamicShaper<SampleType>::DynamicShaper()
     envelopeFilter.setAttackTime(attackTime);
     envelopeFilter.setReleaseTime(releaseTime);
     envelopeFilter.setLevelCalculationType(balFilterType);
-    gain[0] = juce::Decibels::decibelsToGain(gainDb, minusInfinityDb);
+    gain[0] = dbToGain(gainDb);
 }
 
 template <typename SampleType>
@@ -77,7 +77,7 @@ template<typename SampleType>
 void DynamicShaper<SampleType>::setGain(SampleType newGain)
 {
     gainDb = newGain;
-    gain[0] = juce::Decibels::decibelsToGain(gainDb, minusInfinityDb);
+    gain[0] = dbToGain(gainDb);
     updateOneKneeGain(0, true);
 }
 
@@ -101,7 +101,7 @@ void DynamicShaper<SampleType>::setCompParameters(
     int kneesNumber)
 {
     size = kneesNumber;
-    gain[0] = juce::Decibels::decibelsToGain(newGainDb);
+    gain[0] = dbToGain(newGainDb);
     for (int i = 0; i < size; i++)
     {
         updateOneKneeParameters(newThresholdsDb[i], newRatios[i], newWidthsDb[i], i);
@@ -110,26 +110,6 @@ void DynamicShaper<SampleType>::setCompParameters(
 }
 
 // processing
-
-template <typename SampleType>
-SampleType DynamicShaper<SampleType>::processSample(
-    int channel,
-    SampleType inputValue)
-{
-    auto env = envelopeFilter.processSample(channel, inputValue);
-    return calculateGain(inputValue, env);
-}
-
-template<typename SampleType>
-std::pair<SampleType, SampleType> DynamicShaper<SampleType>::processStereoSample(
-    SampleType inputValue0,
-    SampleType inputValue1)
-{
-    auto env = calculateStereoEnv(inputValue0, inputValue1);
-    auto y0 = calculateGain(inputValue0, env.first);
-    auto y1 = calculateGain(inputValue1, env.second);
-    return std::pair<SampleType, SampleType> {y0, y1};
-}
 
 template<typename SampleType>
 SampleType DynamicShaper<SampleType>::calculateEnv(
@@ -140,36 +120,48 @@ SampleType DynamicShaper<SampleType>::calculateEnv(
 }
 
 template<typename SampleType>
-std::pair<SampleType, SampleType> DynamicShaper<SampleType>::calculateStereoEnv(
-    SampleType inputValue0,
-    SampleType inputValue1)
+void DynamicShaper<SampleType>::calculateStereoEnv(SampleType inputValue0, SampleType inputValue1, SampleType& env0, SampleType& env1)
 {
     switch (channelAggregationType)
     {
     case ChannelAggregationType::separate:
     {
-        SampleType env0 = envelopeFilter.processSample(0, inputValue0);
-        SampleType env1 = envelopeFilter.processSample(1, inputValue1);
-        return std::pair<SampleType, SampleType> {env0, env1};
+        env0 = envelopeFilter.processSample(0, inputValue0);
+        env1 = envelopeFilter.processSample(1, inputValue1);
+        break;
     }
     case ChannelAggregationType::max:
     {
-        SampleType maxValue = std::fmax(std::fabs(inputValue0), std::fabs(inputValue1));
-        SampleType env = envelopeFilter.processSample(0, maxValue);
-        return std::pair<SampleType, SampleType> {env, env};
+        env0 = env1 = calculateStereoEnvMax(inputValue0, inputValue1);
+        break;
     }
     case ChannelAggregationType::mean:
     {
-        SampleType meanValue =
-            balFilterType == EnvCalculationType::peak ?
-            0.5f * (std::fabs(inputValue0) + std::fabs(inputValue1)) :
-            std::sqrt(0.5f * (inputValue0 * inputValue0 + inputValue1 * inputValue1));
-        SampleType env = envelopeFilter.processSample(0, meanValue);
-        return std::pair<SampleType, SampleType> {env, env};
+        env0 = env1 = calculateStereoEnvMean(inputValue0, inputValue1);
+        break;
     }
-    default:
-        jassertfalse;
     }
+}
+
+template<typename SampleType>
+SampleType DynamicShaper<SampleType>::calculateStereoEnvMax(
+    SampleType inputValue0,
+    SampleType inputValue1)
+{
+    SampleType maxValue = std::fmax(std::fabs(inputValue0), std::fabs(inputValue1));
+    return envelopeFilter.processSample(0, maxValue);
+}
+
+template<typename SampleType>
+SampleType DynamicShaper<SampleType>::calculateStereoEnvMean(
+    SampleType inputValue0,
+    SampleType inputValue1)
+{
+    SampleType meanValue =
+        balFilterType == EnvCalculationType::peak ?
+        0.5f * (std::fabs(inputValue0) + std::fabs(inputValue1)) :
+        std::sqrt(0.5f * (inputValue0 * inputValue0 + inputValue1 * inputValue1));
+    return envelopeFilter.processSample(0, meanValue);
 }
 
 template<typename SampleType>
@@ -179,31 +171,29 @@ SampleType DynamicShaper<SampleType>::calculateGain(
 {
     if (size == 0)
         return inputValue;
-    int i = findKneeIndex(envValue);
+    
+    // find knee index
+    int i = -1;
+    for (int j = 0; j < size; j++)
+        i += (int)(envValue > kneeLeftBound[j]);
+
     if (i < 0)
         return gain[0] * inputValue;
+
     SampleType coeff;
     if (envValue >= kneeRightBound[i])
-        coeff = std::pow(envValue * thresholdInverse[i], ratioInverseMinusOne[i]);
+        // (envValue * thresholdInverse[i]) ^ ratioInverseMinusOne[i]
+        coeff = powCoeff[i] * std::exp2(ratioInverseMinusOne[i] * std::log2(envValue));
     else
     {
         SampleType envDb = juce::Decibels::gainToDecibels(envValue);
         SampleType envYDb = envDb * (envDb * aQuadCoeff[i] + bQuadCoeff[i]) + cQuadCoeff[i];
-        coeff = juce::Decibels::decibelsToGain(envYDb - envDb);
+        coeff = dbToGain(envYDb - envDb);
     }
     return gain[i] * inputValue * coeff;
 }
 
 // private methods
-
-template<typename SampleType>
-int DynamicShaper<SampleType>::findKneeIndex(SampleType value)
-{
-    int res = -1;
-    for (int i = 0; i < size; i++)
-        res += (int)(value > kneeLeftBound[i]);
-    return  res;
-}
 
 template<typename SampleType>
 void DynamicShaper<SampleType>::updateOneKneeGain(
@@ -236,12 +226,13 @@ void DynamicShaper<SampleType>::updateOneKneeParameters(
         ratioInverseMinusOne[kneeIndex - 1] + 1.0;
 
     SampleType newKneeWidth = newWidthDb >= minKneeWidth ? newWidthDb : 0;
-    threshold[kneeIndex] = juce::Decibels::decibelsToGain(newThreshold);
+    threshold[kneeIndex] = dbToGain(newThreshold);
     thresholdInverse[kneeIndex] = 1.0 / threshold[kneeIndex];
     ratioInverseMinusOne[kneeIndex] = 1.0 / newRatio - 1.0;
+    powCoeff[kneeIndex] = std::pow(thresholdInverse[kneeIndex], ratioInverseMinusOne[kneeIndex]);
     kneeLeftBoundDb[kneeIndex] = newThreshold - 0.5f * newKneeWidth;
-    kneeLeftBound[kneeIndex] = juce::Decibels::decibelsToGain(kneeLeftBoundDb[kneeIndex], minusInfinityDb);
-    kneeRightBound[kneeIndex] = juce::Decibels::decibelsToGain(newThreshold + 0.5f * newKneeWidth, minusInfinityDb);
+    kneeLeftBound[kneeIndex] = dbToGain(kneeLeftBoundDb[kneeIndex]);
+    kneeRightBound[kneeIndex] = dbToGain(newThreshold + 0.5f * newKneeWidth);
 
     if (newKneeWidth > 0)
     {
@@ -253,6 +244,12 @@ void DynamicShaper<SampleType>::updateOneKneeParameters(
     }
     else
         aQuadCoeff[kneeIndex] = bQuadCoeff[kneeIndex] = cQuadCoeff[kneeIndex] = 0.0;
+}
+
+template<typename SampleType>
+SampleType DynamicShaper<SampleType>::dbToGain(SampleType decibels)
+{
+    return decibels > minusInfinityDb ? std::exp2(decibels * dbToGainCoeff) : 0.0;
 }
 
 //==============================================================================

@@ -55,9 +55,10 @@ void CompParamsCalculatorEnv1D::calculateEnvelopeStatistics(
             float sample1 = samples[1][i];
             float sAbs0 = std::fabs(sample0);
             float sAbs1 = std::fabs(sample1);
-            auto env = dynamicProcessor.calculateStereoEnv(sample0, sample1);
-            xEnvPairs[index++] = { sAbs0, env.first };
-            xEnvPairs[index++] = { sAbs1, env.second };
+            float out0, out1;
+            dynamicProcessor.calculateStereoEnv(sample0, sample1, out0, out1);
+            xEnvPairs[index++] = { sAbs0, out0 };
+            xEnvPairs[index++] = { sAbs1, out1 };
         }
     }
     dynamicProcessor.reset();
