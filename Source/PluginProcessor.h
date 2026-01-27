@@ -11,6 +11,9 @@ using Chain = juce::dsp::ProcessorChain<
     DataCollector<float>,
     DynamicShaper<float>>;
 using KneesArray = DynamicShaper<float>::KneesArray;
+using ParamsArray = std::array<std::atomic<float>*, DynamicShaper<float>::maxKneesNumber>;
+using EnvCalculationType = juce::dsp::BallisticsFilterLevelCalculationType;
+using ChannelAggregationType = DynamicShaper<float>::ChannelAggregationType;
 
 enum ChainPositions
 {
@@ -78,13 +81,6 @@ public:
         double& sidechainRate);
 
     // Compressor parameters setting
-    void setNeedUpdate();
-    void setCompressorParameters(
-        KneesArray& thresholdDbs,
-        KneesArray& ratios,
-        KneesArray& widthDbs,
-        float gainDb,
-        int kneesNumber);
     void updateCompressorParameters();
 
     MatchingData& getMatchingData();
@@ -100,11 +96,26 @@ private:
     bool collectSidechainData = false;
     int mainBusNumChannels, sidechainNumChannels;
 
-    // for compressor parameters setting
-    bool needUpdate = false;
-    KneesArray thresholdDbs, ratios, widthDbs;
-    float gainDb;
-    int kneesNumber;
+    // Pointers to APVTS parameters
+    std::atomic<float>* gainParam;
+    std::atomic<float>* kneesNumberParam;
+    std::atomic<float>* attackParam;
+    std::atomic<float>* releaseParam;
+    std::atomic<float>* balFilterTypeParam;
+    std::atomic<float>* channelAggrerationTypeParam;
+    ParamsArray thresholdParams;
+    ParamsArray ratioParams;
+    ParamsArray kneeWidthParams;
+
+    // for checking and setting compressor parameters
+    float gainDb = -1000.f;
+    int kneesNumber = -1;
+    KneesArray thresholdDbs, ratios, widthDbs; // initial values are not necessary because of the initial kneesNumber 
+
+    // for checking compressor parameters
+    float attackMs = -1.f, releaseMs = -1.f;
+    EnvCalculationType balFilterType = EnvCalculationType::peak;
+    ChannelAggregationType channelAggregationType = ChannelAggregationType::separate;
 
     MatchingData matchingData;
     

@@ -115,7 +115,7 @@ private:
     int size = 0;
     int channelsNumber = 0;
     double sampleRate = 44100.0;
-    SampleType attackTime = 1.0, releaseTime = 100.0, gainDb = 0.0;
+    SampleType attackTime = 10.0, releaseTime = 100.0, gainDb = 0.0;
     EnvCalculationType balFilterType = EnvCalculationType::peak;
     ChannelAggregationType channelAggregationType = ChannelAggregationType::separate;
     

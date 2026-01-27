@@ -25,6 +25,21 @@ MatchCompressorAudioProcessor::MatchCompressorAudioProcessor()
         { juce::NullCheckedInvocation::invoke(DataCollectorMemoryFull); };
     chain.get<ChainPositions::SidechainCollector>().onMemoryFull = [this] 
         { juce::NullCheckedInvocation::invoke(DataCollectorMemoryFull); };
+
+    gainParam = apvts.getRawParameterValue(gainId);
+    kneesNumberParam = apvts.getRawParameterValue(kneesNumberId);
+    attackParam = apvts.getRawParameterValue(attackId);
+    releaseParam = apvts.getRawParameterValue(releaseId);
+    balFilterTypeParam = apvts.getRawParameterValue(balFilterTypeId);
+    channelAggrerationTypeParam = apvts.getRawParameterValue(channelAggrerationTypeId);
+
+    for (int i = 0; i < DynamicShaper<float>::maxKneesNumber; i++)
+    {
+        auto iStr = std::to_string(i);
+        thresholdParams[i] = apvts.getRawParameterValue(thresholdId + iStr);
+        ratioParams[i] = apvts.getRawParameterValue(ratioId + iStr);
+        kneeWidthParams[i] = apvts.getRawParameterValue(kneeWidthId + iStr);
+    }
 }
 
 //==============================================================================
@@ -84,8 +99,7 @@ void MatchCompressorAudioProcessor::processBlock(
     juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
-    if (needUpdate)
-        updateCompressorParameters();
+    updateCompressorParameters();
     bool currentIsPlayHeadPlaying = isPlayHeadPlaying();
     if (currentIsPlayHeadPlaying)
     {
@@ -263,36 +277,16 @@ void MatchCompressorAudioProcessor::getCollectedData(
 
 // Compressor parameters setting
 
-void MatchCompressorAudioProcessor::setNeedUpdate()
-{
-    needUpdate = true;
-}
-
-void MatchCompressorAudioProcessor::setCompressorParameters(
-    KneesArray& thresholdDbs,
-    KneesArray& ratios,
-    KneesArray& widthDbs,
-    float gainDb,
-    int kneesNumber)
-{ 
-    this->gainDb = gainDb;
-    this->thresholdDbs = thresholdDbs;
-    this->ratios = ratios;
-    this->widthDbs = widthDbs;
-    this->kneesNumber = kneesNumber;
-    needUpdate = true;
-}
-
 void MatchCompressorAudioProcessor::updateCompressorParameters()
 {
     auto& freeShaper = chain.get<ChainPositions::CompressorExpander>();
 
     // reading compression/expanding parameters
-    float newGainDb = *apvts.getRawParameterValue(gainId);
+    float newGainDb = gainParam->load(std::memory_order_relaxed);
     bool isGainChanged = newGainDb != gainDb;
     gainDb = newGainDb;
 
-    int newKneesNumber = *apvts.getRawParameterValue(kneesNumberId);
+    int newKneesNumber = kneesNumberParam->load(std::memory_order_relaxed);
     bool isKneesNumberChanged = newKneesNumber != kneesNumber;
     kneesNumber = newKneesNumber;
 
@@ -300,13 +294,12 @@ void MatchCompressorAudioProcessor::updateCompressorParameters()
     int changedKneeIndex = 0; // will be used only if changedKneesNumber == 1
     for (int i = 0; i < kneesNumber; i++)
     {
-        auto iStr = std::to_string(i);
-        float newThreshold = *apvts.getRawParameterValue(thresholdId + iStr);
-        float newRatio = *apvts.getRawParameterValue(ratioId + iStr);
+        float newThreshold = thresholdParams[i]->load(std::memory_order_relaxed);
+        float newRatio = ratioParams[i]->load(std::memory_order_relaxed);
         if (newRatio < 1.f)
             newRatio = 1.f / (2.f - newRatio);
-        float newKneeWidth = *apvts.getRawParameterValue(kneeWidthId + iStr);
-        
+        float newKneeWidth = kneeWidthParams[i]->load(std::memory_order_relaxed);
+
         bool isKneeChanged =
             newThreshold != thresholdDbs[i] ||
             newRatio != ratios[i] ||
@@ -314,12 +307,12 @@ void MatchCompressorAudioProcessor::updateCompressorParameters()
         int isKneeChangedInt = (int)isKneeChanged;
         changedKneesNumber += isKneeChangedInt;
         changedKneeIndex += isKneeChangedInt * i;
-        
+
         thresholdDbs[i] = newThreshold;
         ratios[i] = newRatio;
         widthDbs[i] = newKneeWidth;
     }
-    
+
     bool isFullUpdateNeeded =
         isKneesNumberChanged || changedKneesNumber > 1 ||
         (isGainChanged && changedKneesNumber != 0);
@@ -327,10 +320,10 @@ void MatchCompressorAudioProcessor::updateCompressorParameters()
     // trying to avoid full update if it is not necessary
     if (isFullUpdateNeeded)
         freeShaper.setCompParameters(
-            thresholdDbs, 
-            ratios, 
-            widthDbs, 
-            gainDb, 
+            thresholdDbs,
+            ratios,
+            widthDbs,
+            gainDb,
             kneesNumber);
     else if (isGainChanged)
         freeShaper.setGain(gainDb);
@@ -342,26 +335,43 @@ void MatchCompressorAudioProcessor::updateCompressorParameters()
             changedKneeIndex);
 
     // envelope parameters
-    float attack = *apvts.getRawParameterValue(attackId);
-    float release = *apvts.getRawParameterValue(releaseId);
-    auto balFilterType =
-        *apvts.getRawParameterValue(balFilterTypeId) < 1.5f ?
+
+    float attack = attackParam->load(std::memory_order_relaxed);
+    if (attack != attackMs)
+    {
+        attackMs = attack;
+        freeShaper.setAttack(attack);
+    }
+
+    float release = releaseParam->load(std::memory_order_relaxed);
+    if (release != releaseMs)
+    {
+        releaseMs = release;
+        freeShaper.setRelease(release);
+    }
+
+    float balFilterTypeFloat = balFilterTypeParam->load(std::memory_order_relaxed);
+    auto newBalFilterType = balFilterTypeFloat ?
         EnvCalculationType::peak :
         EnvCalculationType::RMS;
-    auto channelAggregationType =
-        *apvts.getRawParameterValue(channelAggrerationTypeId) < 1.5f ?
+    if (newBalFilterType != balFilterType)
+    {
+        balFilterType == newBalFilterType;
+        freeShaper.setBallisticFilterType(newBalFilterType);
+    }
+
+    float channelAggrerationTypeFloat = channelAggrerationTypeParam->load(std::memory_order_relaxed);
+    auto newChannelAggregationType =
+        channelAggrerationTypeFloat < 1.5f ?
         ChannelAggregationType::separate :
-        *apvts.getRawParameterValue(channelAggrerationTypeId) < 2.5f ?
+        channelAggrerationTypeFloat < 2.5f ?
         ChannelAggregationType::max :
         ChannelAggregationType::mean;
-
-    freeShaper.setEnvParameters(
-        attack,
-        release,
-        balFilterType,
-        channelAggregationType);
-
-    needUpdate = false;
+    if (newChannelAggregationType != channelAggregationType)
+    {
+        channelAggregationType = newChannelAggregationType;
+        freeShaper.setChannelAggregationType(newChannelAggregationType);
+    }
 }
 
 MatchingData& MatchCompressorAudioProcessor::getMatchingData()
@@ -381,7 +391,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout MatchCompressorAudioProcesso
     layout.add(std::make_unique<juce::AudioParameterInt>(
         channelAggrerationTypeId, "Stereo processing", (int)channelAggregationTypeRange.start, (int)channelAggregationTypeRange.end, 1));
     layout.add(std::make_unique<juce::AudioParameterFloat>(
-        attackId, "Attack", attackRange, 0.1f, "ms"));
+        attackId, "Attack", attackRange, 10.f, "ms"));
     layout.add(std::make_unique<juce::AudioParameterFloat>(
         releaseId, "Release", releaseRange, 100.f, "ms"));
     layout.add(std::make_unique<juce::AudioParameterFloat>(

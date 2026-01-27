@@ -46,8 +46,6 @@ template<typename SampleType>
 void DynamicShaper<SampleType>::setBallisticFilterType(
     EnvCalculationType newType)
 {
-    if (balFilterType == newType)
-        return;
     balFilterType = newType;
     envelopeFilter.setLevelCalculationType(balFilterType);
 }
@@ -56,8 +54,6 @@ template<typename SampleType>
 void DynamicShaper<SampleType>::setChannelAggregationType(
     ChannelAggregationType newType)
 {
-    if (channelAggregationType == newType)
-        return;
     channelAggregationType = newType;
     envelopeFilter.reset();
 }
@@ -87,9 +83,9 @@ void DynamicShaper<SampleType>::setGain(SampleType newGain)
 
 template<typename SampleType>
 void DynamicShaper<SampleType>::setKneeParameters(
-    SampleType newThreshold, 
-    SampleType newRatio, 
-    SampleType newWidthDb, 
+    SampleType newThreshold,
+    SampleType newRatio,
+    SampleType newWidthDb,
     int kneeIndex)
 {
     updateOneKneeParameters(newThreshold, newRatio, newWidthDb, kneeIndex);
@@ -117,7 +113,7 @@ void DynamicShaper<SampleType>::setCompParameters(
 
 template <typename SampleType>
 SampleType DynamicShaper<SampleType>::processSample(
-    int channel, 
+    int channel,
     SampleType inputValue)
 {
     auto env = envelopeFilter.processSample(channel, inputValue);
@@ -126,7 +122,7 @@ SampleType DynamicShaper<SampleType>::processSample(
 
 template<typename SampleType>
 std::pair<SampleType, SampleType> DynamicShaper<SampleType>::processStereoSample(
-    SampleType inputValue0, 
+    SampleType inputValue0,
     SampleType inputValue1)
 {
     auto env = calculateStereoEnv(inputValue0, inputValue1);
@@ -137,7 +133,7 @@ std::pair<SampleType, SampleType> DynamicShaper<SampleType>::processStereoSample
 
 template<typename SampleType>
 SampleType DynamicShaper<SampleType>::calculateEnv(
-    int channel, 
+    int channel,
     SampleType inputValue)
 {
     return envelopeFilter.processSample(channel, inputValue);
@@ -145,7 +141,7 @@ SampleType DynamicShaper<SampleType>::calculateEnv(
 
 template<typename SampleType>
 std::pair<SampleType, SampleType> DynamicShaper<SampleType>::calculateStereoEnv(
-    SampleType inputValue0, 
+    SampleType inputValue0,
     SampleType inputValue1)
 {
     switch (channelAggregationType)
@@ -229,14 +225,14 @@ void DynamicShaper<SampleType>::updateOneKneeParameters(
 {
     jassert(
         kneeIndex >= 0 &&
-        kneeIndex < size && 
-        newThreshold <= 0.0 && 
-        newRatio > 0.0 && 
+        kneeIndex < size &&
+        newThreshold <= 0.0 &&
+        newRatio > 0.0 &&
         newWidthDb >= 0.0);
 
-    SampleType prevRatioInverse = 
-        kneeIndex == 0 ? 
-        1.0 : 
+    SampleType prevRatioInverse =
+        kneeIndex == 0 ?
+        1.0 :
         ratioInverseMinusOne[kneeIndex - 1] + 1.0;
 
     SampleType newKneeWidth = newWidthDb >= minKneeWidth ? newWidthDb : 0;

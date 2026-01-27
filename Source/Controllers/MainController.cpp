@@ -114,8 +114,6 @@ void MainController::onResetButtonClicked()
         setParameter(ratioId + iStr, ratioRange, r);
         setParameter(kneeWidthId + iStr, kneeWidthRange, kw);
     }
-
-    processor.setNeedUpdate();
 }
 
 void MainController::endCollectingData(bool saveData, bool resetButtonsState)

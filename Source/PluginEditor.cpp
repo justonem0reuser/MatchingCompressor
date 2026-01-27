@@ -86,16 +86,6 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     freeFormCurve->setData(empty);
     freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberComboBox.getSelectedId());
     
-    std::function<void()> updateProcessor = [&]
-        {
-            audioProcessor.setNeedUpdate();
-        };
-    std::function<void()> updateProcessorAndCurve = [&]
-        {
-            freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberComboBox.getSelectedId());
-            audioProcessor.setNeedUpdate();
-        };
-
     thresholdSlider.onValueChange = [&]
         {
             if (thresholdSlider.getIsParameterChanging())
@@ -104,7 +94,6 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
             int checkedButtonIndex = getCheckedButtonIndex();
             if (checkedButtonIndex >= 0)
                 updateSlidersBounds(checkedButtonIndex, false, true);
-            audioProcessor.setNeedUpdate();
         };
     kneeWidthSlider.onValueChange = [&]
         {
@@ -114,25 +103,18 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
             int checkedButtonIndex = getCheckedButtonIndex();
             if (checkedButtonIndex >= 0)
                 updateSlidersBounds(checkedButtonIndex, true, false);
-            audioProcessor.setNeedUpdate();
         };
     ratioSlider.onValueChange = [&]
         {
             if (ratioSlider.getIsParameterChanging())
                 return;
             freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberComboBox.getSelectedId());
-            audioProcessor.setNeedUpdate();
         };
 
     gainSlider.onValueChange = [&]
         {
             freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberComboBox.getSelectedId());
-            audioProcessor.setNeedUpdate();
         };
-    attackSlider.onValueChange = updateProcessor;
-    releaseSlider.onValueChange = updateProcessor;
-    balFilterTypeComboBox.onChange = updateProcessor;
-    channelAggregationTypeComboBox.onChange = updateProcessor;
     kneesNumberComboBox.onChange = [&]
         {
             updateKneeIndexButtonsVisibility();
@@ -140,7 +122,6 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
             int checkedButtonIndex = getCheckedButtonIndex();
             if (checkedButtonIndex >= 0)
                 updateSlidersBounds(checkedButtonIndex, true, true);
-            audioProcessor.setNeedUpdate();
         };
     
     int selectedId = kneesNumberComboBox.getSelectedId();
