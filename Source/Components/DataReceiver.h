@@ -1,7 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
 #include "BaseDataReceiver.h"
-#include "../Data/MatchingData.h"
 
 class DataReceiver : 
 	public juce::Component, 
@@ -30,7 +29,14 @@ public:
 	void resized() override;
 
 private:
-	const juce::String filePatterns = "*.aif;*.aiff;*.flac;*.ogg;*.wav;*.wma";
+
+#if JUCE_WINDOWS
+	const juce::String filePatterns = "*.wav;*.aif;*.aiff;*.flac;*.ogg;*.mp3;*.wma";
+#elif JUCE_MAC
+	const juce::String filePatterns = "*.wav;*.aif;*.aiff;*.flac;*.ogg;*.mp3;*.m4a";
+#else // JUCE_LINUX
+	const juce::String filePatterns = "*.wav;*.aif;*.aiff;*.flac;*.ogg";
+#endif
 
 	const int buttonHeight = 40;
 	const int labelHeight = 10;
