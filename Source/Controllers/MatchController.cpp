@@ -1,8 +1,5 @@
 #include "MatchController.h"
-#include "../ParamsCalculator/CompParamsCalculatorNoEnv.h"
-#include "../ParamsCalculator/CompParamsCalculatorEnv1D.h"
-#include "../ParamsCalculator/CompParamsCalculatorEnv2D.h"
-#include "../Data/Messages.h"
+#include "../ParamsCalculator/CompParamsCalculatorFactory.h"
 
 MatchController::MatchController(
 	BaseMatchView* matchView, 
@@ -42,25 +39,10 @@ DataReceiverController& MatchController::getDataReceiverController()
 
 void MatchController::calculateCompressorParameters()
 {
-    // choosing an algorithm
-    float attackMs = matchingData.properties.getProperty(setAttackId);
-    float releaseMs = matchingData.properties.getProperty(setReleaseId);
-    int channelAggregationTypeInt = matchingData.properties.getProperty(setChannelAggregationTypeId);
-    int gainRegionsNumber = matchingData.properties.getProperty(setGainRegionsNumberId);
-
     std::vector<std::vector<float>> refSamples, destSamples;
     double refSampleRate, destSampleRate;
     dataReceiverController.getReceivedData(refSamples, refSampleRate, destSamples, destSampleRate);
-
-    std::unique_ptr<CompParamsCalculator> calculator;
-    if (attackMs == 0 && releaseMs == 0 &&
-        (destSamples.size() == 1 || channelAggregationTypeInt == 1))
-        calculator.reset(new CompParamsCalculatorNoEnv());
-    else if (destSamples[0].size() * destSamples.size() < gainRegionsNumber)
-        calculator.reset(new CompParamsCalculatorEnv1D());
-    else
-        calculator.reset(new CompParamsCalculatorEnv2D());
-
+    auto calculator = CompParamsCalculatorFactory::create(destSamples, matchingData.properties);
     matchingData.calculatedCompParams = calculator->calculateCompressorParameters(
         refSamples, refSampleRate,
         destSamples, destSampleRate,

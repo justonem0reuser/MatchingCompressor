@@ -157,6 +157,7 @@ target_sources(MatchingCompressor
     "Source/Data/MatchingData.cpp"
     "Source/MatchWindow.cpp"
     "Source/ParamsCalculator/CompParamsCalculator.cpp"
+    "Source/ParamsCalculator/CompParamsCalculatorFactory.cpp"
     "Source/ParamsCalculator/CompParamsCalculatorEnv.cpp"
     "Source/ParamsCalculator/CompParamsCalculatorEnv1D.cpp"
     "Source/ParamsCalculator/CompParamsCalculatorEnv2D.cpp"
