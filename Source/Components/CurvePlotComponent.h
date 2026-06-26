@@ -9,11 +9,7 @@ public:
     constexpr static float margin = 5.f;
     constexpr static float plotMargin = 30.f;
 
-    CurvePlotComponent(
-        const juce::Colour gridColour,
-        const juce::Colour calculatedCurveColor,
-        const juce::Colour actualCurveColor,
-        const juce::Colour thresholdVerticalLineColor);
+    CurvePlotComponent();
 
     void setData(std::vector<float>& compParams);
     void updateActualParameters(
@@ -24,8 +20,6 @@ public:
 private:
     const float plotThreshold = -60.f;
     const float dashedLineLengths[2] { 4, 4 };
-
-    juce::Colour calculatedCurveColor, actualCurveColor, thresholdVerticalLineColor;
 
     std::vector<float> actualCompParams, calculatedCompParams;
     juce::Path actualCompCurve, calculatedCompCurve;

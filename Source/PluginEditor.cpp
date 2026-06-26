@@ -1,12 +1,10 @@
 #pragma once
 #include "PluginEditor.h"
-#include "ParamsCalculator/CompParamsCalculatorEnv1D.h"
-#include "ParamsCalculator/CompParamsCalculatorEnv2D.h"
-#include "ParamsCalculator/CompParamsCalculatorNoEnv.h"
 #include "Components/ComponentInitializerHelper.h"
 #include "Data/Messages.h"
 #include "Data/Ranges.h"
-#include "Data/Colours.h"
+#include "LookAndFeel/MCDefaultLookAndFeel.h"
+#include "LookAndFeel/MCAltLookAndFeel.h"
 
 MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     MatchCompressorAudioProcessor& p)
@@ -23,32 +21,26 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     releaseSlider(audioProcessor.apvts, releaseId),
     toolButton("matchButton"),
     groupRect(0.f, 0.f, 0.f, 0.f),
-    leftPanelBackground(juce::ImageCache::getFromMemory(
-        BinaryData::background_jpg,
-        BinaryData::background_jpgSize)),
-    rightPanelBackground(juce::ImageCache::getFromMemory(
-        BinaryData::plotBackground_jpg,
-        BinaryData::plotBackground_jpgSize)),
+    laf(std::make_unique<MCAltLookAndFeel>()),
     standardRotaryParameters(gainSlider.getRotaryParameters())
 {
-    juce::LookAndFeel::setDefaultLookAndFeel(&laf);
-
-    auto toolImage = juce::ImageCache::getFromMemory(
-        BinaryData::tool_png, BinaryData::tool_pngSize);
-    auto toolImageHover = juce::ImageCache::getFromMemory(
-        BinaryData::toolhover_png, BinaryData::toolhover_pngSize);
-    toggleOffImage = juce::ImageCache::getFromMemory(
-        BinaryData::toggleoff_png,
-        BinaryData::toggleoff_pngSize);
-    toggleOnImage = juce::ImageCache::getFromMemory(
-        BinaryData::toggleon_png,
-        BinaryData::toggleon_pngSize);
-
-    toolButton.setImages(true, true, true,
-        toolImage, 1.0f, juce::Colours::transparentWhite,
-        toolImageHover, 1.0f, juce::Colours::transparentWhite,
-        toolImageHover, 1.0f, juce::Colours::transparentWhite);
+    juce::LookAndFeel::setDefaultLookAndFeel(laf.get());
+    
+    laf->setupToolButton(toolButton);
     toolButton.onClick = [this] { toolButtonClicked(); };
+
+    minimalThemeButton.setButtonText(minimalThemeStr);
+    brutalThemeButton.setButtonText(brutalThemeStr);
+    minimalThemeButton.setConnectedEdges(juce::Button::ConnectedOnBottom);
+    brutalThemeButton.setConnectedEdges(juce::Button::ConnectedOnTop);
+    for (auto* themeButton : { &minimalThemeButton, &brutalThemeButton })
+    {
+        themeButton->setClickingTogglesState(true);
+        themeButton->setRadioGroupId(2, juce::NotificationType::dontSendNotification);
+        themeButton->onClick = [this] { themeButtonClicked(); };
+        addAndMakeVisible(*themeButton);
+    }
+    minimalThemeButton.setToggleState(true, juce::NotificationType::dontSendNotification);
 
     ComponentInitializerHelper::initTextButton(
         this, 
@@ -62,11 +54,7 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     for (int i = 0; i < kneeIndexButtons.size(); i++)
     {
         kneeIndexButtons[i] = std::make_unique<juce::ImageButton>(btnName + std::to_string(i));
-        kneeIndexButtons[i]->setImages(false, true, true,
-            toggleOffImage, 1.0f, juce::Colours::transparentWhite,
-            toggleOffImage, 1.0f, juce::Colours::transparentWhite,
-            toggleOnImage, 1.0f, juce::Colours::transparentWhite);
-        kneeIndexButtons[i]->setClickingTogglesState(true);
+        laf->setupKneeIndexButton(*kneeIndexButtons[i]);
         kneeIndexButtons[i]->setRadioGroupId(1, juce::NotificationType::dontSendNotification);
         kneeIndexButtons[i]->onClick = [this] { updateAttachments(); };
         addAndMakeVisible(*kneeIndexButtons[i]);
@@ -77,11 +65,7 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
         addAndMakeVisible(*kneeIndexLabels[i]);
     }
 
-    freeFormCurve = std::make_unique<CurvePlotComponent>(
-        juce::Colours::white,
-        calculatedCompCurveColour,
-        actualCompCurveColour,
-        thresholdVerticalLineColour);
+    freeFormCurve = std::make_unique<CurvePlotComponent>();
     std::vector<float> empty;
     freeFormCurve->setData(empty);
     freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberComboBox.getSelectedId());
@@ -130,6 +114,7 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     kneesNumberComboBox.setSelectedId(selectedId);
     kneesNumberComboBox.repaint();
 
+    auto controlBackgroundColour = findColour(MCLookAndFeel::controlBackgroundColourId);
     kneesNumberComboBox.setColour(juce::ComboBox::backgroundColourId, controlBackgroundColour);
     balFilterTypeComboBox.setColour(juce::ComboBox::backgroundColourId, controlBackgroundColour);
     channelAggregationTypeComboBox.setColour(juce::ComboBox::backgroundColourId, controlBackgroundColour);
@@ -175,23 +160,16 @@ MatchCompressorAudioProcessorEditor::~MatchCompressorAudioProcessorEditor()
 void MatchCompressorAudioProcessorEditor::paint(juce::Graphics& g)
 {
     auto localBounds = getLocalBounds().toFloat();
-    auto leftPanelBounds = localBounds;
-    auto leftImageBounds = leftPanelBackground.getBounds();
-    leftPanelBounds.removeFromRight(
-        localBounds.getWidth() - leftImageBounds.getWidth() * localBounds.getHeight() / leftImageBounds.getHeight());
-    g.drawImage(leftPanelBackground, leftPanelBounds);
-
     auto rightPanelBounds = localBounds.removeFromRight(rightPanelWidth);
-    g.drawImage(rightPanelBackground, rightPanelBounds);
-    g.setColour(controlBackgroundColour);
-    g.fillRect(rightPanelBounds);
+    laf->drawLeftPanelBackground(g, localBounds);
+    laf->drawRightPanelBackground(g, rightPanelBounds);
 
-    g.setColour(panelVerticalLineColour);
+    g.setColour(findColour(MCLookAndFeel::panelVerticalLineColourId));
     g.drawLine(rightPanelBounds.getX(), 0, rightPanelBounds.getX(), localBounds.getHeight(), 4);
 
     if (kneeIndexButtons[0]->isVisible())
     {
-        g.setColour(groupRectColour);
+        g.setColour(findColour(MCLookAndFeel::groupRectColourId));
         g.drawRoundedRectangle(groupRect, 10.f, 1.f);
     }
 }
@@ -229,6 +207,11 @@ void MatchCompressorAudioProcessorEditor::resized()
     bounds.removeFromTop(margin);
 
     toolButton.setBounds(bounds.getRight() - matchButtonSize, bounds.getY(), matchButtonSize, matchButtonSize);
+
+    const int themeButtonHeight = matchButtonSize / 2;
+    minimalThemeButton.setBounds(bounds.getX(), bounds.getY(), themeButtonWidth, themeButtonHeight);
+    brutalThemeButton.setBounds(bounds.getX(), bounds.getY() + themeButtonHeight, themeButtonWidth, themeButtonHeight);
+
     bounds.removeFromTop(matchButtonSize + 2 * margin);
     groupRect.setX(bounds.getX() - margin + 1);
     groupRect.setY(bounds.getY() - margin + 1);
@@ -445,4 +428,35 @@ void MatchCompressorAudioProcessorEditor::toolButtonClicked()
     juce::NullCheckedInvocation::invoke(ToolButtonClicked);
     matchWindow->toFront(true);
     matchWindow->setVisible(true);
+}
+
+void MatchCompressorAudioProcessorEditor::themeButtonClicked()
+{
+    if (brutalThemeButton.getToggleState())
+        applyTheme(std::make_unique<MCDefaultLookAndFeel>());
+    else
+        applyTheme(std::make_unique<MCAltLookAndFeel>());
+}
+
+void MatchCompressorAudioProcessorEditor::applyTheme(std::unique_ptr<MCLookAndFeel> newLaf)
+{
+    matchWindow->resetLookAndFeel();
+    juce::LookAndFeel::setDefaultLookAndFeel(newLaf.get());
+    laf = std::move(newLaf);
+
+    laf->setupToolButton(toolButton);
+    for (auto& kneeIndexButton : kneeIndexButtons)
+        laf->setupKneeIndexButton(*kneeIndexButton);
+
+    auto controlBackgroundColour = findColour(MCLookAndFeel::controlBackgroundColourId);
+    kneesNumberComboBox.setColour(juce::ComboBox::backgroundColourId, controlBackgroundColour);
+    balFilterTypeComboBox.setColour(juce::ComboBox::backgroundColourId, controlBackgroundColour);
+    channelAggregationTypeComboBox.setColour(juce::ComboBox::backgroundColourId, controlBackgroundColour);
+
+    sendLookAndFeelChange();
+
+    matchWindow->setBackgroundColour(findColour(MCLookAndFeel::documentWindowBackgroundColourId));
+    matchWindow->sendLookAndFeelChange();
+
+    repaint();
 }

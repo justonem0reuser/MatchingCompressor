@@ -1,6 +1,6 @@
 #include "MatchWindow.h"
 #include "Data/Messages.h"
-#include "Data/Colours.h"
+#include "LookAndFeel/MCLookAndFeel.h"
 
 MatchWindow::MatchWindow(
     juce::ValueTree& properties,
@@ -9,7 +9,8 @@ MatchWindow::MatchWindow(
     bool isSidechainConnected):
     DocumentWindow(
         matchWindowTitleStr,
-        documentWindowBackgroundColour,
+        juce::LookAndFeel::getDefaultLookAndFeel().findColour(
+            MCLookAndFeel::documentWindowBackgroundColourId),
         juce::DocumentWindow::TitleBarButtons::closeButton,
         true),
     component(

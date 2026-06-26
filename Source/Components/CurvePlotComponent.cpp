@@ -1,20 +1,11 @@
 #include "CurvePlotComponent.h"
 #include "../Data/Messages.h"
 
-CurvePlotComponent::CurvePlotComponent(
-    const juce::Colour gridColour,
-    const juce::Colour calculatedCurveColor,
-    const juce::Colour actualCurveColor,
-    const juce::Colour thresholdVerticalLineColor):
-PlotWithCoordinateSystemComponent(
+CurvePlotComponent::CurvePlotComponent() :
+    PlotWithCoordinateSystemComponent(
         margin, margin, margin, margin,
         plotMargin, plotMargin, plotMargin, plotMargin,
-        "dB", "dB",
-        juce::Colours::black, // will not be used
-        gridColour),
-    calculatedCurveColor(calculatedCurveColor),
-    actualCurveColor(actualCurveColor),
-    thresholdVerticalLineColor(thresholdVerticalLineColor)
+        "dB", "dB")
 {
 }
 
@@ -66,14 +57,14 @@ void CurvePlotComponent::paint(juce::Graphics& g)
         std::vector<juce::Point<float>> kneePoints;
 
         calculatedCompCurve = calculateCurve(calculatedCompParams, kneePoints);
-        g.setColour(calculatedCurveColor);
+        g.setColour(findColour(MCLookAndFeel::calculatedCompCurveColourId));
         g.strokePath(calculatedCompCurve, juce::PathStrokeType(1.f));
 
         actualCompCurve = calculateCurve(actualCompParams, kneePoints);
-        g.setColour(actualCurveColor);
+        g.setColour(findColour(MCLookAndFeel::actualCompCurveColourId));
         g.strokePath(actualCompCurve, juce::PathStrokeType(3.f));
 
-        g.setColour(thresholdVerticalLineColor);
+        g.setColour(findColour(MCLookAndFeel::thresholdVerticalLineColourId));
         for (int i = 1; i < actualCompParams.size(); i += 3)
         {
             auto x = mapX(actualCompParams[i]);

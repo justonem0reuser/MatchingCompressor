@@ -1,5 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
+#include "../LookAndFeel/MCLookAndFeel.h"
 
 class PlotWithCoordinateSystemComponent : public juce::Component
 {
@@ -9,9 +10,7 @@ public:
         float topMargin, float bottomMargin,
         float leftPlotMargin, float rightPlotMargin, 
         float topPlotMargin, float bottomPlotMargin,
-        juce::String xUnit, juce::String yUnit,
-        juce::Colour backgroundColour,
-        juce::Colour drawingColour);
+        juce::String xUnit, juce::String yUnit);
 
     void initialize(
         float inputXMin, float inputXMax,
@@ -29,7 +28,6 @@ protected:
         leftMargin, rightMargin, topMargin, bottomMargin,
         leftPlotMargin, rightPlotMargin, topPlotMargin, bottomPlotMargin;
     juce::String xUnit, yUnit;
-    juce::Colour backgroundColour, drawingColour;
     bool isReadyToDraw = false;
 
     float mapX(float x) const;

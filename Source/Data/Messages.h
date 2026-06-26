@@ -12,7 +12,9 @@ const juce::String
 	refSetFromFileStr = "Reference is set from file",
 	destSetFromFileStr = "Destination is set from file",
 	refSetFromBusStr = "Reference is set from sidechain bus",
-	destSetFromBusStr = "Destination is set from main bus";
+	destSetFromBusStr = "Destination is set from main bus",
+	minimalThemeStr = "Minimal style",
+	brutalThemeStr = "Brutal style";
 	
 // exceptions
 const juce::String

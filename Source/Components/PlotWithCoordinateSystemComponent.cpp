@@ -5,15 +5,12 @@ PlotWithCoordinateSystemComponent::PlotWithCoordinateSystemComponent(
 	float topMargin, float bottomMargin,
 	float leftPlotMargin, float rightPlotMargin,
 	float topPlotMargin, float bottomPlotMargin,
-	juce::String xUnit, juce::String yUnit,
-	juce::Colour backgroundColour,
-	juce::Colour drawingColour):
+	juce::String xUnit, juce::String yUnit):
 	leftMargin(leftMargin), rightMargin(rightMargin),
 	topMargin(topMargin), bottomMargin(bottomMargin),
 	leftPlotMargin(leftPlotMargin), rightPlotMargin(rightPlotMargin),
 	topPlotMargin(topPlotMargin), bottomPlotMargin(bottomPlotMargin),
-	xUnit(xUnit), yUnit(yUnit),
-	backgroundColour(backgroundColour),	drawingColour(drawingColour)
+	xUnit(xUnit), yUnit(yUnit)
 { 
 	jassert(leftMargin >= 0.f && rightMargin >= 0.f &&
 		topMargin >= 0.f && bottomMargin >= 0.f &&
@@ -44,7 +41,7 @@ void PlotWithCoordinateSystemComponent::paint(juce::Graphics& g)
 	{
 		juce::Line<float> xAxis(graphXMin, graphYMin, graphXMax, graphYMin),
 			yAxis(graphXMin, graphYMin, graphXMin, graphYMax);
-		g.setColour(drawingColour);
+		g.setColour(findColour(MCLookAndFeel::plotGridColourId));
 		g.drawArrow(xAxis, 1.f, 5.f, 15.f);
 		g.drawArrow(yAxis, 1.f, 5.f, 15.f);
 		g.drawSingleLineText(xUnit, outputXMax - rightMargin - 15, outputYMin - bottomMargin - 2);
@@ -108,5 +105,5 @@ juce::Rectangle<int> PlotWithCoordinateSystemComponent::getDrawingArea()
 
 void PlotWithCoordinateSystemComponent::paintBackground(juce::Graphics& g)
 {
-	g.fillAll(backgroundColour);
+	g.fillAll(findColour(MCLookAndFeel::plotBackgroundColourId));
 }

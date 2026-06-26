@@ -57,16 +57,44 @@
       </GROUP>
     </GROUP>
     <GROUP id="{5675DB9D-B5E2-B4A5-632E-BB7947CCDD4A}" name="Assets">
-      <FILE id="M739Z2" name="background.jpg" compile="0" resource="1" file="Assets/background.jpg"/>
-      <FILE id="vBx2Zp" name="plotBackground.jpg" compile="0" resource="1"
-            file="Assets/plotBackground.jpg"/>
-      <FILE id="KHYb7j" name="slider.png" compile="0" resource="1" file="Assets/slider.png"/>
-      <FILE id="qRppCt" name="toggle-off.png" compile="0" resource="1" file="Assets/toggle-off.png"/>
-      <FILE id="OcLPmE" name="toggle-on.png" compile="0" resource="1" file="Assets/toggle-on.png"/>
-      <FILE id="YScN0A" name="tool-hover.png" compile="0" resource="1" file="Assets/tool-hover.png"/>
-      <FILE id="wct685" name="tool.png" compile="0" resource="1" file="Assets/tool.png"/>
+      <FILE id="yF81VD" name="background_brutal.jpg" compile="0" resource="1"
+            file="Assets/background_brutal.jpg"/>
+      <FILE id="nRJBVG" name="plotBackground_brutal.jpg" compile="0" resource="1"
+            file="Assets/plotBackground_brutal.jpg"/>
+      <FILE id="uGWxNJ" name="slider_brutal.png" compile="0" resource="1"
+            file="Assets/slider_brutal.png"/>
+      <FILE id="OwyK3n" name="slider_minimal.png" compile="0" resource="1"
+            file="Assets/slider_minimal.png"/>
+      <FILE id="IZV7kL" name="toggle-off_brutal.png" compile="0" resource="1"
+            file="Assets/toggle-off_brutal.png"/>
+      <FILE id="jjICm9" name="toggle-off_minimal.png" compile="0" resource="1"
+            file="Assets/toggle-off_minimal.png"/>
+      <FILE id="lk2KFp" name="toggle-on_brutal.png" compile="0" resource="1"
+            file="Assets/toggle-on_brutal.png"/>
+      <FILE id="gPrW26" name="toggle-on_minimal.png" compile="0" resource="1"
+            file="Assets/toggle-on_minimal.png"/>
+      <FILE id="cP4hrK" name="tool-hover_brutal.png" compile="0" resource="1"
+            file="Assets/tool-hover_brutal.png"/>
+      <FILE id="muvr1O" name="tool-hover_minimal.png" compile="0" resource="1"
+            file="Assets/tool-hover_minimal.png"/>
+      <FILE id="mE3zIi" name="tool_brutal.png" compile="0" resource="1" file="Assets/tool_brutal.png"/>
+      <FILE id="CYY8NP" name="tool_minimal.png" compile="0" resource="1"
+            file="Assets/tool_minimal.png"/>
     </GROUP>
     <GROUP id="{7CE26C6F-DCFE-0FFF-2DD4-22B14B317F53}" name="Source">
+      <GROUP id="{6D40AA33-81AA-BA49-E2E0-CF7BB8E2B17F}" name="LookAndFeel">
+        <FILE id="xqnB39" name="MCAltLookAndFeel.cpp" compile="1" resource="0"
+              file="Source/LookAndFeel/MCAltLookAndFeel.cpp"/>
+        <FILE id="pdo4W3" name="MCAltLookAndFeel.h" compile="0" resource="0"
+              file="Source/LookAndFeel/MCAltLookAndFeel.h"/>
+        <FILE id="IBZinR" name="MCDefaultLookAndFeel.cpp" compile="1" resource="0"
+              file="Source/LookAndFeel/MCDefaultLookAndFeel.cpp"/>
+        <FILE id="blWX6P" name="MCDefaultLookAndFeel.h" compile="0" resource="0"
+              file="Source/LookAndFeel/MCDefaultLookAndFeel.h"/>
+        <FILE id="rq24Wc" name="MCLookAndFeel.cpp" compile="1" resource="0"
+              file="Source/LookAndFeel/MCLookAndFeel.cpp"/>
+        <FILE id="sZzVEU" name="MCLookAndFeel.h" compile="0" resource="0" file="Source/LookAndFeel/MCLookAndFeel.h"/>
+      </GROUP>
       <GROUP id="{B7E8BE26-1E1D-404B-3AB5-C88B8642FCA7}" name="Utilites">
         <FILE id="OGVfKp" name="AudioFileReader.cpp" compile="1" resource="0"
               file="Source/Utilities/AudioFileReader.cpp"/>
@@ -94,7 +122,6 @@
               file="Source/Controllers/MatchController.h"/>
       </GROUP>
       <GROUP id="{A0AACCEF-A4AA-DF7C-86DA-7033C6A25E70}" name="Data">
-        <FILE id="g30WKt" name="Colours.h" compile="0" resource="0" file="Source/Data/Colours.h"/>
         <FILE id="dQkhun" name="CurveBounds.h" compile="0" resource="0" file="Source/Data/CurveBounds.h"/>
         <FILE id="whgmnU" name="CurveData.h" compile="0" resource="0" file="Source/Data/CurveData.h"/>
         <FILE id="ivUolZ" name="MatchingData.cpp" compile="1" resource="0"
@@ -185,9 +212,6 @@
         <FILE id="rOMnY8" name="ToggleButtonWithAttachment.h" compile="0" resource="0"
               file="Source/Components/ToggleButtonWithAttachment.h"/>
       </GROUP>
-      <FILE id="dvV4uP" name="MCLookAndFeel.cpp" compile="1" resource="0"
-            file="Source/MCLookAndFeel.cpp"/>
-      <FILE id="lCiowY" name="MCLookAndFeel.h" compile="0" resource="0" file="Source/MCLookAndFeel.h"/>
       <FILE id="zvGHPU" name="MatchWindow.cpp" compile="1" resource="0" file="Source/MatchWindow.cpp"/>
       <FILE id="PsOzHm" name="MatchWindow.h" compile="0" resource="0" file="Source/MatchWindow.h"/>
       <FILE id="qgQSHZ" name="PluginProcessor.cpp" compile="1" resource="0"

@@ -165,20 +165,27 @@ target_sources(MatchingCompressor
     "Source/ParamsCalculator/QuantilesCalculator.cpp"
     "Source/PluginEditor.cpp"
     "Source/PluginProcessor.cpp"
-    "Source/MCLookAndFeel.cpp"
+    "Source/LookAndFeel/MCLookAndFeel.cpp"
+    "Source/LookAndFeel/MCDefaultLookAndFeel.cpp"
+    "Source/LookAndFeel/MCAltLookAndFeel.cpp"
     "Source/Utilities/AudioFileReader.cpp"
     "Source/Utilities/CurveCalculator.cpp"
 )
 
 juce_add_binary_data(MatchingCompressor_BinaryData
   SOURCES
-    "Assets/background.jpg"
-    "Assets/plotBackground.jpg"
-    "Assets/slider.png"
-    "Assets/toggle-off.png"
-    "Assets/toggle-on.png"
-    "Assets/tool-hover.png"
-    "Assets/tool.png"
+    "Assets/slider_minimal.png"
+    "Assets/toggle-off_minimal.png"
+    "Assets/toggle-on_minimal.png"
+    "Assets/tool-hover_minimal.png"
+    "Assets/tool_minimal.png"
+    "Assets/slider_brutal.png"
+    "Assets/toggle-off_brutal.png"
+    "Assets/toggle-on_brutal.png"
+    "Assets/tool-hover_brutal.png"
+    "Assets/tool_brutal.png"
+    "Assets/background_brutal.jpg"
+    "Assets/plotBackground_brutal.jpg"
 )
 
 target_link_libraries(MatchingCompressor

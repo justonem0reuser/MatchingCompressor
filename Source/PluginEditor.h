@@ -2,16 +2,13 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include "MCLookAndFeel.h"
 #include "MatchWindow.h"
 #include "Components/CurvePlotComponent.h"
 #include "Components/SliderWithAttachment.h"
 #include "Components/ComboBoxWithAttachment.h"
 #include "Components/BaseMainView.h"
-#include "Controllers/MatchController.h"
-#include "Data/CurveData.h"
-#include "Data/CurveBounds.h"
 #include "Controllers/MainController.h"
+#include "LookAndFeel/MCLookAndFeel.h"
 
 //==============================================================================
 class MatchCompressorAudioProcessorEditor : 
@@ -39,6 +36,7 @@ private:
     const int comboBoxHeight = 25;
     const int labelWidth = 50;
     const int resetButtonHeight = 30;
+    const int themeButtonWidth = 100;
 
     MatchCompressorAudioProcessor& audioProcessor;
 
@@ -49,6 +47,7 @@ private:
     // Components
     juce::ImageButton toolButton;
     juce::TextButton resetButton;
+    juce::TextButton brutalThemeButton, minimalThemeButton;
     std::array<std::unique_ptr<juce::ImageButton>, DynamicShaper<float>::maxKneesNumber> kneeIndexButtons;
     std::array<std::unique_ptr<juce::Label>, DynamicShaper<float>::maxKneesNumber> kneeIndexLabels;
     juce::Label
@@ -69,18 +68,15 @@ private:
     std::unique_ptr<CurvePlotComponent> freeFormCurve;
 
     // Look and feel properties
-    MCLookAndFeel laf;
-    juce::Image
-        leftPanelBackground,
-        rightPanelBackground,
-        toggleOffImage,
-        toggleOnImage;
+    std::unique_ptr<MCLookAndFeel> laf;
     juce::Rectangle<float> groupRect;
     juce::Slider::RotaryParameters standardRotaryParameters; // this should be after sliders because of the initializing order
 
     void createController();
     void resetToCalculatedData();
     void toolButtonClicked();
+    void themeButtonClicked();
+    void applyTheme(std::unique_ptr<MCLookAndFeel> newLaf);
 
     // Sliders and knee index buttons manipulating
     int getCheckedButtonIndex();
