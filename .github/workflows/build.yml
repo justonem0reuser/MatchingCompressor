@@ -60,7 +60,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path build
           cd build
-          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DVERSION="${{ needs.set-version.outputs.version }}"
+          cmake .. -G "Visual Studio 18 2026" -A x64 -DCMAKE_BUILD_TYPE=Release -DVERSION="${{ needs.set-version.outputs.version }}"
 
       - name: Build Project
         run: |
