@@ -65,12 +65,12 @@ void CompParamsCalculatorEnv2D::calculateEnvelopeStatistics(
     dynamicProcessor.reset();
 }
 
-std::vector<int> CompParamsCalculatorEnv2D::calculateYDensity(
+std::vector<double> CompParamsCalculatorEnv2D::calculateYDensity(
     const alglib::real_1d_array& params)
 {
     auto size = (int)xEnvTable.cols();
     float delta = 1.f / size;
-    std::vector<int> res(size, 0);
+    std::vector<double> res(size, 0.0);
     setCompParameters(params);
 
     for (auto i = 0; i < size; i++)
@@ -78,16 +78,12 @@ std::vector<int> CompParamsCalculatorEnv2D::calculateYDensity(
         float x = (i + 0.5f) * delta; // recalculate each step to increase precision
         for (auto j = 0; j < size; j++)
         {
-            if (xEnvTable[i][j] != 0)
+            auto weight = xEnvTable[i][j];
+            if (weight != 0)
             {
                 float env = (j + 0.5f) * delta;
                 float y = dynamicProcessor.calculateGain(x, env);
-                auto index = (int)(std::fabs(y) * size);
-                if (index < 0) // for overflow
-                    index = size - 1;
-                else
-                    index = std::min((int)(std::fabs(y) * size), size - 1);
-                res[index] += xEnvTable[i][j];
+                QuantilesCalculator::putToBeans(y, res, weight);
             }
         }
     }

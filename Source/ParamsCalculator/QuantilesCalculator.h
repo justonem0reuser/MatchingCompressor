@@ -10,16 +10,18 @@ public:
         int quantilesNumber);
     
     static std::vector<float> density2Quantiles(
-        std::vector<int>& density,
+        std::vector<double>& density,
         int size,
         int samplesNumber);
+
+    static void putToBeans(float value, std::vector<double>& beans, int weight);
 
 private:
     static std::vector<float> calculateQuantilesPrecise(
         std::vector<std::vector<float>>& input,
         int quantilesNumber);
 
-    static std::vector<int> calculateDensityFunc(
+    static std::vector<double> calculateDensityFunc(
         std::vector<std::vector<float>>& samples,
         int beanCount);
 };

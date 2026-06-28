@@ -21,5 +21,5 @@ private:
         float attackMs, 
         float releaseMs) override;
 
-    std::vector<int> calculateYDensity(const alglib::real_1d_array& params);
+    std::vector<double> calculateYDensity(const alglib::real_1d_array& params);
 };

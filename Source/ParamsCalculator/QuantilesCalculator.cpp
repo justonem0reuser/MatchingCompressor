@@ -46,29 +46,32 @@ std::vector<float> QuantilesCalculator::calculateQuantilesPrecise(
 }
 
 std::vector<float> QuantilesCalculator::density2Quantiles(
-    std::vector<int>& density,
+    std::vector<double>& density,
     int size,
     int samplesNumber)
 {
-    std::vector<float> res(size);
+    // The internal calculation is performed in double
+    // to prevent accuracy loss for large values.
+    // The result is casted to float.
+    std::vector<float> res(size, 0.0f);
     const int densitySize = density.size();
-    const float densityBeanWidth = 1.f / densitySize;
-    const float qCoeff = samplesNumber / (size + 1.f);
+    const double densityBeanWidth = 1.0 / densitySize;
+    const double qCoeff = samplesNumber / (size + 1.0);
 
     int regionIndex = 0;
-    int cumulativeValue = 0;
-    float quantileValue = (regionIndex + 1.f) * qCoeff;
+    double cumulativeValue = 0.0;
+    double quantileValue = (regionIndex + 1.0) * qCoeff;
 
     for (int i = 0; i < densitySize && regionIndex != size; i++)
     {
-        int nextValue = cumulativeValue + density[i];
+        double nextValue = cumulativeValue + density[i];
         while (nextValue >= quantileValue && regionIndex != size)
         {
-            float leftGain = i * densityBeanWidth;
-            res[regionIndex] = leftGain +
-                densityBeanWidth * (quantileValue - cumulativeValue) / (nextValue - cumulativeValue);
+            double leftGain = i * densityBeanWidth;
+            res[regionIndex] = (float)(leftGain +
+                densityBeanWidth * (quantileValue - cumulativeValue) / (nextValue - cumulativeValue));
             regionIndex++;
-            quantileValue = (regionIndex + 1.f) * qCoeff; // recalculating to avoid precision errors
+            quantileValue = (regionIndex + 1.0) * qCoeff; // recalculating to avoid precision errors
         }
         cumulativeValue = nextValue;
     }
@@ -82,18 +85,30 @@ std::vector<float> QuantilesCalculator::density2Quantiles(
     return res;
 }
 
-std::vector<int> QuantilesCalculator::calculateDensityFunc(
+void QuantilesCalculator::putToBeans(
+    float value, std::vector<double>& beans, int weight)
+{
+    auto count = (int)beans.size();
+    double index = std::clamp(
+        std::fabs((double)value) * count - 0.5,
+        0.0, count - 1.0);
+    double leftBeanIndex = std::floor(index);
+    double rightBeanPart = index - leftBeanIndex;
+    int leftBeanIndexInt = (int)leftBeanIndex;
+    beans[leftBeanIndexInt] += (1.0 - rightBeanPart) * weight;
+    if (leftBeanIndexInt < count - 1)
+        beans[leftBeanIndexInt + 1] += rightBeanPart * weight;
+}
+
+std::vector<double> QuantilesCalculator::calculateDensityFunc(
     std::vector<std::vector<float>>& samples,
     int beanCount)
 {
-    std::vector<int> densFunc(beanCount);
+    std::vector<double> densFunc(beanCount, 0.0);
     auto numChannels = samples.size();
     auto numSamples = samples[0].size();
     for (auto i = 0; i < numChannels; i++)
         for (auto j = 0; j < numSamples; j++)
-        {
-            int index = std::min((int)(std::fabs(samples[i][j]) * beanCount), beanCount - 1);
-            densFunc[index]++;
-        }
+            putToBeans(samples[i][j], densFunc, 1);
     return densFunc;
 }
