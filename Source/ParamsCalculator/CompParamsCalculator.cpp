@@ -87,8 +87,7 @@ std::vector<float> CompParamsCalculator::resArrayToVector(alglib::real_1d_array&
 {
     auto cLength = c.length();
     auto kneesNumber = (cLength - 1) / 3;
-    std::vector<float> res;
-    res.resize(cLength);
+    std::vector<float> res(cLength);
     res[0] = c[0];
     for (auto i = 0; i < kneesNumber; i++)
     {

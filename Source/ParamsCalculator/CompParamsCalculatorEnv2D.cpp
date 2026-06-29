@@ -70,10 +70,7 @@ std::vector<int> CompParamsCalculatorEnv2D::calculateYDensity(
 {
     auto size = (int)xEnvTable.cols();
     float delta = 1.f / size;
-    std::vector<int> res;
-    res.resize(size);
-    for (int i = 0; i < size; i++)
-        res[i] = 0;
+    std::vector<int> res(size, 0);
     setCompParameters(params);
 
     for (auto i = 0; i < size; i++)

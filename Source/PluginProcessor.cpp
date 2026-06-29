@@ -207,6 +207,7 @@ void MatchCompressorAudioProcessor::getStateInformation (juce::MemoryBlock& dest
     tree.addChild(apvts.copyState(), -1, nullptr);
     tree.addChild(matchingData.initProperties.createCopy(), -1, nullptr);
     tree.setProperty("version", stateVersion, nullptr);
+    tree.setProperty("themeIndex", themeIndex, nullptr);
     juce::MemoryOutputStream mos(destData, true);
     tree.writeToStream(mos);
 }
@@ -223,6 +224,8 @@ void MatchCompressorAudioProcessor::setStateInformation(const void* data, int si
         apvts.replaceState(tree);
         return;
     }
+
+    themeIndex = tree.getProperty("themeIndex", 0);
 
     auto params = tree.getChildWithName(apvts.state.getType());
     if (params.isValid())
@@ -377,6 +380,16 @@ void MatchCompressorAudioProcessor::updateCompressorParameters()
 MatchingData& MatchCompressorAudioProcessor::getMatchingData()
 {
     return matchingData;
+}
+
+int MatchCompressorAudioProcessor::getThemeIndex()
+{
+    return themeIndex;
+}
+
+void MatchCompressorAudioProcessor::setThemeIndex(int index)
+{
+    themeIndex = index;
 }
 
 //==============================================================================

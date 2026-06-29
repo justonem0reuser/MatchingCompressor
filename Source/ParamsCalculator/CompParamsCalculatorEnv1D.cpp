@@ -5,10 +5,8 @@ std::vector<float> CompParamsCalculatorEnv1D::calculateFunction(
     std::vector<std::vector<float>>& samples,
     const alglib::real_1d_array& parameters)
 {
-    std::vector<std::vector<float>> y;
     auto size = xEnvPairs.size();
-    y.push_back(std::vector<float>{});
-    y[0].resize(size);
+    std::vector<std::vector<float>> y(1, std::vector<float>(size));
     setCompParameters(parameters);
 
     for (auto i = 0; i < size; i++)

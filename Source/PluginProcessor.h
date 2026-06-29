@@ -84,6 +84,8 @@ public:
     void updateCompressorParameters();
 
     MatchingData& getMatchingData();
+    int getThemeIndex();
+    void setThemeIndex(int index);
 
 private:
     const int stateVersion = 2;
@@ -119,6 +121,8 @@ private:
 
     MatchingData matchingData;
     
+    int themeIndex;
+
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     
     // parameters values displaying and reading

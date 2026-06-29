@@ -40,7 +40,6 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
         themeButton->onClick = [this] { themeButtonClicked(); };
         addAndMakeVisible(*themeButton);
     }
-    minimalThemeButton.setToggleState(true, juce::NotificationType::dontSendNotification);
 
     ComponentInitializerHelper::initTextButton(
         this, 
@@ -145,6 +144,11 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
         audioProcessor.isInputBusConnected(0),
         audioProcessor.isInputBusConnected(1)));
     createController();
+
+    if (audioProcessor.getThemeIndex() == 0)
+        minimalThemeButton.setToggleState(true, juce::NotificationType::sendNotification);
+    else
+        brutalThemeButton.setToggleState(true, juce::NotificationType::sendNotification);
 }
 
 MatchCompressorAudioProcessorEditor::~MatchCompressorAudioProcessorEditor()
@@ -433,9 +437,15 @@ void MatchCompressorAudioProcessorEditor::toolButtonClicked()
 void MatchCompressorAudioProcessorEditor::themeButtonClicked()
 {
     if (brutalThemeButton.getToggleState())
+    {
+        audioProcessor.setThemeIndex(1);
         applyTheme(std::make_unique<MCDefaultLookAndFeel>());
+    }
     else
+    {
+        audioProcessor.setThemeIndex(0);
         applyTheme(std::make_unique<MCAltLookAndFeel>());
+    }
 }
 
 void MatchCompressorAudioProcessorEditor::applyTheme(std::unique_ptr<MCLookAndFeel> newLaf)
