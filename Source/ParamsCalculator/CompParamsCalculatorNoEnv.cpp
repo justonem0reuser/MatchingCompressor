@@ -93,6 +93,7 @@ double CompParamsCalculatorNoEnv::calculateFunctionalAndGradientWithoutFine(
     double func = c[0] + FuncAndGradCalculator::calculateWithoutGain(
         juce::Decibels::gainToDecibels(x[0], minusInfinityDb),
         c,
+        false,
         gradPtr);
     if (gradPtr != nullptr)
         (*gradPtr)[0] = 1.0;

@@ -4,16 +4,28 @@
 #include "../Data/Ranges.h"
 #include "interpolation.h"
 
-std::vector<float>& CompParamsCalculatorEnv::getY(const alglib::real_1d_array& c)
+CompParamsCalculatorEnv::FunctionAndJacobian& CompParamsCalculatorEnv::getYAndJ(
+    const alglib::real_1d_array& c)
 {
     //c : Gain, Threshold, 1/Ratio, Knee weight, attack, release
     if (calculatedFunctions.count(c) == 0)
     {
-        calculatedFunctions[c] = calculateFunction(destSamples, c);
-        double fine = calculateFine(c);
-        if (fine > 0.)
-            for (auto i = 0; i < calculatedFunctions[c].size(); i++)
-                calculatedFunctions[c][i] += fine;
+        FunctionAndJacobian fj;
+        fj.q = calculateFunction(destSamples, c, &fj.jac);
+        const auto cLength = c.length();
+        const auto qLength = (int)fj.q.size();
+        alglib::real_1d_array fineGrad;
+        fineGrad.setlength(cLength);
+        for (int p = 0; p < cLength; p++)
+            fineGrad[p] = 0.0;
+        float fine = (float)calculateFine(c, &fineGrad);
+        for (int i = 0; i < qLength; i++)
+            fj.q[i] += fine;
+        for (int i = 0; i < cLength; i++)
+            if (fineGrad[i] != 0.0)
+                for (int j = 0; j < qLength; j++)
+                    fj.jac[i][j] += fineGrad[i];
+        calculatedFunctions[c] = std::move(fj);
     }
     return calculatedFunctions[c];
 }
@@ -96,11 +108,11 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
 
     try
     {
-        lsfitcreatef(x, y, c, diffstep, state);
+        lsfitcreatefg(x, y, c, true, state);
         lsfitsetcond(state, epsx, maxits);
         lsfitsetbc(state, bndl, bndu);
         lsfitsetscale(state, s);
-        lsfitfit(state, calculateFunctional, nullptr, this);
+        lsfitfit(state, calculateFunctional, calculateGradient, nullptr, this);
         lsfitresults(state, c, rep);
 
         if (rep.terminationtype < 0)
@@ -115,7 +127,7 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
                 c[3 + 3 * i] = 0.5f * (kneeWidthRange.start + kneeWidthRange.end);
             }
             lsfitsetbc(state, bndl, bndu);
-            lsfitfit(state, calculateFunctional, nullptr, this);
+            lsfitfit(state, calculateFunctional, calculateGradient, nullptr, this);
             lsfitresults(state, c, rep);
 
             if (rep.terminationtype < 0)
@@ -138,9 +150,29 @@ void CompParamsCalculatorEnv::calculateFunctional(
 {
     int index = (int)x[0];
     auto* calculator = (CompParamsCalculatorEnv*)ptr;
-    auto& yVector = calculator->getY(c);
+    auto& fj = calculator->getYAndJ(c);
     auto coeff = juce::Decibels::decibelsToGain(c[0]);
-    func = yVector[index] * coeff;
+    func = fj.q[index] * coeff;
+}
+
+void CompParamsCalculatorEnv::calculateGradient(
+    const alglib::real_1d_array& c,
+    const alglib::real_1d_array& x,
+    double& func,
+    alglib::real_1d_array& grad,
+    void* ptr)
+{
+    int index = (int)x[0];
+    auto* calculator = (CompParamsCalculatorEnv*)ptr;
+    auto& fj = calculator->getYAndJ(c);
+    const double g = juce::Decibels::decibelsToGain(c[0]);
+    const double lnCoeff = 0.05 * std::log(10.0);
+
+    func = fj.q[index] * g;
+    grad[0] = func * lnCoeff;
+    const int cLength = c.length();
+    for (int i = 1; i < cLength; i++)
+        grad[i] = g * fj.jac[i][index];
 }
 
 void CompParamsCalculatorEnv::setCompParameters(const alglib::real_1d_array& params)

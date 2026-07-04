@@ -13,7 +13,7 @@ std::vector<float> QuantilesCalculator::calculateQuantiles(
     if (size <= quantilesNumber)
         throw std::runtime_error(numRegionsTooBigExStr.toStdString());
 
-    if (size <= gainRegionsNumber * 100)
+    if (usePreciseBranch(size, gainRegionsNumber))
         return calculateQuantilesPrecise(input, quantilesNumber);
     else
     {
@@ -24,23 +24,52 @@ std::vector<float> QuantilesCalculator::calculateQuantiles(
 
 std::vector<float> QuantilesCalculator::calculateQuantilesPrecise(
     std::vector<std::vector<float>>& input, 
-    int quantilesNumber)
+    int quantilesNumber,
+    std::vector<int>* carriers)
 {
     auto numChannels = input.size();
     auto numSamples = input[0].size();
     auto size = numSamples * numChannels;
-    std::vector<float> gainStat(size);
-    auto index = 0;
-    for (int i = 0; i < numChannels; i++)
-        for (int j = 0; j < numSamples; j++)
-            gainStat[index++] = std::fabs(input[i][j]);
-    std::sort(gainStat.begin(), gainStat.end());
-
     std::vector<float> res(quantilesNumber);
-    for (int i = 0; i < quantilesNumber; i++)
+
+    if (carriers == nullptr) // value-only
     {
-        int gainStatIndex = static_cast<int>(size * (i + 0.5) / quantilesNumber);
-        res[i] = gainStat[gainStatIndex];
+        std::vector<float> gainStat(size);
+        auto index = 0;
+        for (int i = 0; i < numChannels; i++)
+            for (int j = 0; j < numSamples; j++)
+                gainStat[index++] = std::fabs(input[i][j]);
+        std::sort(gainStat.begin(), gainStat.end());
+
+        for (int i = 0; i < quantilesNumber; i++)
+        {
+            int gainStatIndex = (int)(size * (i + 0.5) / quantilesNumber);
+            res[i] = gainStat[gainStatIndex];
+        }
+    }
+    else // gradient-aware
+    {
+        std::vector<std::pair<float, int>> gainStat(size);
+        int index = 0;
+        for (int i = 0; i < numChannels; i++)
+            for (int j = 0; j < numSamples; j++)
+            {
+                gainStat[index] = { std::fabs(input[i][j]), index };
+                index++;
+            }
+        std::sort(
+            gainStat.begin(), gainStat.end(),
+            [](const std::pair<float, int>& a, const std::pair<float, int>& b)
+            {
+                return a.first < b.first;
+            });
+        carriers->resize(quantilesNumber);
+        for (int i = 0; i < quantilesNumber; i++)
+        {
+            int gainStatIndex = (int)(size * (i + 0.5) / quantilesNumber);
+            res[i] = gainStat[gainStatIndex].first;
+            (*carriers)[i] = gainStat[gainStatIndex].second;
+        }
     }
     return res;
 }
@@ -48,8 +77,12 @@ std::vector<float> QuantilesCalculator::calculateQuantilesPrecise(
 std::vector<float> QuantilesCalculator::density2Quantiles(
     std::vector<double>& density,
     int size,
-    int samplesNumber)
+    int samplesNumber,
+    std::vector<std::vector<double>>* dBeans,
+    std::vector<std::vector<double>>* jacobian)
 {
+    jassert((dBeans == nullptr) == (jacobian == nullptr));
+
     // The internal calculation is performed in double
     // to prevent accuracy loss for large values.
     // The result is casted to float.
@@ -61,43 +94,85 @@ std::vector<float> QuantilesCalculator::density2Quantiles(
     int regionIndex = 0;
     double cumulativeValue = 0.0;
     double quantileValue = (regionIndex + 1.0) * qCoeff;
+    const int paramsCount = dBeans == nullptr ? 0 : (*dBeans).size();
+    std::vector<double> cumulativeDeriv(paramsCount, 0.0);
+    std::vector<double> nextDeriv(paramsCount, 0.0);
 
     for (int i = 0; i < densitySize && regionIndex != size; i++)
     {
-        double nextValue = cumulativeValue + density[i];
+        const double di = density[i];
+        const double nextValue = cumulativeValue + di;
+        const double resCoeff = di == 0.0 ? 1.0 : densityBeanWidth / di; // isn't used if di == 0.0
+        const double jacCoeff = di == 0.0 ? 1.0 : resCoeff / di; // isn't used if di == 0.0
+        for (int p = 0; p < paramsCount; p++)
+            nextDeriv[p] = cumulativeDeriv[p] + (*dBeans)[p][i];
+
         while (nextValue >= quantileValue && regionIndex != size)
         {
             double leftGain = i * densityBeanWidth;
-            res[regionIndex] = (float)(leftGain +
-                densityBeanWidth * (quantileValue - cumulativeValue) / (nextValue - cumulativeValue));
+            res[regionIndex] = (float)(leftGain + resCoeff * (quantileValue - cumulativeValue));
+            for (int p = 0; p < paramsCount; p++)
+                (*jacobian)[p][regionIndex] =
+                jacCoeff * (-cumulativeDeriv[p] * di - (quantileValue - cumulativeValue) * (*dBeans)[p][i]);
             regionIndex++;
             quantileValue = (regionIndex + 1.0) * qCoeff; // recalculating to avoid precision errors
         }
         cumulativeValue = nextValue;
+        for (int p = 0; p < paramsCount; p++)
+            cumulativeDeriv[p] = nextDeriv[p];
     }
+
     jassert(regionIndex > 0 || regionIndex == size);
-    if (regionIndex != size)
+    for (int i = regionIndex; i < size; i++) // if regionIndex != size
     {
-        float lastVal = res[regionIndex - 1];
-        while (regionIndex != size)
-            res[regionIndex++] = lastVal;
+        res[i] = res[regionIndex - 1];
+        for (int p = 0; p < paramsCount; p++)
+            (*jacobian)[p][i] = (*jacobian)[p][regionIndex - 1];
     }
     return res;
 }
 
 void QuantilesCalculator::putToBeans(
-    float value, std::vector<double>& beans, int weight)
+    float value, 
+    std::vector<double>& beans, 
+    int weight,
+    std::vector<float>* grad,
+    std::vector<std::vector<double>>* dBeans)
 {
+    jassert((grad == nullptr) == (dBeans == nullptr));
+    jassert((grad == nullptr) ||
+        ((*dBeans).size() == (*grad).size() && (*dBeans)[0].size() == beans.size()));
+
     auto count = (int)beans.size();
-    double index = std::clamp(
-        std::fabs((double)value) * count - 0.5,
-        0.0, count - 1.0);
+    double index = std::fabs((double)value) * count - 0.5;
+    bool isOnTheEdge = index < 0.0 || index >= count - 1.0;
+    index = std::clamp(index, 0.0, count - 1.0);
     double leftBeanIndex = std::floor(index);
     double rightBeanPart = index - leftBeanIndex;
     int leftBeanIndexInt = (int)leftBeanIndex;
-    beans[leftBeanIndexInt] += (1.0 - rightBeanPart) * weight;
+    
+    double valueToAdd = rightBeanPart * weight;
+    beans[leftBeanIndexInt] += weight - valueToAdd;
     if (leftBeanIndexInt < count - 1)
-        beans[leftBeanIndexInt + 1] += rightBeanPart * weight;
+        beans[leftBeanIndexInt + 1] += valueToAdd;
+
+    if (grad != nullptr && dBeans != nullptr && !isOnTheEdge)
+    {
+        const int gradCount = (*grad).size();
+        for (int i = 0; i < gradCount; i++)
+        {
+            // Parameter change reflected by grad result in distribution change between neighboring beans.
+            // The narrower bin widths (1/count), the quicker the flowing into the neighboring bean.
+            double dValueToAdd = (double)(*grad)[i] * count * weight;
+            (*dBeans)[i][leftBeanIndexInt] -= dValueToAdd;
+            (*dBeans)[i][leftBeanIndexInt + 1] += dValueToAdd;
+        }
+    }
+}
+
+bool QuantilesCalculator::usePreciseBranch(int size, int gainRegionsNumber)
+{
+    return size <= gainRegionsNumber * 100;
 }
 
 std::vector<double> QuantilesCalculator::calculateDensityFunc(

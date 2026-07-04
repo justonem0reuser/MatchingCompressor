@@ -1,13 +1,28 @@
 #include "CompParamsCalculatorEnv2D.h"
 #include "QuantilesCalculator.h"
+#include "FuncAndGradCalculator.h"
 
 std::vector<float> CompParamsCalculatorEnv2D::calculateFunction(
     std::vector<std::vector<float>>& samples,
-    const alglib::real_1d_array& parameters)
+    const alglib::real_1d_array& parameters,
+    std::vector<std::vector<double>>* jacobian)
 {
     auto samplesCount = samples.size() * samples[0].size();
-    auto yDensity = calculateYDensity(parameters);
-    return QuantilesCalculator::density2Quantiles(yDensity, quantileRegionsNumber, samplesCount);
+    std::vector<std::vector<double>> dBeans;
+    std::vector<std::vector<double>>* dBeansPtr = nullptr;
+
+    if (jacobian != nullptr)
+    {
+        const int parLength = parameters.length();
+        const int beanCount = (int)xEnvTable.cols();
+        dBeansPtr = &dBeans;
+        dBeans.assign(parLength, std::vector<double>(beanCount, 0.0));
+        jacobian->assign(parLength, std::vector<double>(quantileRegionsNumber, 0.0));
+    }
+
+    auto yDensity = calculateYDensity(parameters, dBeansPtr);
+    return QuantilesCalculator::density2Quantiles(
+        yDensity, quantileRegionsNumber, samplesCount, dBeansPtr, jacobian);
 }
 
 void CompParamsCalculatorEnv2D::calculateEnvelopeStatistics(
@@ -66,12 +81,19 @@ void CompParamsCalculatorEnv2D::calculateEnvelopeStatistics(
 }
 
 std::vector<double> CompParamsCalculatorEnv2D::calculateYDensity(
-    const alglib::real_1d_array& params)
+    const alglib::real_1d_array& params,
+    std::vector<std::vector<double>>* dBeans)
 {
     auto size = (int)xEnvTable.cols();
     float delta = 1.f / size;
     std::vector<double> res(size, 0.0);
-    setCompParameters(params);
+
+    const double scaleCoeff = 0.05 * std::log(10.0);
+    const int n = params.length();
+    std::vector<float> grad(n);
+    alglib::real_1d_array gradDb;
+    if (dBeans != nullptr)
+        gradDb.setlength(n);
 
     for (auto i = 0; i < size; i++)
     {
@@ -79,11 +101,25 @@ std::vector<double> CompParamsCalculatorEnv2D::calculateYDensity(
         for (auto j = 0; j < size; j++)
         {
             auto weight = xEnvTable[i][j];
-            if (weight != 0)
+            if (weight == 0)
+                continue;
+
+            float env = (j + 0.5f) * delta;
+            double envDb = juce::Decibels::gainToDecibels(
+                (double)env, DynamicShaper<double>::minusInfinityDb);
+
+            double yDb = FuncAndGradCalculator::calculateWithoutGain(
+                envDb, params, false, dBeans != nullptr ? &gradDb : nullptr); // true would require division by envDb
+            double yAbs = (double)x * juce::Decibels::decibelsToGain(yDb - envDb);
+
+            if (dBeans == nullptr)
+                QuantilesCalculator::putToBeans((float)yAbs, res, weight);
+            else
             {
-                float env = (j + 0.5f) * delta;
-                float y = dynamicProcessor.calculateGain(x, env);
-                QuantilesCalculator::putToBeans(y, res, weight);
+                double scale = yAbs * scaleCoeff;
+                for (int p = 1; p < n; p++) // p = 0 is gain
+                    grad[p] = (float)(scale * gradDb[p]);
+                QuantilesCalculator::putToBeans((float)yAbs, res, weight, &grad, dBeans);
             }
         }
     }

@@ -12,15 +12,25 @@ public:
     static std::vector<float> density2Quantiles(
         std::vector<double>& density,
         int size,
-        int samplesNumber);
+        int samplesNumber,
+        std::vector<std::vector<double>>* dBeans = nullptr,
+        std::vector<std::vector<double>>* jacobian = nullptr);
 
-    static void putToBeans(float value, std::vector<double>& beans, int weight);
+    static void putToBeans(
+        float value, 
+        std::vector<double>& beans, 
+        int weight,
+        std::vector<float>* grad = nullptr,
+        std::vector<std::vector<double>>* dBeans = nullptr);
 
-private:
+    static bool usePreciseBranch(int size, int gainRegionsNumber);
+
     static std::vector<float> calculateQuantilesPrecise(
         std::vector<std::vector<float>>& input,
-        int quantilesNumber);
+        int quantilesNumber,
+        std::vector<int>* carriers = nullptr);
 
+private:
     static std::vector<double> calculateDensityFunc(
         std::vector<std::vector<float>>& samples,
         int beanCount);

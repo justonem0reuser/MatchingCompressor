@@ -8,12 +8,11 @@
 /// </summary>
 class CompParamsCalculatorEnv2D : public CompParamsCalculatorEnv
 {
-private:
-    alglib::integer_2d_array xEnvTable;
-
+protected:
     std::vector<float> calculateFunction(
         std::vector<std::vector<float>>& samples,
-        const alglib::real_1d_array& parameters) override;
+        const alglib::real_1d_array& parameters,
+        std::vector<std::vector<double>>* jacobian) override;
 
     void calculateEnvelopeStatistics(
         std::vector<std::vector<float>>& samples, 
@@ -21,5 +20,10 @@ private:
         float attackMs, 
         float releaseMs) override;
 
-    std::vector<double> calculateYDensity(const alglib::real_1d_array& params);
+private:
+    alglib::integer_2d_array xEnvTable;
+
+    std::vector<double> calculateYDensity(
+        const alglib::real_1d_array& params,
+        std::vector<std::vector<double>>* dBeans = nullptr);
 };

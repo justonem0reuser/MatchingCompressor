@@ -13,7 +13,8 @@ private:
 
     std::vector<float> calculateFunction(
         std::vector<std::vector<float>>& samples,
-        const alglib::real_1d_array& parameters) override;
+        const alglib::real_1d_array& parameters,
+        std::vector<std::vector<double>>* jacobian) override;
 
     void calculateEnvelopeStatistics(
         std::vector<std::vector<float>>& samples, 

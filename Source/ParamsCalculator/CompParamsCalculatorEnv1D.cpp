@@ -1,17 +1,78 @@
 #include "CompParamsCalculatorEnv1D.h"
 #include "QuantilesCalculator.h"
+#include "FuncAndGradCalculator.h"
 
 std::vector<float> CompParamsCalculatorEnv1D::calculateFunction(
     std::vector<std::vector<float>>& samples,
-    const alglib::real_1d_array& parameters)
+    const alglib::real_1d_array& parameters,
+    std::vector<std::vector<double>>* jacobian)
 {
-    auto size = xEnvPairs.size();
+    const int size = (int)xEnvPairs.size();
+    const int parLength = parameters.length();
     std::vector<std::vector<float>> y(1, std::vector<float>(size));
-    setCompParameters(parameters);
+    const double scaleCoeff = 0.05 * std::log(10.0);
+    std::vector<std::vector<float>> grad;
+    alglib::real_1d_array gradDb;
+    if (jacobian != nullptr)
+    {
+        grad.assign(size, std::vector<float>(parLength, 0.0f));
+        gradDb.setlength(parLength);
+        jacobian->assign(parLength, std::vector<double>(quantileRegionsNumber, 0.0));
+    }
 
     for (auto i = 0; i < size; i++)
-        y[0][i] = dynamicProcessor.calculateGain(xEnvPairs[i].first, xEnvPairs[i].second);
-    return QuantilesCalculator::calculateQuantiles(y, gainRegionsNumber, quantileRegionsNumber);
+    {
+        float x = xEnvPairs[i].first;
+        float env = xEnvPairs[i].second;
+        double envDb = juce::Decibels::gainToDecibels(
+            (double)env, 
+            DynamicShaper<double>::minusInfinityDb);
+        double yDb = FuncAndGradCalculator::calculateWithoutGain(
+            envDb, 
+            parameters, 
+            false, 
+            jacobian == nullptr ? nullptr : &gradDb);
+        double yAbs = (double)x * juce::Decibels::decibelsToGain(yDb - envDb);
+        y[0][i] = (float)yAbs;
+        if (jacobian != nullptr)
+        {
+            double scale = yAbs * scaleCoeff;
+            for (int p = 1; p < parLength; p++) // grad[i][0] is gain
+                grad[i][p] = (float)(scale * gradDb[p]);
+        }
+    }
+
+    if (jacobian == nullptr)
+        return QuantilesCalculator::calculateQuantiles(y, gainRegionsNumber, quantileRegionsNumber);
+
+    if (QuantilesCalculator::usePreciseBranch(size, gainRegionsNumber))
+    {
+        std::vector<int> carriers;
+        auto quantiles = QuantilesCalculator::calculateQuantilesPrecise(
+            y, 
+            quantileRegionsNumber, 
+            &carriers);
+        for (int k = 0; k < quantileRegionsNumber; k++)
+            for (int p = 0; p < parLength; p++) // grad[i][0] is gain
+                (*jacobian)[p][k] = grad[carriers[k]][p];
+        return quantiles;
+    }
+
+    std::vector<double> density(gainRegionsNumber, 0.0);
+    std::vector<std::vector<double>> dBeans(parLength, std::vector<double>(gainRegionsNumber, 0.0));
+    for (int i = 0; i < size; i++)
+        QuantilesCalculator::putToBeans(
+            y[0][i], 
+            density, 
+            1, 
+            &grad[i], 
+            &dBeans);
+    return QuantilesCalculator::density2Quantiles(
+        density, 
+        quantileRegionsNumber, 
+        size, 
+        &dBeans, 
+        jacobian);
 }
 
 void CompParamsCalculatorEnv1D::calculateEnvelopeStatistics(

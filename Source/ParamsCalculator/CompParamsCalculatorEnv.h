@@ -20,9 +20,13 @@ public:
         double destSampleRate,
         juce::ValueTree& properties) override;
 
-    std::vector<float>& getY(const alglib::real_1d_array& c);
-
 protected:
+    struct FunctionAndJacobian
+    {
+        std::vector<float> q; // quantiles + fine
+        std::vector<std::vector<double>> jac; // [param][quantile] + grad(fine)
+    };
+
     std::vector<std::vector<float>> destSamples;
     int gainRegionsNumber;
     int quantileRegionsNumber;
@@ -32,7 +36,7 @@ protected:
     /// <summary>
     /// Container for storing and reusing functional calculation results.
     /// </summary>
-    std::unordered_map<alglib::real_1d_array, std::vector<float>, Real1DArrayHash, Real1DArrayEqual> calculatedFunctions;
+    std::unordered_map<alglib::real_1d_array, FunctionAndJacobian, Real1DArrayHash, Real1DArrayEqual> calculatedFunctions;
 
     DynamicShaper<float> dynamicProcessor;
     juce::dsp::ProcessSpec spec;
@@ -42,6 +46,12 @@ protected:
         const alglib::real_1d_array& x,
         double& func,
         void* ptr);
+    static void calculateGradient(
+        const alglib::real_1d_array& c,
+        const alglib::real_1d_array& x,
+        double& func,
+        alglib::real_1d_array& grad,
+        void* ptr);
 
     virtual void calculateEnvelopeStatistics(
         std::vector<std::vector<float>>& samples,
@@ -50,12 +60,14 @@ protected:
         float releaseMs) = 0;
     virtual std::vector<float> calculateFunction(
         std::vector<std::vector<float>>& samples,
-        const alglib::real_1d_array& parameters) = 0;
+        const alglib::real_1d_array& parameters,
+        std::vector<std::vector<double>>* jacobian = nullptr) = 0;
+
+    FunctionAndJacobian& getYAndJ(const alglib::real_1d_array& c);
 
     void setCompParameters(const alglib::real_1d_array& params);
 
 private:
     const double epsx = 0.00000001;
-    const double diffstep = 0.025;
     const alglib::ae_int_t maxits = 0;
 };
