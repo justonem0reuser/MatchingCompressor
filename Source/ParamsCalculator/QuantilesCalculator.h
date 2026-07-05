@@ -31,6 +31,14 @@ public:
         std::vector<int>* carriers = nullptr);
 
 private:
+    static constexpr int kernelSupport = 3; // quadratic B-spline
+
+    static int calculateKernelTaps(
+        double value, 
+        int binCount, 
+        double* weights, 
+        double* slopes = nullptr);
+
     static std::vector<double> calculateDensityFunc(
         std::vector<std::vector<float>>& samples,
         int beanCount);

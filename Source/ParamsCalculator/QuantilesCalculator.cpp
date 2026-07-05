@@ -132,6 +132,30 @@ std::vector<float> QuantilesCalculator::density2Quantiles(
     return res;
 }
 
+int QuantilesCalculator::calculateKernelTaps(
+    double value, 
+    int binCount, 
+    double* weights, 
+    double* slopes)
+{
+    const double pos = value * binCount - 0.5;
+    const int nearestBean = (int)std::floor(pos + 0.5);
+    const double offset = pos - nearestBean;
+
+    // Quadratic B-spline
+    weights[0] = 0.5 * (0.5 - offset) * (0.5 - offset);
+    weights[1] = 0.75 - offset * offset;
+    weights[2] = 0.5 * (0.5 + offset) * (0.5 + offset);
+
+    if (slopes != nullptr)
+    {
+        slopes[0] = (offset - 0.5) * binCount;
+        slopes[1] = (-2.0 * offset) * binCount;
+        slopes[2] = (offset + 0.5) * binCount;
+    }
+    return nearestBean - 1;
+}
+
 void QuantilesCalculator::putToBeans(
     float value, 
     std::vector<double>& beans, 
@@ -143,30 +167,20 @@ void QuantilesCalculator::putToBeans(
     jassert((grad == nullptr) ||
         ((*dBeans).size() == (*grad).size() && (*dBeans)[0].size() == beans.size()));
 
-    auto count = (int)beans.size();
-    double index = std::fabs((double)value) * count - 0.5;
-    bool isOnTheEdge = index < 0.0 || index >= count - 1.0;
-    index = std::clamp(index, 0.0, count - 1.0);
-    double leftBeanIndex = std::floor(index);
-    double rightBeanPart = index - leftBeanIndex;
-    int leftBeanIndexInt = (int)leftBeanIndex;
-    
-    double valueToAdd = rightBeanPart * weight;
-    beans[leftBeanIndexInt] += weight - valueToAdd;
-    if (leftBeanIndexInt < count - 1)
-        beans[leftBeanIndexInt + 1] += valueToAdd;
-
-    if (grad != nullptr && dBeans != nullptr && !isOnTheEdge)
+    const int count = (int)beans.size();
+    double weights[kernelSupport], slopes[kernelSupport];
+    const int leftBean = calculateKernelTaps(
+        std::fabs((double)value), 
+        count, 
+        weights,
+        grad ? slopes : nullptr);
+    const int gradCount = grad != nullptr ? (int)(*grad).size() : 0;
+    for (int i = 0; i < kernelSupport; i++)
     {
-        const int gradCount = (*grad).size();
-        for (int i = 0; i < gradCount; i++)
-        {
-            // Parameter change reflected by grad result in distribution change between neighboring beans.
-            // The narrower bin widths (1/count), the quicker the flowing into the neighboring bean.
-            double dValueToAdd = (double)(*grad)[i] * count * weight;
-            (*dBeans)[i][leftBeanIndexInt] -= dValueToAdd;
-            (*dBeans)[i][leftBeanIndexInt + 1] += dValueToAdd;
-        }
+        const int bin = std::clamp(leftBean + i, 0, count - 1);
+        beans[bin] += weights[i] * weight;
+        for (int j = 0; j < gradCount; j++)
+            (*dBeans)[j][bin] += slopes[i] * (double)(*grad)[j] * weight;
     }
 }
 
