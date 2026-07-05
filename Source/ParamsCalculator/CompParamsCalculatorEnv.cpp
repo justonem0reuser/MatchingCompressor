@@ -4,30 +4,64 @@
 #include "../Data/Ranges.h"
 #include "interpolation.h"
 
-CompParamsCalculatorEnv::FunctionAndJacobian& CompParamsCalculatorEnv::getYAndJ(
-    const alglib::real_1d_array& c)
+void CompParamsCalculatorEnv::addFine(
+    const alglib::real_1d_array& c,
+    FunctionAndJacobian& fj,
+    bool withJacobian)
 {
-    //c : Gain, Threshold, 1/Ratio, Knee weight, attack, release
-    if (calculatedFunctions.count(c) == 0)
+    const int cLength = c.length();
+    const int qLength = (int)fj.q.size();
+
+    alglib::real_1d_array fineGrad;
+    if (withJacobian)
     {
-        FunctionAndJacobian fj;
-        fj.q = calculateFunction(destSamples, c, &fj.jac);
-        const auto cLength = c.length();
-        const auto qLength = (int)fj.q.size();
-        alglib::real_1d_array fineGrad;
         fineGrad.setlength(cLength);
         for (int p = 0; p < cLength; p++)
             fineGrad[p] = 0.0;
-        float fine = (float)calculateFine(c, &fineGrad);
-        for (int i = 0; i < qLength; i++)
-            fj.q[i] += fine;
+    }
+
+    float fine = (float)calculateFine(c, withJacobian ? &fineGrad : nullptr);
+    for (int i = 0; i < qLength; i++)
+        fj.q[i] += fine;
+
+    if (withJacobian)
         for (int i = 0; i < cLength; i++)
             if (fineGrad[i] != 0.0)
                 for (int j = 0; j < qLength; j++)
                     fj.jac[i][j] += fineGrad[i];
-        calculatedFunctions[c] = std::move(fj);
+}
+
+std::vector<float>& CompParamsCalculatorEnv::getY(const alglib::real_1d_array& c)
+{
+    //c : Gain, Threshold, 1/Ratio, Knee weight, attack, release
+    auto it = calculatedFunctions.find(c);
+    if (it == calculatedFunctions.end())
+    {
+        FunctionAndJacobian fj;
+        fj.q = calculateFunction(destSamples, c, nullptr);
+        addFine(c, fj, false);
+        it = calculatedFunctions.emplace(c, std::move(fj)).first;
     }
-    return calculatedFunctions[c];
+    return it->second.q;
+}
+
+CompParamsCalculatorEnv::FunctionAndJacobian& CompParamsCalculatorEnv::getYAndJ(
+    const alglib::real_1d_array& c)
+{
+    //c : Gain, Threshold, 1/Ratio, Knee weight, attack, release
+    auto it = calculatedFunctions.find(c);
+    if (it == calculatedFunctions.end() || !it->second.hasJacobian)
+    {
+        FunctionAndJacobian fj;
+        fj.q = calculateFunction(destSamples, c, &fj.jac); // q + jacobian
+        fj.hasJacobian = true;
+        addFine(c, fj, true);
+        if (it == calculatedFunctions.end())
+            it = calculatedFunctions.emplace(c, std::move(fj)).first;
+        else
+            it->second = std::move(fj);
+    }
+    return it->second;
 }
 
 std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
@@ -150,9 +184,9 @@ void CompParamsCalculatorEnv::calculateFunctional(
 {
     int index = (int)x[0];
     auto* calculator = (CompParamsCalculatorEnv*)ptr;
-    auto& fj = calculator->getYAndJ(c);
+    auto& q = calculator->getY(c);
     auto coeff = juce::Decibels::decibelsToGain(c[0]);
-    func = fj.q[index] * coeff;
+    func = q[index] * coeff;
 }
 
 void CompParamsCalculatorEnv::calculateGradient(

@@ -25,6 +25,7 @@ protected:
     {
         std::vector<float> q; // quantiles + fine
         std::vector<std::vector<double>> jac; // [param][quantile] + grad(fine)
+        bool hasJacobian = false;
     };
 
     std::vector<std::vector<float>> destSamples;
@@ -63,8 +64,14 @@ protected:
         const alglib::real_1d_array& parameters,
         std::vector<std::vector<double>>* jacobian = nullptr) = 0;
 
+    std::vector<float>& getY(const alglib::real_1d_array& c);
     FunctionAndJacobian& getYAndJ(const alglib::real_1d_array& c);
 
+    void addFine(
+        const alglib::real_1d_array& c,
+        FunctionAndJacobian& fj,
+        bool withJacobian);
+    
     void setCompParameters(const alglib::real_1d_array& params);
 
 private:
