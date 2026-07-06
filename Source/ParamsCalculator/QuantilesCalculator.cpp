@@ -72,9 +72,10 @@ std::vector<float> QuantilesCalculator::density2Quantiles(
         }
         cumulativeValue = nextValue;
     }
+    jassert(regionIndex > 0 || regionIndex == size);
     if (regionIndex != size)
     {
-        float lastVal = res[regionIndex];
+        float lastVal = res[regionIndex - 1];
         while (regionIndex != size)
             res[regionIndex++] = lastVal;
     }

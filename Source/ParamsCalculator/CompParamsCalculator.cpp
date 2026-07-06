@@ -32,7 +32,7 @@ double CompParamsCalculator::calculateFine(
             fine += fineCoeff * fineDelta * fineDelta;
             if (gradPtr != nullptr)
             {
-                auto grad = *gradPtr;
+                auto& grad = *gradPtr;
                 double valueToAdd = 2.0 * fineCoeff * fineDelta;
                 grad[prevTInd] += valueToAdd;
                 grad[prevKneeInd] += valueToAdd;
