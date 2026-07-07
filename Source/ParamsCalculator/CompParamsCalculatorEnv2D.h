@@ -23,6 +23,9 @@ protected:
 private:
     alglib::integer_2d_array xEnvTable;
 
+    // envDbByCol[j] = envelope (in dB) at the center of grid column j.
+    std::vector<double> envDbByCol;
+
     std::vector<double> calculateYDensity(
         const alglib::real_1d_array& params,
         std::vector<std::vector<double>>* dBeans = nullptr);

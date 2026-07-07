@@ -36,6 +36,12 @@ void CompParamsCalculatorEnv2D::calculateEnvelopeStatistics(
         for (int j = 0; j < gainRegionsNumber; j++)
             xEnvTable[i][j] = 0.;
 
+    const double delta = 1.0 / gainRegionsNumber;
+    envDbByCol.resize(gainRegionsNumber);
+    for (int j = 0; j < gainRegionsNumber; j++)
+        envDbByCol[j] = juce::Decibels::gainToDecibels(
+            (j + 0.5) * delta, DynamicShaper<double>::minusInfinityDb);
+
     auto numChannels = samples.size();
     auto numSamples = samples[0].size();
     spec.numChannels = numChannels;
@@ -104,10 +110,7 @@ std::vector<double> CompParamsCalculatorEnv2D::calculateYDensity(
             if (weight == 0)
                 continue;
 
-            float env = (j + 0.5f) * delta;
-            double envDb = juce::Decibels::gainToDecibels(
-                (double)env, DynamicShaper<double>::minusInfinityDb);
-
+            double envDb = envDbByCol[j];
             double yDb = FuncAndGradCalculator::calculateWithoutGain(
                 envDb, params, false, dBeans != nullptr ? &gradDb : nullptr); // true would require division by envDb
             double yAbs = (double)x * juce::Decibels::decibelsToGain(yDb - envDb);

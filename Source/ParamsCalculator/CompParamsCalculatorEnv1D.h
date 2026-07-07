@@ -9,7 +9,8 @@
 class CompParamsCalculatorEnv1D : public CompParamsCalculatorEnv
 {
 private:
-    std::vector<std::pair<float, float>> xEnvPairs;
+    struct XEnvPair { float xLinear; float envDb; };
+    std::vector<XEnvPair> xEnvPairs;
 
     std::vector<float> calculateFunction(
         std::vector<std::vector<float>>& samples,

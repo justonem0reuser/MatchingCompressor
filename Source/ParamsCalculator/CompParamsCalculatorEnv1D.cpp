@@ -22,11 +22,8 @@ std::vector<float> CompParamsCalculatorEnv1D::calculateFunction(
 
     for (auto i = 0; i < size; i++)
     {
-        float x = xEnvPairs[i].first;
-        float env = xEnvPairs[i].second;
-        double envDb = juce::Decibels::gainToDecibels(
-            (double)env, 
-            DynamicShaper<double>::minusInfinityDb);
+        float x = xEnvPairs[i].xLinear;
+        double envDb = xEnvPairs[i].envDb;
         double yDb = FuncAndGradCalculator::calculateWithoutGain(
             envDb, 
             parameters, 
@@ -102,7 +99,9 @@ void CompParamsCalculatorEnv1D::calculateEnvelopeStatistics(
             float sample = samples[0][i];
             float sAbs = std::fabs(sample);
             float env = dynamicProcessor.calculateEnv(0, sample);
-            xEnvPairs[i] = { sAbs, env };
+            float envDb = juce::Decibels::gainToDecibels(
+                env, DynamicShaper<float>::minusInfinityDb);
+            xEnvPairs[i] = { sAbs, envDb };
         }
     }
     else
@@ -116,8 +115,12 @@ void CompParamsCalculatorEnv1D::calculateEnvelopeStatistics(
             float sAbs1 = std::fabs(sample1);
             float out0, out1;
             dynamicProcessor.calculateStereoEnv(sample0, sample1, out0, out1);
-            xEnvPairs[index++] = { sAbs0, out0 };
-            xEnvPairs[index++] = { sAbs1, out1 };
+            float envDb0 = juce::Decibels::gainToDecibels(
+                out0, DynamicShaper<float>::minusInfinityDb);
+            float envDb1 = juce::Decibels::gainToDecibels(
+                out1, DynamicShaper<float>::minusInfinityDb);
+            xEnvPairs[index++] = { sAbs0, envDb0 };
+            xEnvPairs[index++] = { sAbs1, envDb1 };
         }
     }
     dynamicProcessor.reset();
