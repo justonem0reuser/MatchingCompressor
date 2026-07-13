@@ -11,10 +11,6 @@ MatchingData::MatchingData():
         kneesNumberChoices.add(juce::String(i));
 
     parameterInfos.push_back(ParameterInfo(
-        setGainRegionsNumberId, "Gain regions number", 4000, 1000, 5000, 1, false, true));
-    parameterInfos.push_back(ParameterInfo(
-        setQuantileRegionsNumberId, "Quantile regions number", 400, 100, 1000, 1, false, true));
-    parameterInfos.push_back(ParameterInfo(
         setKneesNumberId, "Knees number", 1, kneesNumberChoices));
     parameterInfos.push_back(ParameterInfo(
         setKneeTypeId, "Knee type", 1, kneeTypes));

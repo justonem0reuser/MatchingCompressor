@@ -1,4 +1,5 @@
 #include "CompParamsCalculatorNoEnv.h"
+#include "GranularityCalculator.h"
 #include "FuncAndGradCalculator.h"
 #include "QuantilesCalculator.h"
 #include "../Data/Messages.h"
@@ -10,8 +11,6 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
     double destSampleRate,
     juce::ValueTree& properties)
 {
-    int gainRegNum = properties.getProperty(setGainRegionsNumberId);
-    int quantRegNum = properties.getProperty(setQuantileRegionsNumberId);
     int kneeTypeInt = properties.getProperty(setKneeTypeId);
     float attackMs = properties.getProperty(setAttackId);
     float releaseMs = properties.getProperty(setReleaseId);
@@ -26,20 +25,29 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
     jassert(attackMs == 0 && releaseMs == 0);
     jassert(destSamples.size() == 1 || channelAggregationTypeInt == 1);
 
-    if (quantRegNum < 2)
-        throw std::runtime_error(regionsNumberTooSmall.toStdString());
+    const int allDestSamplesNumber = destSamples.size() * destSamples[0].size();
+    auto g = GranularityCalculator::calculateTargetGranularity(
+        kneesNumber, 
+        kneeType == KneeType::soft);
+
     std::vector<float> localReferenceStat, localDestStat;
-    localReferenceStat = QuantilesCalculator::calculateQuantiles(refSamples, gainRegNum, quantRegNum);
-    localDestStat = QuantilesCalculator::calculateQuantiles(destSamples, gainRegNum, quantRegNum);
+    localReferenceStat = QuantilesCalculator::calculateQuantiles(
+        refSamples, 
+        g.gainRegions, 
+        g.quantileRegions);
+    localDestStat = QuantilesCalculator::calculateQuantiles(
+        destSamples, 
+        g.gainRegions, 
+        g.quantileRegions);
 
     alglib::real_2d_array x;
     alglib::real_1d_array  bndl, bndu, y, c;
     alglib::lsfitstate state;
     alglib::lsfitreport rep;
 
-    x.setlength(quantRegNum, 1);
-    y.setlength(quantRegNum);
-    for (int i = 0; i < quantRegNum; i++)
+    x.setlength(g.quantileRegions, 1);
+    y.setlength(g.quantileRegions);
+    for (int i = 0; i < g.quantileRegions; i++)
     {
         x[i][0] = localDestStat[i];
         y[i] = localReferenceStat[i];

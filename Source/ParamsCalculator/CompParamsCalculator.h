@@ -30,6 +30,8 @@ public:
         juce::ValueTree& properties) = 0;
 
 protected:
+    constexpr static double fineThreshold = 0.1;
+    constexpr static double fineCoeff = 100.0;
 
     /// <summary>
     /// Fine calculation in case 
@@ -73,8 +75,4 @@ protected:
     /// <param name="c">alglib result vector</param>
     /// <returns>std::vector result</returns>
     std::vector<float> resArrayToVector(alglib::real_1d_array& c);
-
-private:
-    constexpr static double fineThreshold = 0.1;
-    constexpr static double fineCoeff = 100.0;
 };

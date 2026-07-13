@@ -1,5 +1,7 @@
 #include "DataReceiverController.h"
+#include "../ParamsCalculator/GranularityCalculator.h"
 #include "../Data/Messages.h"
+#include <limits>
 
 DataReceiverController::DataReceiverController(
 	BaseDataReceiver* dataReceiver,
@@ -71,8 +73,10 @@ void DataReceiverController::checkAndSaveData(
             throw std::runtime_error(sampleRateIsNullExStr.toStdString());
         if (samples.size() <= 0 || samples.size() > 2)
             throw std::runtime_error(numChannelsIsNullExStr.toStdString());
-        if (samples[0].size() <= 0)
-            throw std::runtime_error(lengthIsNullExStr.toStdString());
+        if ((long long)samples.size() * samples[0].size() > std::numeric_limits<int>::max())
+            throw std::runtime_error(samplesNumberIsTooLarge.toStdString());
+        if (samples[0].size() <= GranularityCalculator::calculateMinSamplesNumber())
+            throw std::runtime_error(samplesNumberIsTooSmall.toStdString());
         if (samples.size() > 1)
             for (int i = 1; i < samples.size(); i++)
                 if (samples[i].size() != samples[0].size())

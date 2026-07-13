@@ -23,12 +23,9 @@ public:
         std::vector<float>* grad = nullptr,
         std::vector<std::vector<double>>* dBeans = nullptr);
 
-    static bool usePreciseBranch(int size, int gainRegionsNumber);
-
-    static std::vector<float> calculateQuantilesPrecise(
-        std::vector<std::vector<float>>& input,
-        int quantilesNumber,
-        std::vector<int>* carriers = nullptr);
+    static std::vector<double> calculateDensityFunc(
+        std::vector<std::vector<float>>& samples,
+        int beanCount);
 
 private:
     static constexpr int kernelSupport = 3; // quadratic B-spline
@@ -38,8 +35,4 @@ private:
         int binCount, 
         double* weights, 
         double* slopes = nullptr);
-
-    static std::vector<double> calculateDensityFunc(
-        std::vector<std::vector<float>>& samples,
-        int beanCount);
 };

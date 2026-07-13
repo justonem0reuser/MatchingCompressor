@@ -158,6 +158,8 @@
               file="Source/ParamsCalculator/FuncAndGradCalculator.cpp"/>
         <FILE id="mcvX1F" name="FuncAndGradCalculator.h" compile="0" resource="0"
               file="Source/ParamsCalculator/FuncAndGradCalculator.h"/>
+        <FILE id="zhwS4N" name="GranularityCalculator.h" compile="0" resource="0"
+              file="Source/ParamsCalculator/GranularityCalculator.h"/>
         <FILE id="cANUfu" name="HashEqualStructures.h" compile="0" resource="0"
               file="Source/ParamsCalculator/HashEqualStructures.h"/>
         <FILE id="KfHC38" name="QuantilesCalculator.cpp" compile="1" resource="0"

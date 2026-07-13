@@ -13,65 +13,8 @@ std::vector<float> QuantilesCalculator::calculateQuantiles(
     if (size <= quantilesNumber)
         throw std::runtime_error(numRegionsTooBigExStr.toStdString());
 
-    if (usePreciseBranch(size, gainRegionsNumber))
-        return calculateQuantilesPrecise(input, quantilesNumber);
-    else
-    {
-        auto density = calculateDensityFunc(input, gainRegionsNumber);
-        return density2Quantiles(density, quantilesNumber, size);
-    }
-}
-
-std::vector<float> QuantilesCalculator::calculateQuantilesPrecise(
-    std::vector<std::vector<float>>& input, 
-    int quantilesNumber,
-    std::vector<int>* carriers)
-{
-    auto numChannels = input.size();
-    auto numSamples = input[0].size();
-    auto size = numSamples * numChannels;
-    std::vector<float> res(quantilesNumber);
-
-    if (carriers == nullptr) // value-only
-    {
-        std::vector<float> gainStat(size);
-        auto index = 0;
-        for (int i = 0; i < numChannels; i++)
-            for (int j = 0; j < numSamples; j++)
-                gainStat[index++] = std::fabs(input[i][j]);
-        std::sort(gainStat.begin(), gainStat.end());
-
-        for (int i = 0; i < quantilesNumber; i++)
-        {
-            int gainStatIndex = (int)(size * (i + 0.5) / quantilesNumber);
-            res[i] = gainStat[gainStatIndex];
-        }
-    }
-    else // gradient-aware
-    {
-        std::vector<std::pair<float, int>> gainStat(size);
-        int index = 0;
-        for (int i = 0; i < numChannels; i++)
-            for (int j = 0; j < numSamples; j++)
-            {
-                gainStat[index] = { std::fabs(input[i][j]), index };
-                index++;
-            }
-        std::sort(
-            gainStat.begin(), gainStat.end(),
-            [](const std::pair<float, int>& a, const std::pair<float, int>& b)
-            {
-                return a.first < b.first;
-            });
-        carriers->resize(quantilesNumber);
-        for (int i = 0; i < quantilesNumber; i++)
-        {
-            int gainStatIndex = (int)(size * (i + 0.5) / quantilesNumber);
-            res[i] = gainStat[gainStatIndex].first;
-            (*carriers)[i] = gainStat[gainStatIndex].second;
-        }
-    }
-    return res;
+    auto density = calculateDensityFunc(input, gainRegionsNumber);
+    return density2Quantiles(density, quantilesNumber, size);
 }
 
 std::vector<float> QuantilesCalculator::density2Quantiles(
@@ -182,11 +125,6 @@ void QuantilesCalculator::putToBeans(
         for (int j = 0; j < gradCount; j++)
             (*dBeans)[j][bin] += slopes[i] * (double)(*grad)[j] * weight;
     }
-}
-
-bool QuantilesCalculator::usePreciseBranch(int size, int gainRegionsNumber)
-{
-    return size <= gainRegionsNumber * 100;
 }
 
 std::vector<double> QuantilesCalculator::calculateDensityFunc(

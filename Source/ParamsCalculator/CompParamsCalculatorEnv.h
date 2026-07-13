@@ -6,7 +6,7 @@
 using ChannelAggregationType = DynamicShaper<float>::ChannelAggregationType;
 
 /// <summary>
-/// Base matching compressor parameters calculation class
+/// Matching compressor parameters calculation class
 /// for the case when the processing result
 /// depends not only on the actual sample,
 /// but also on previous or other channels samples.
@@ -28,12 +28,12 @@ private:
         bool hasJacobian = false;
     };
 
-    const double epsx = 0.00000001;
+    const double epsx = 0.001;
     const alglib::ae_int_t maxits = 0;
     
     std::vector<std::vector<float>> destSamples;
-    int gainRegionsNumber;
-    int quantileRegionsNumber;
+    int gainRegionsNumber, gainRegionsNumberSoft;
+    int quantileRegionsNumber, quantileRegionsNumberSoft;
     EnvCalculationType balFilterType;
     ChannelAggregationType channelAggregationType;
 
@@ -45,10 +45,13 @@ private:
     DynamicShaper<float> dynamicProcessor;
     juce::dsp::ProcessSpec spec;
 
-    alglib::integer_2d_array xEnvTable;
+    alglib::integer_2d_array xEnvTable, xEnvTableSoft;
 
     // envDbByCol[j] = envelope (in dB) at the center of grid column j.
-    std::vector<double> envDbByCol;
+    std::vector<double> envDbByCol, envDbByColSoft;
+
+    alglib::integer_2d_array* activeEnvTable = &xEnvTable;
+    std::vector<double>* activeEnvDbByCol = &envDbByCol;
 
     std::vector<double> calculateYDensity(
         const alglib::real_1d_array& params,
