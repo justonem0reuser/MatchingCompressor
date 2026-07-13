@@ -162,6 +162,7 @@ target_sources(MatchingCompressor
     "Source/ParamsCalculator/CompParamsCalculatorEnv1D.cpp"
     "Source/ParamsCalculator/CompParamsCalculatorEnv2D.cpp"
     "Source/ParamsCalculator/CompParamsCalculatorNoEnv.cpp"
+    "Source/ParamsCalculator/FuncAndGradCalculator.cpp"
     "Source/ParamsCalculator/QuantilesCalculator.cpp"
     "Source/PluginEditor.cpp"
     "Source/PluginProcessor.cpp"
