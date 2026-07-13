@@ -20,7 +20,7 @@ public:
         double destSampleRate,
         juce::ValueTree& properties) override;
 
-protected:
+private:
     struct FunctionAndJacobian
     {
         std::vector<float> q; // quantiles + fine
@@ -28,6 +28,9 @@ protected:
         bool hasJacobian = false;
     };
 
+    const double epsx = 0.00000001;
+    const alglib::ae_int_t maxits = 0;
+    
     std::vector<std::vector<float>> destSamples;
     int gainRegionsNumber;
     int quantileRegionsNumber;
@@ -42,6 +45,15 @@ protected:
     DynamicShaper<float> dynamicProcessor;
     juce::dsp::ProcessSpec spec;
 
+    alglib::integer_2d_array xEnvTable;
+
+    // envDbByCol[j] = envelope (in dB) at the center of grid column j.
+    std::vector<double> envDbByCol;
+
+    std::vector<double> calculateYDensity(
+        const alglib::real_1d_array& params,
+        std::vector<std::vector<double>>* dBeans = nullptr);
+
     static void calculateFunctional(
         const alglib::real_1d_array& c,
         const alglib::real_1d_array& x,
@@ -54,15 +66,15 @@ protected:
         alglib::real_1d_array& grad,
         void* ptr);
 
-    virtual void calculateEnvelopeStatistics(
+    void calculateEnvelopeStatistics(
         std::vector<std::vector<float>>& samples,
         double sampleRate,
         float attackMs,
-        float releaseMs) = 0;
-    virtual std::vector<float> calculateFunction(
+        float releaseMs);
+    std::vector<float> calculateFunction(
         std::vector<std::vector<float>>& samples,
         const alglib::real_1d_array& parameters,
-        std::vector<std::vector<double>>* jacobian = nullptr) = 0;
+        std::vector<std::vector<double>>* jacobian = nullptr);
 
     std::vector<float>& getY(const alglib::real_1d_array& c);
     FunctionAndJacobian& getYAndJ(const alglib::real_1d_array& c);
@@ -73,8 +85,4 @@ protected:
         bool withJacobian);
     
     void setCompParameters(const alglib::real_1d_array& params);
-
-private:
-    const double epsx = 0.00000001;
-    const alglib::ae_int_t maxits = 0;
 };

@@ -148,16 +148,6 @@
               file="Source/ParamsCalculator/CompParamsCalculatorEnv.cpp"/>
         <FILE id="ivCHfh" name="CompParamsCalculatorEnv.h" compile="0" resource="0"
               file="Source/ParamsCalculator/CompParamsCalculatorEnv.h"/>
-        <FILE id="jTXRCM" name="CompParamsCalculatorEnv1D.cpp" compile="1"
-              resource="0" file="Source/ParamsCalculator/CompParamsCalculatorEnv1D.cpp"/>
-        <FILE id="uSXBZn" name="CompParamsCalculatorEnv1D.h" compile="0" resource="0"
-              file="Source/ParamsCalculator/CompParamsCalculatorEnv1D.h"/>
-        <FILE id="OPbdvK" name="CompParamsCalculatorEnv2D.cpp" compile="1"
-              resource="0" file="Source/ParamsCalculator/CompParamsCalculatorEnv2D.cpp"/>
-        <FILE id="BpCenW" name="CompParamsCalculatorEnv2D.h" compile="0" resource="0"
-              file="Source/ParamsCalculator/CompParamsCalculatorEnv2D.h"/>
-        <FILE id="KhXQCL" name="CompParamsCalculatorFactory.cpp" compile="1"
-              resource="0" file="Source/ParamsCalculator/CompParamsCalculatorFactory.cpp"/>
         <FILE id="jAWFNV" name="CompParamsCalculatorFactory.h" compile="0"
               resource="0" file="Source/ParamsCalculator/CompParamsCalculatorFactory.h"/>
         <FILE id="UvM34d" name="CompParamsCalculatorNoEnv.cpp" compile="1"
