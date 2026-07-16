@@ -13,6 +13,8 @@ const juce::String
 	destSetFromFileStr = "Destination is set from file",
 	refSetFromBusStr = "Reference is set from sidechain bus",
 	destSetFromBusStr = "Destination is set from main bus",
+	normalModeStr = "Normal mode",
+	fixationModeStr = "Fixation mode",
 	minimalThemeStr = "Minimal style",
 	brutalThemeStr = "Brutal style";
 	
@@ -35,6 +37,7 @@ const juce::String
 const juce::String fileChooserTitleStr = "Select a Wave file...";
 const juce::String matchWindowTitleStr = "Match";
 const juce::String matchBtnStr = "Match";
+const juce::String learnBtnStr = "Learn";
 const juce::String resetBtnStr = "Reset to calculated parameters";
 
 // parameters IDs

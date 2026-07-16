@@ -23,6 +23,11 @@ void SliderWithAttachment::changeParameter(const juce::String& newId)
     isParameterChanging = false;
 }
 
+void SliderWithAttachment::detach()
+{
+    attachment.reset();
+}
+
 bool SliderWithAttachment::getIsParameterChanging()
 {
     return isParameterChanging;

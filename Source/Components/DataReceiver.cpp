@@ -52,7 +52,7 @@ DataReceiver::DataReceiver(
 
 void DataReceiver::setRefDataState(SetDataState state)
 {
-    isRefDataSet = state != SetDataState::NotSet;
+    refDataSet = state != SetDataState::NotSet;
     refIsSetLabel.setText(
         state == SetDataState::SetFromBus ? refSetFromBusStr :
         state == SetDataState::SetFromFile ? refSetFromFileStr :
@@ -63,7 +63,7 @@ void DataReceiver::setRefDataState(SetDataState state)
 
 void DataReceiver::setDestDataState(SetDataState state)
 {
-    isDestDataSet = state != SetDataState::NotSet;
+    destDataSet = state != SetDataState::NotSet;
     destIsSetLabel.setText(
         state == SetDataState::SetFromBus ? destSetFromBusStr :
         state == SetDataState::SetFromFile ? destSetFromFileStr :
@@ -92,9 +92,14 @@ void DataReceiver::setNeedChangeDestLabelText()
     needChangeDestLabelText = true;
 }
 
-bool DataReceiver::isAllDataSet() const
+bool DataReceiver::isRefDataSet() const
 {
-    return isRefDataSet && isDestDataSet;
+    return refDataSet;
+}
+
+bool DataReceiver::isDestDataSet() const
+{
+    return destDataSet;
 }
 
 void DataReceiver::setBusesConnected(bool mainBus, bool sidechain)

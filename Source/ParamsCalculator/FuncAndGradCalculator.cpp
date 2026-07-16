@@ -74,7 +74,7 @@ double FuncAndGradCalculator::calculateWithoutGain(
 
                 if (index > 0)
                     grad[i3 - 1] += kneeOffset - 0.5 * curKneeWidth -
-                    0.5 * kneeOffset * kneePos;
+                        0.5 * kneeOffset * kneePos;
             }
         }
     }

@@ -18,10 +18,17 @@ public:
 		MatchCompressorAudioProcessor& processor);
 	DataReceiverController& getDataReceiverController();
 
+	static std::vector<float> getCurrentCompParams(
+		juce::AudioProcessorValueTreeState& apvts,
+		int kneesNumber);
+
 private:
 	BaseMatchView* matchView;
 	MatchingData& matchingData;
+	MatchCompressorAudioProcessor& processor;
 	DataReceiverController dataReceiverController;
 
 	void calculateCompressorParameters();
+
+	void syncPropertiesFromState();
 };

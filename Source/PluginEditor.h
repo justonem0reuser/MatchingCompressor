@@ -8,6 +8,8 @@
 #include "Components/ButtonChoiceComponent.h"
 #include "Components/ButtonChoiceWithAttachment.h"
 #include "Components/BaseMainView.h"
+#include "Controllers/MatchController.h"
+#include "Data/CurveData.h"
 #include "Controllers/MainController.h"
 #include "LookAndFeel/MCLookAndFeel.h"
 
@@ -26,6 +28,8 @@ public:
     BaseMatchView* getMatchView() override;
 
 private:
+    enum class Mode { normal, fixed };
+
     const int margin = 10;
     const int leftPanelWidth = 446;
     const int rightPanelWidth = 300;
@@ -49,6 +53,7 @@ private:
     juce::ImageButton toolButton;
     juce::TextButton resetButton;
     ButtonChoiceComponent themeButtons;
+    ButtonChoiceComponent modeButtons;
     std::array<std::unique_ptr<juce::ImageButton>, DynamicShaper<float>::maxKneesNumber> kneeIndexButtons;
     std::array<std::unique_ptr<juce::Label>, DynamicShaper<float>::maxKneesNumber> kneeIndexLabels;
     juce::Label
@@ -68,15 +73,20 @@ private:
         channelAggregationTypeButtons;
     std::unique_ptr<CurvePlotComponent> freeFormCurve;
 
+    Mode mode = Mode::normal;
+    bool restoringCalculatedData = false;
+
     // Look and feel properties
     std::unique_ptr<MCLookAndFeel> laf;
     juce::Rectangle<float> groupRect;
+    juce::Rectangle<float> attackReleaseRect;
     juce::Slider::RotaryParameters standardRotaryParameters; // this should be after sliders because of the initializing order
 
     void createController();
     void resetToCalculatedData();
     void toolButtonClicked();
     void themeButtonClicked();
+    void modeButtonClicked();
     void applyTheme(std::unique_ptr<MCLookAndFeel> newLaf);
 
     // Sliders and knee index buttons manipulating
@@ -92,6 +102,13 @@ private:
         int fromIndex,
         bool updateThreshold,
         bool updateKneeWidth);
+    void onBallisticsSliderChanged();
+    void onUserCurveEdit();
+    void onStructuralConfigChanged();
+    bool requestReferenceScore();
+    void setBallisticsCallbacks(bool enabled);
+    bool isParametersCalculated();
+    void updateStateFromMatchingData();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MatchCompressorAudioProcessorEditor)
 };

@@ -9,11 +9,7 @@
 class CompParamsCalculator
 {
 public:
-    enum class KneeType
-    {
-        hard,
-        soft
-    };
+    enum class KneeType { hard, soft };
 
     /// <summary>
     /// Best match compressing parameters calculation.
@@ -24,14 +20,21 @@ public:
     /// <param name="properties">calculation properties</param>
     /// <returns>best match compressing parameters vector</returns>
     virtual std::vector<float> calculateCompressorParameters(
-        std::vector<std::vector<float>>& refSamples, 
-        std::vector<std::vector<float>>& destSamples, 
+        std::vector<std::vector<float>>& refSamples,
+        std::vector<std::vector<float>>& destSamples,
         double destSampleRate,
         juce::ValueTree& properties) = 0;
+
+    float getLastFitMismatch() const { return lastFitMismatch; }
 
 protected:
     constexpr static double fineThreshold = 0.1;
     constexpr static double fineCoeff = 100.0;
+
+
+    static float fitMismatch(double rmsError, const std::vector<float>& target);
+    float lastFitMismatch = 0.f;
+
 
     /// <summary>
     /// Fine calculation in case 

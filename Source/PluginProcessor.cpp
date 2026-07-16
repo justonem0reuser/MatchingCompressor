@@ -1,6 +1,7 @@
 #pragma once
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "Controllers/FixationController.h"
 #include "Data/Messages.h"
 #include "Data/Ranges.h"
 
@@ -40,7 +41,11 @@ MatchCompressorAudioProcessor::MatchCompressorAudioProcessor()
         ratioParams[i] = apvts.getRawParameterValue(ratioId + iStr);
         kneeWidthParams[i] = apvts.getRawParameterValue(kneeWidthId + iStr);
     }
+
+    fixationController = std::make_unique<FixationController>(*this);
 }
+
+MatchCompressorAudioProcessor::~MatchCompressorAudioProcessor() = default;
 
 //==============================================================================
 void MatchCompressorAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
@@ -53,8 +58,9 @@ void MatchCompressorAudioProcessor::prepareToPlay(double sampleRate, int samples
     spec.sampleRate = sampleRate;
     spec.numChannels = mainBusNumChannels;
     chain.get<ChainPositions::MainBusCollector>().prepare(spec);
-    chain.get<ChainPositions::CompressorExpander>().prepare(spec);
-    chain.get<ChainPositions::CompressorExpander>().setGainSmoothingTime(gainSmoothingTimeMs);
+    auto& shaper = chain.get<ChainPositions::CompressorExpander>();
+    shaper.prepare(spec);
+    shaper.setGainSmoothingTime(gainSmoothingTimeMs);
 
     spec.numChannels = sidechainNumChannels;
     auto& sidechainCollector = chain.get<ChainPositions::SidechainCollector>();
@@ -381,6 +387,11 @@ void MatchCompressorAudioProcessor::updateCompressorParameters()
 MatchingData& MatchCompressorAudioProcessor::getMatchingData()
 {
     return matchingData;
+}
+
+FixationController& MatchCompressorAudioProcessor::getFixationController()
+{
+    return *fixationController;
 }
 
 int MatchCompressorAudioProcessor::getThemeIndex()

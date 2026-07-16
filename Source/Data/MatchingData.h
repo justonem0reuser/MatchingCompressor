@@ -44,4 +44,14 @@ public:
 	/// Compression parameters calculated from snaps
 	/// </summary>
 	std::vector<float> calculatedCompParams;
+
+	/// <summary>
+	/// Fit mismatch of the last match (dimensionless, 0 = perfect), for indication
+	/// </summary>
+	float fitMismatch = 0.f;
+
+	/// <summary>
+	/// True if the last calculation was a match against a reference, false after a learn. 
+	/// </summary>
+	bool matchedWithReference = false;
 };

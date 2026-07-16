@@ -108,6 +108,10 @@
               file="Source/Controllers/DataReceiverController.cpp"/>
         <FILE id="ApfeNS" name="DataReceiverController.h" compile="0" resource="0"
               file="Source/Controllers/DataReceiverController.h"/>
+        <FILE id="kUlxWk" name="FixationController.h" compile="0" resource="0"
+              file="Source/Controllers/FixationController.h"/>
+        <FILE id="MyXSTQ" name="FixationWorker.h" compile="0" resource="0"
+              file="Source/Controllers/FixationWorker.h"/>
         <FILE id="CIbxrc" name="MainController.cpp" compile="1" resource="0"
               file="Source/Controllers/MainController.cpp"/>
         <FILE id="lww2y7" name="MainController.h" compile="0" resource="0"

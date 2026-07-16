@@ -1,5 +1,6 @@
 #include "CompParamsCalculator.h"
 #include "../Data/Ranges.h"
+#include <limits>
 
 double CompParamsCalculator::calculateFine(
     const alglib::real_1d_array& c, 
@@ -27,10 +28,10 @@ double CompParamsCalculator::calculateFine(
             {
                 auto& grad = *gradPtr;
                 double valueToAdd = fineCoeff * fineDelta;
-                grad[prevTInd]    -= 2.0 * valueToAdd;
+                grad[prevTInd] -= 2.0 * valueToAdd;
                 grad[prevKneeInd] -= valueToAdd;
-                grad[curTInd]     += 2.0 * valueToAdd;
-                grad[curKneeInd]  -= valueToAdd;
+                grad[curTInd] += 2.0 * valueToAdd;
+                grad[curKneeInd] -= valueToAdd;
             }
         }
     }
@@ -115,6 +116,17 @@ float CompParamsCalculator::normalize(
         for (auto& sample : ch)
             sample *= scale;
     return maxAmp;
+}
+
+float CompParamsCalculator::fitMismatch(double rmsError, const std::vector<float>& target)
+{
+    double sumSq = 0.0;
+    for (float t : target)
+        sumSq += (double)t * t;
+    const double rmsTarget = std::sqrt(sumSq / std::max<size_t>(1, target.size()));
+    if (rmsTarget <= 0.0)
+        return std::numeric_limits<float>::infinity();
+    return (float)(rmsError / rmsTarget);
 }
 
 void CompParamsCalculator::denormalize(std::vector<float>& result, float maxAmp)

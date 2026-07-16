@@ -21,6 +21,33 @@ public:
         double destSampleRate,
         juce::ValueTree& properties) override;
 
+    void prepare(
+        std::vector<std::vector<float>>& refSamples,
+        std::vector<std::vector<float>>& destSamples,
+        double refSampleRate,
+        juce::ValueTree& properties);
+
+    void prepareForFixation(
+        std::vector<std::vector<float>>& destSamples,
+        double destSampleRate,
+        juce::ValueTree& properties);
+
+    void updateBallistics(float attackMs, float releaseMs); // prepare() should be called before
+
+    void updateEnvSettings(int balFilterTypeInt, int channelAggregationTypeInt);
+
+    std::vector<float> solve(); // fits the reference target built by prepare()
+
+    std::vector<float> solve(
+        const std::vector<float>& target,
+        const std::vector<float>& targetSoft,
+        const std::vector<float>* warmStart = nullptr);
+
+    // prepare()+updateBallistics() must be called before it.
+    std::vector<float> calculateQuantilesFor(const std::vector<float>& params);
+
+    float scoreAgainstReference(const std::vector<float>& params);
+
 private:
     struct FunctionAndJacobian
     {
@@ -37,6 +64,11 @@ private:
     int quantileRegionsNumber, quantileRegionsNumberSoft;
     EnvCalculationType balFilterType;
     ChannelAggregationType channelAggregationType;
+    KneeType kneeType = KneeType::hard;
+    int kneesNumber = 1;
+    double sampleRate = 0.;
+    float maxAmp = 1.f;
+    std::vector<float> referenceDensityFunction, referenceDensityFunctionSoft;
 
     /// <summary>
     /// Container for storing and reusing functional calculation results.
@@ -92,4 +124,10 @@ private:
         bool withJacobian);
     
     void setCompParameters(const alglib::real_1d_array& params);
+
+    void paramsToC(const std::vector<float>& params, alglib::real_1d_array& c, bool keepKneeWidth = false);
+
+    void configure(const juce::ValueTree& properties);
+
+    float fitMismatchExclFine(const alglib::real_1d_array& c, const std::vector<float>& target);
 };

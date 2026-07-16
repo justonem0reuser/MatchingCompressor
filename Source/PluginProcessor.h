@@ -1,9 +1,12 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <memory>
 #include "DSP/DynamicShaper.h"
 #include "DSP/DataCollector.h"
 #include "Data/MatchingData.h"
+
+class FixationController;
 
 //==============================================================================
 using Chain = juce::dsp::ProcessorChain<
@@ -36,6 +39,8 @@ public:
     std::function<void()> DataCollectorMemoryFull;
 
     MatchCompressorAudioProcessor();
+    // Defined in the .cpp: FixationController is incomplete here.
+    ~MatchCompressorAudioProcessor() override;
 
     //==============================================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
@@ -84,6 +89,7 @@ public:
     void updateCompressorParameters();
 
     MatchingData& getMatchingData();
+    FixationController& getFixationController();
     int getThemeIndex();
     void setThemeIndex(int index);
 
@@ -121,7 +127,9 @@ private:
     ChannelAggregationType channelAggregationType = ChannelAggregationType::separate;
 
     MatchingData matchingData;
-    
+
+    std::unique_ptr<FixationController> fixationController;
+
     int themeIndex;
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

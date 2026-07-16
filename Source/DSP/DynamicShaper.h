@@ -110,6 +110,7 @@ public:
                 SampleType env = lastEnv0;
                 for (auto i = 0; i < numSamples; i++)
                 {
+                    gainSmoothed.getNextValue();
                     env = calculateStereoEnvMean(inputSamples0[i], inputSamples1[i]);
                     outputSamples0[i] = calculateGain(inputSamples0[i], env);
                     outputSamples1[i] = calculateGain(inputSamples1[i], env);
@@ -156,29 +157,29 @@ public:
     void calculateStereoEnv(SampleType inputValue0, SampleType inputValue1, SampleType& env0, SampleType& env1);
 
 private:
-    constexpr static SampleType zero = (SampleType)0.0;
-    constexpr static SampleType half = (SampleType)0.5;
-    constexpr static SampleType one = (SampleType)1.0;
+    constexpr static SampleType zero = (SampleType) 0.0;
+    constexpr static SampleType half = (SampleType) 0.5;
+    constexpr static SampleType one = (SampleType) 1.0;
 
-    constexpr static SampleType dbToGainCoeff = (SampleType)0.1660964047443681;
-    constexpr static SampleType silenceGain = (SampleType)1.0e-6;
+    constexpr static SampleType dbToGainCoeff = (SampleType) 0.1660964047443681;
+
+    constexpr static SampleType silenceGain = (SampleType) 1.0e-6;
 
     int size = 0;
     int channelsNumber = 0;
     double sampleRate = 44100.0;
-    SampleType gainSmoothingTimeMs = (SampleType)0.0;
-    SampleType attackTime = (SampleType)10.0;
-    SampleType releaseTime = (SampleType)100.0;
-    SampleType gainDb = (SampleType)0.0;
+    SampleType attackTime = 10.0, releaseTime = 100.0, gainDb = 0.0;
+    SampleType gainSmoothingTimeMs = 0.0;
     EnvCalculationType balFilterType = EnvCalculationType::peak;
     ChannelAggregationType channelAggregationType = ChannelAggregationType::separate;
-    
-    SampleType lastEnv0 = (SampleType)0.0;
-    SampleType lastEnv1 = (SampleType)0.0;
-    juce::SmoothedValue<SampleType, juce::ValueSmoothingTypes::Multiplicative> gainSmoothed{ one };
+
+    SampleType lastEnv0 = 0.0, lastEnv1 = 0.0;
+
+    juce::SmoothedValue<SampleType, juce::ValueSmoothingTypes::Multiplicative>
+        gainSmoothed{ one };
 
     KneesArray
-        gain, // gain[0] is always 1
+        gain,
         threshold, 
         thresholdInverse, 
         ratioInverseMinusOne,

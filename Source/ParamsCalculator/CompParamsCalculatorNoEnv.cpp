@@ -78,6 +78,20 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
     if (rep.terminationtype < 0)
         throw std::runtime_error(cannotCalculateErrStr.toStdString());
 
+    {
+        double sumSq = 0.0;
+        alglib::real_1d_array xi;
+        xi.setlength(1);
+        for (int i = 0; i < g.quantileRegions; i++)
+        {
+            xi[0] = localDestStat[i];
+            double model = calculateFunctionalAndGradientWithoutFine(c, xi);
+            double res = model - localReferenceStat[i];
+            sumSq += res * res;
+        }
+        lastFitMismatch = fitMismatch(std::sqrt(sumSq / std::max(1, g.quantileRegions)), localReferenceStat);
+    }
+
     auto result = resArrayToVector(c);
     denormalize(result, maxAmp);
     return result;

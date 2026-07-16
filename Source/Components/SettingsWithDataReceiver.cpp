@@ -20,7 +20,6 @@ SettingsWithDataReceiver::SettingsWithDataReceiver(
     panel.setBounds(margin, currentY, width - 2 * margin, panel.getTotalContentHeight());
 
     currentY = panel.getBottom() + 2 * margin;
-    okButton.setButtonText(matchBtnStr);
     okButton.setBounds(margin, currentY, buttonWidth, componentHeight);
     okButton.onClick = [this] { juce::NullCheckedInvocation::invoke(onOkButtonClicked); };
     cancelButton.setBounds(width - margin - buttonWidth, currentY, buttonWidth, componentHeight);
@@ -31,7 +30,10 @@ SettingsWithDataReceiver::SettingsWithDataReceiver(
 
     dataReceiver.onStateChanged = [this]
         {
-            okButton.setEnabled(dataReceiver.isAllDataSet());
+            const bool hasRef = dataReceiver.isRefDataSet();
+            okButton.setEnabled(dataReceiver.isDestDataSet());
+            okButton.setButtonText(hasRef ? matchBtnStr : learnBtnStr);
+            setPropertiesEnabled(hasRef);
         };
     dataReceiver.onStateChanged();
 }

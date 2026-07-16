@@ -19,7 +19,7 @@ void DynamicShaper<SampleType>::prepare(const juce::dsp::ProcessSpec& spec)
     channelsNumber = spec.numChannels;
     envelopeFilter.prepare(spec);
     lastEnv0 = lastEnv1 = zero;
-    gainSmoothed.reset(sampleRate, gainSmoothingTimeMs * (SampleType)0.001);
+    gainSmoothed.reset(sampleRate, gainSmoothingTimeMs * 0.001);
 }
 
 template <typename SampleType>
@@ -34,7 +34,7 @@ template <typename SampleType>
 void DynamicShaper<SampleType>::setGainSmoothingTime(SampleType newTimeMs)
 {
     gainSmoothingTimeMs = newTimeMs;
-    gainSmoothed.reset(sampleRate, newTimeMs * (SampleType)0.001);
+    gainSmoothed.reset(sampleRate, newTimeMs * 0.001);
 }
 
 // envelope parameters setters
@@ -96,11 +96,13 @@ void DynamicShaper<SampleType>::setGain(SampleType newGain)
 {
     gainDb = newGain;
     SampleType newGainLinear = dbToGain(gainDb);
+
     if (newGainLinear == 0.0)
     {
         gainSmoothed.setCurrentAndTargetValue(newGainLinear);
         return;
     }
+
     if (gainSmoothed.getCurrentValue() == 0.0)
         gainSmoothed.setCurrentAndTargetValue(silenceGain);
     gainSmoothed.setTargetValue(newGainLinear);

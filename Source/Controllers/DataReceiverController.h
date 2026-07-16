@@ -21,11 +21,6 @@ public:
 		double refSampleRate,
 		std::vector<std::vector<float>>& destSamples,
 		double destSampleRate);
-	void getReceivedData(
-		std::vector<std::vector<float>>& refSamples,
-		double& refSampleRate,
-		std::vector<std::vector<float>>& destSamples,
-		double& destSampleRate) const;
 
 private:
 	BaseDataReceiver* dataReceiver;

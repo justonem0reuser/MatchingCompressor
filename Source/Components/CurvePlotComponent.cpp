@@ -2,7 +2,7 @@
 #include "../Data/Messages.h"
 #include "../ParamsCalculator/FuncAndGradCalculator.h"
 
-CurvePlotComponent::CurvePlotComponent() :
+CurvePlotComponent::CurvePlotComponent():
     PlotWithCoordinateSystemComponent(
         margin, margin, margin, margin,
         plotMargin, plotMargin, plotMargin, plotMargin,
@@ -11,27 +11,27 @@ CurvePlotComponent::CurvePlotComponent() :
 }
 
 void CurvePlotComponent::setData(std::vector<float>& compParams)
-{ 
+{
     this->calculatedCompParams = compParams;
     actualCompParams.assign(compParams.begin(), compParams.end());
     initialize(plotThreshold, 0.f, plotThreshold, 0.f, 10.f, 10.f);
 }
 
 void CurvePlotComponent::updateActualParameters(
-    juce::AudioProcessorValueTreeState& apvts, 
+    juce::AudioProcessorValueTreeState& apvts,
     int kneesNumber)
-{ 
+{
     if (kneesNumber > 0)
     {
         actualCompParams.resize(3 * kneesNumber + 1);
         auto gPar = apvts.getParameter(gainId);
         actualCompParams[0] = gPar->convertFrom0to1(gPar->getValue());
-        
+
         for (int i = 0; i < kneesNumber; i++)
         {
             auto tPar = apvts.getParameter(thresholdId + std::to_string(i));
             actualCompParams[i * 3 + 1] = tPar->convertFrom0to1(tPar->getValue());
-            
+
             auto rPar = apvts.getParameter(ratioId + std::to_string(i));
             auto r = rPar->convertFrom0to1(rPar->getValue());
             if (r < 1.f)
@@ -45,8 +45,52 @@ void CurvePlotComponent::updateActualParameters(
     }
 }
 
+void CurvePlotComponent::setFitIndicatorEmpty()
+{
+    isRecalculating = false;
+    hasFit = false;
+    repaint();
+}
+
+void CurvePlotComponent::setFitIndicatorComputing()
+{
+    isRecalculating = true;
+    repaint();
+}
+
+void CurvePlotComponent::setReferenceFitMismatch(float mismatch)
+{
+    isRecalculating = false;
+    hasFit = true;
+    fitIsReference = true;
+    fitMismatch = mismatch;
+    repaint();
+}
+
+void CurvePlotComponent::setFixedFitMismatch(float mismatch)
+{
+    isRecalculating = false;
+    hasFit = true;
+    fitIsReference = false;
+    fitMismatch = mismatch;
+    repaint();
+}
+
 void CurvePlotComponent::paint(juce::Graphics& g)
 {
+    juce::String status;
+    if (isRecalculating)
+        status = "recalculating...";
+    else if (hasFit)
+        status = juce::String(fitIsReference ? "mismatch against reference: "
+            : "mismatch against fixed dynamics: ")
+        + juce::String(fitMismatch, 4);
+    if (status.isNotEmpty())
+    {
+        g.setColour(findColour(MCLookAndFeel::plotGridColourId));
+        g.drawSingleLineText(status, (int)graphXMin, (int)(outputYMax + topMargin + 10));
+    }
+
     if (isReadyToDraw)
     {
         PlotWithCoordinateSystemComponent::paint(g);
@@ -103,10 +147,10 @@ juce::Path CurvePlotComponent::calculateCurve(
 
     float compGain = compParams[0];
     auto levelToOutput = [&](float levelDb)
-    {
-        return (float)FuncAndGradCalculator::calculateWithoutGain(
-            levelDb, coreParams.data(), (int)size) + compGain;
-    };
+        {
+            return (float)FuncAndGradCalculator::calculateWithoutGain(
+                levelDb, coreParams.data(), (int)size) + compGain;
+        };
 
     juce::Path curve;
     for (int i = 0; i < size; i++)

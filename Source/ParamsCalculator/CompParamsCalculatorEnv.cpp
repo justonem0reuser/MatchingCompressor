@@ -73,9 +73,15 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
     double destSampleRate,
     juce::ValueTree& properties)
 {
-    int balFilterTypeInt = properties.getProperty(setBalFilterTypeId);
-    int channelAggregationTypeInt = properties.getProperty(setChannelAggregationTypeId);
-    int kneeTypeInt = properties.getProperty(setKneeTypeId);
+    prepare(refSamples, destSamples, destSampleRate, properties);
+    updateBallistics(properties.getProperty(setAttackId), properties.getProperty(setReleaseId));
+    return solve();
+}
+
+void CompParamsCalculatorEnv::updateEnvSettings(
+    int balFilterTypeInt,
+    int channelAggregationTypeInt)
+{
     this->balFilterType =
         balFilterTypeInt == 1 ?
         EnvCalculationType::peak :
@@ -86,14 +92,20 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
         channelAggregationTypeInt == 2 ? 
         ChannelAggregationType::max :
         ChannelAggregationType::mean;
-    KneeType kneeType =  
+}
+
+void CompParamsCalculatorEnv::configure(const juce::ValueTree& properties)
+{
+    int kneeTypeInt = properties.getProperty(setKneeTypeId);
+    updateEnvSettings(
+        properties.getProperty(setBalFilterTypeId),
+        properties.getProperty(setChannelAggregationTypeId));
+    this->kneeType =
         kneeTypeInt == 1 ?
         KneeType::hard :
         KneeType::soft;
 
-    int kneesNumber = properties.getProperty(setKneesNumberId);
-    float attackMs = properties.getProperty(setAttackId);
-    float releaseMs = properties.getProperty(setReleaseId);
+    this->kneesNumber = properties.getProperty(setKneesNumberId);
 
     auto gHard = GranularityCalculator::calculateTargetGranularity(
         kneesNumber, false);
@@ -111,25 +123,37 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
         gainRegionsNumberSoft = gainRegionsNumber;
         quantileRegionsNumberSoft = quantileRegionsNumber;
     }
+}
+
+void CompParamsCalculatorEnv::prepareForFixation(
+    std::vector<std::vector<float>>& destSamples,
+    double destSampleRate,
+    juce::ValueTree& properties)
+{
+    configure(properties);
+    this->sampleRate = destSampleRate;
+    std::vector<std::vector<float>> emptyRef, unusedRefNormalized;
+    maxAmp = normalize(emptyRef, destSamples, unusedRefNormalized, this->destSamples);
+    spec.maximumBlockSize = 1000; // will not be used
+}
+
+void CompParamsCalculatorEnv::prepare(
+    std::vector<std::vector<float>>& refSamples,
+    std::vector<std::vector<float>>& destSamples,
+    double destSampleRate,
+    juce::ValueTree& properties)
+{
+    configure(properties);
+    this->sampleRate = destSampleRate;
 
     std::vector<std::vector<float>> refNormalized;
-    const float maxAmp = normalize(refSamples, destSamples, refNormalized, this->destSamples);
+    maxAmp = normalize(refSamples, destSamples, refNormalized, this->destSamples);
 
     spec.maximumBlockSize = 1000; // will not be used
 
-    calculatedFunctions.clear();
-    calculateEnvelopeStatistics(
-        this->destSamples, 
-        destSampleRate, 
-        attackMs, 
-        releaseMs);
-
     const int allRefSamplesNumber = refSamples.size() * refSamples[0].size();
-    std::vector<float> referenceDensityFunction, referenceDensityFunctionSoft;
-
-    auto refDensity = QuantilesCalculator::calculateDensityFunc(
-        refNormalized,
-        gainRegionsNumber);
+    
+    auto refDensity = QuantilesCalculator::calculateDensityFunc(refNormalized, gainRegionsNumber);
     int nonEmptyBinsNumber = 0;
     for (double d : refDensity)
         if (d > 0.0)
@@ -159,13 +183,44 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
             quantileRegionsNumberSoft,
             allRefSamplesNumber);
     }
+}
 
+void CompParamsCalculatorEnv::updateBallistics(float attackMs, float releaseMs)
+{
+    calculatedFunctions.clear();
+    calculateEnvelopeStatistics(
+        destSamples,
+        sampleRate,
+        attackMs,
+        releaseMs);
+}
+
+std::vector<float> CompParamsCalculatorEnv::solve()
+{
+    return solve(referenceDensityFunction, referenceDensityFunctionSoft);
+}
+
+std::vector<float> CompParamsCalculatorEnv::solve(
+    const std::vector<float>& target,
+    const std::vector<float>& targetSoft,
+    const std::vector<float>* warmStart)
+{
     alglib::real_2d_array x;
     alglib::real_1d_array bndl, bndu, y, c, s;
     alglib::lsfitstate state;
     alglib::lsfitreport rep;
 
     setInitGuessAndBounds(kneesNumber, kneeType, c, bndl, bndu);
+    if (warmStart != nullptr)
+    {
+        jassert((int)warmStart->size() == c.length());
+        paramsToC(*warmStart, c);
+        for (int k = 0; k < kneesNumber; k++)
+            bndl[3 + 3 * k] = bndu[3 + 3 * k] = 0.0;
+    }
+    activeEnvTable = &xEnvTable;
+    activeEnvDbByCol = &envDbByCol;
+    quantileRegionsNumber = (int)target.size();
     x.setlength(quantileRegionsNumber, 1);
     y.setlength(quantileRegionsNumber);
     s.setlength(3 * kneesNumber + 1);
@@ -173,7 +228,7 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
     for (int i = 0; i < quantileRegionsNumber; i++)
     {
         x[i][0] = i;// currentBinCenter;
-        y[i] = referenceDensityFunction[i];
+        y[i] = target[i];
     }
 
     s[0] = 1.;
@@ -195,26 +250,27 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
         if (rep.terminationtype < 0)
             throw std::runtime_error(cannotCalculateErrStr.toStdString());
 
-        if (kneeType == KneeType::soft)
+        const std::vector<float>* finalTarget = &target;
+
+        if (kneeType == KneeType::soft && warmStart == nullptr)
         {
             calculatedFunctions.clear();
             activeEnvTable = &xEnvTableSoft;
             activeEnvDbByCol = &envDbByColSoft;
-            gainRegionsNumber = gainRegionsNumberSoft;
-            quantileRegionsNumber = quantileRegionsNumberSoft;
-            x.setlength(quantileRegionsNumberSoft, 1);
-            y.setlength(quantileRegionsNumberSoft);
-            for (int i = 0; i < quantileRegionsNumberSoft; i++)
+            quantileRegionsNumber = (int)targetSoft.size();
+            x.setlength(quantileRegionsNumber, 1);
+            y.setlength(quantileRegionsNumber);
+            for (int i = 0; i < quantileRegionsNumber; i++)
             {
                 x[i][0] = i;// currentBinCenter;
-                y[i] = referenceDensityFunctionSoft[i];
+                y[i] = targetSoft[i];
             }
 
             for (int i = 0; i < kneesNumber; i++)
             {
                 bndl[3 + 3 * i] = kneeWidthRange.start;
                 bndu[3 + 3 * i] = kneeWidthRange.end;
-                c[3 + 3 * i] = 0.5 * (kneeWidthRange.start + kneeWidthRange.end);
+                c[3 + 3 * i] = 0.5f * (kneeWidthRange.start + kneeWidthRange.end);
             }
         
             // check knees intersection
@@ -232,14 +288,18 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
 
             lsfitcreatefg(x, y, c, true, state);
             lsfitsetcond(state, epsx, maxits);
-            lsfitsetscale(state, s);
+            lsfitsetscale(state, s); 
             lsfitsetbc(state, bndl, bndu);
             lsfitfit(state, calculateFunctional, calculateGradient, nullptr, this);
             lsfitresults(state, c, rep);
 
             if (rep.terminationtype < 0)
                 throw std::runtime_error(cannotCalculateErrStr.toStdString());
+
+            finalTarget = &targetSoft;
         }
+
+        lastFitMismatch = fitMismatchExclFine(c, *finalTarget);
 
         auto result = resArrayToVector(c);
         denormalize(result, maxAmp);
@@ -251,10 +311,84 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
     }
 }
 
+float CompParamsCalculatorEnv::fitMismatchExclFine(
+    const alglib::real_1d_array& c,
+    const std::vector<float>& target)
+{
+    auto& q = getY(c);
+    const double coeff = juce::Decibels::decibelsToGain(c[0]);
+    const double fine = calculateFine(c);
+    const int n = (int)target.size();
+    double sumSq = 0.0;
+    for (int i = 0; i < n; i++)
+    {
+        double model = ((double)q[i] - fine) * coeff;
+        double res = model - target[i];
+        sumSq += res * res;
+    }
+    return fitMismatch(std::sqrt(sumSq / std::max(1, n)), target);
+}
+
+void CompParamsCalculatorEnv::paramsToC(
+    const std::vector<float>& params,
+    alglib::real_1d_array& c,
+    bool keepKneeWidth)
+{
+    const double thrOffsetDb =
+        (maxAmp <= 0.f || maxAmp == 1.f) ? 0.0 : 20.0 * std::log10(maxAmp);
+    c[0] = params[0];
+    for (int k = 0; k < kneesNumber; k++)
+    {
+        c[1 + 3 * k] = params[1 + 3 * k] - thrOffsetDb;
+        c[2 + 3 * k] = 1.0 / params[2 + 3 * k];
+        c[3 + 3 * k] = keepKneeWidth ? params[3 + 3 * k] : 0.0;
+    }
+}
+
+std::vector<float> CompParamsCalculatorEnv::calculateQuantilesFor(const std::vector<float>& params)
+{
+    alglib::real_1d_array c;
+    c.setlength(3 * kneesNumber + 1);
+    paramsToC(params, c);
+
+    activeEnvTable = &xEnvTable;
+    activeEnvDbByCol = &envDbByCol;
+    calculatedFunctions.clear();
+
+    const auto& quantiles = getY(c);
+    const double gain = juce::Decibels::decibelsToGain(c[0]);
+
+    const double fine = calculateFine(c);
+    std::vector<float> res(quantiles.size());
+    for (size_t i = 0; i < quantiles.size(); i++)
+        res[i] = (float)(((double)quantiles[i] - fine) * gain);
+    return res;
+}
+
+float CompParamsCalculatorEnv::scoreAgainstReference(const std::vector<float>& params)
+{
+    const bool soft = (kneeType == KneeType::soft);
+    activeEnvTable = soft ? &xEnvTableSoft : &xEnvTable;
+    activeEnvDbByCol = soft ? &envDbByColSoft : &envDbByCol;
+    const auto& refTarget = soft ? referenceDensityFunctionSoft : referenceDensityFunction;
+    jassert(!refTarget.empty()); 
+
+    quantileRegionsNumber = (int)refTarget.size();
+    calculatedFunctions.clear();
+
+    alglib::real_1d_array c;
+    c.setlength(3 * kneesNumber + 1);
+    paramsToC(params, c, true); 
+    const float mismatch = fitMismatchExclFine(c, refTarget);
+
+    calculatedFunctions.clear();
+    return mismatch;
+}
+
 void CompParamsCalculatorEnv::calculateFunctional(
-    const alglib::real_1d_array& c, 
-    const alglib::real_1d_array& x, 
-    double& func, 
+    const alglib::real_1d_array& c,
+    const alglib::real_1d_array& x,
+    double& func,
     void* ptr)
 {
     int index = (int)x[0];
@@ -332,10 +466,6 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
     float attackMs,
     float releaseMs)
 {
-    const bool isSoftRequired =
-        gainRegionsNumber != gainRegionsNumberSoft ||
-        quantileRegionsNumber != quantileRegionsNumberSoft;
-
     xEnvTable.assign((size_t)(gainRegionsNumber * gainRegionsNumber), 0);
 
     const double delta = 1.0 / gainRegionsNumber;
@@ -344,7 +474,7 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
         envDbByCol[j] = juce::Decibels::gainToDecibels(
             (j + 0.5) * delta, DynamicShaper<double>::minusInfinityDb);
 
-    if (isSoftRequired)
+    if (kneeType == KneeType::soft)
     {
         xEnvTableSoft.assign((size_t)(gainRegionsNumberSoft * gainRegionsNumberSoft), 0);
 
@@ -357,6 +487,10 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
 
     auto numChannels = samples.size();
     auto numSamples = samples[0].size();
+
+    jassert((long long)numChannels * (long long)numSamples
+        <= (long long)std::numeric_limits<std::int32_t>::max());
+
     spec.numChannels = numChannels;
     spec.sampleRate = sampleRate;
     jassert((long long)numChannels * (long long)numSamples
@@ -379,7 +513,7 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
             int i1 = std::min((int)(sAbs * gainRegionsNumber), gainRegionsNumber - 1);
             int i2 = std::min((int)(env * gainRegionsNumber), gainRegionsNumber - 1);
             xEnvTable[i1 * gainRegionsNumber + i2]++;
-            if (isSoftRequired)
+            if (kneeType == KneeType::soft)
             {
                 i1 = std::min((int)(sAbs * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
                 i2 = std::min((int)(env * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
@@ -403,7 +537,7 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
             i1 = std::min((int)(sAbs1 * gainRegionsNumber), gainRegionsNumber - 1);
             i2 = std::min((int)(out1 * gainRegionsNumber), gainRegionsNumber - 1);
             xEnvTable[i1 * gainRegionsNumber + i2]++;
-            if (isSoftRequired)
+            if (kneeType == KneeType::soft)
             {
                 i1 = std::min((int)(sAbs0 * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
                 i2 = std::min((int)(out0 * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
@@ -423,7 +557,7 @@ std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
     const alglib::real_1d_array& params,
     std::vector<std::vector<double>>* dBins)
 {
-    size_t size = (int)activeEnvDbByCol->size();
+    auto size = (int)activeEnvDbByCol->size(); // one entry per histogram column
     float delta = 1.f / size;
     std::vector<double> res(size, 0.0);
 
@@ -440,15 +574,15 @@ std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
         const std::int32_t* row = activeEnvTable->data() + i * size;
         for (auto j = 0; j < size; j++)
         {
-            std::int32_t weight = row[j];
+            auto weight = row[j];
             if (weight == 0)
                 continue;
 
             double envDb = (*activeEnvDbByCol)[j];
 
             double yDb = FuncAndGradCalculator::calculateWithoutGain(
-                envDb,
-                params.getcontent(),
+                envDb, 
+                params.getcontent(), 
                 (n - 1) / 3,
                 false, // true would require division by envDb
                 dBins != nullptr ? gradDb.getcontent() : nullptr);

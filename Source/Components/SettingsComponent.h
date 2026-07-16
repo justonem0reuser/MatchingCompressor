@@ -27,6 +27,8 @@ protected:
 
 	juce::ValueTree& properties;
 
+	void setPropertiesEnabled(bool enabled);
+
 private:
 	juce::Array<juce::PropertyComponent*> propComps;
 	juce::Array<juce::PropertyComponent*> createPropertyComponents(

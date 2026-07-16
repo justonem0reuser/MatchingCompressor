@@ -49,18 +49,6 @@ void DataReceiverController::setFromDataCollector(
     }
 }
 
-void DataReceiverController::getReceivedData(
-    std::vector<std::vector<float>>& refSamples, 
-    double& refSampleRate, 
-    std::vector<std::vector<float>>& destSamples, 
-    double& destSampleRate) const
-{
-    refSamples = matchingData.refSamples;
-    refSampleRate = matchingData.refSampleRate;
-    destSamples = matchingData.destSamples;
-    destSampleRate = matchingData.destSampleRate;
-}
-
 void DataReceiverController::checkAndSaveData(
 	std::vector<std::vector<float>> samples, 
 	double sampleRate, 

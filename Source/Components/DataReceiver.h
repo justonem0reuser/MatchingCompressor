@@ -22,7 +22,8 @@ public:
 	void setNeedChangeDestLabelText() override;
 	void setBusesConnected(bool mainBus, bool sidechain) override;
 
-	bool isAllDataSet() const;
+	bool isRefDataSet() const;
+	bool isDestDataSet() const;
 	void setToggleButtonsDisabled();
 	void setToggleButtonsUnchecked();
 	void timerCallback() override;
@@ -55,7 +56,7 @@ private:
 	bool needChangeToggleButtonsState = true,
 		needChangeRefLabelText = false,
 		needChangeDestLabelText = false;
-	bool isRefDataSet = false, isDestDataSet = false;
+	bool refDataSet = false, destDataSet = false;
 	juce::String refToggleButtonText, destToggleButtonText;
 
 	void openFile(bool isRef);

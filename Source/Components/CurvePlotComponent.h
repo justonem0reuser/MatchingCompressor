@@ -13,13 +13,23 @@ public:
 
     void setData(std::vector<float>& compParams);
     void updateActualParameters(
-        juce::AudioProcessorValueTreeState& apvts, 
+        juce::AudioProcessorValueTreeState& apvts,
         int kneesNumber);
     void paint(juce::Graphics& g) override;
+
+    void setFitIndicatorEmpty();
+    void setFitIndicatorComputing();
+    void setReferenceFitMismatch(float mismatch);
+    void setFixedFitMismatch(float mismatch);
 
 private:
     const float plotThreshold = -60.f;
     const float dashedLineLengths[2] { 4, 4 };
+
+    bool isRecalculating = false;
+    bool hasFit = false;
+    bool fitIsReference = true;
+    float fitMismatch = 0.f;
 
     std::vector<float> actualCompParams, calculatedCompParams;
     juce::Path actualCompCurve, calculatedCompCurve;

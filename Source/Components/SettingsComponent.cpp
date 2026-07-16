@@ -40,6 +40,12 @@ void SettingsComponent::resetLookAndFeel()
             comp->getChildComponent(j)->setLookAndFeel(nullptr);
 }
 
+void SettingsComponent::setPropertiesEnabled(bool enabled)
+{
+    for (auto* comp : propComps)
+        comp->setEnabled(enabled);
+}
+
 juce::Array<juce::PropertyComponent*> SettingsComponent::createPropertyComponents(
     std::vector<ParameterInfo>& parameterInfos)
 {

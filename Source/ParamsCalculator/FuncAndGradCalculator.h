@@ -1,11 +1,5 @@
 #pragma once
 
-#include "alglibinternal.h"
-
-/// <summary>
-/// Evaluates the static gain-computer curve (excluding make-up gain) 
-/// and (optionally) its analytic gradient.
-/// </summary>
 class FuncAndGradCalculator
 {
 public:
