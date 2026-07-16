@@ -10,9 +10,9 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     MatchCompressorAudioProcessor& p)
     : AudioProcessorEditor(&p),
     audioProcessor(p),
-    kneesNumberComboBox(audioProcessor.apvts, kneesNumberId, juce::StringArray(std::vector<juce::String>(kneeIndexButtons.size()).data(), kneeIndexButtons.size())),
-    channelAggregationTypeComboBox(audioProcessor.apvts, channelAggrerationTypeId, channelAggregationTypes),
-    balFilterTypeComboBox(audioProcessor.apvts, balFilterTypeId, balFilterTypes),
+    kneesNumberButtons(audioProcessor.apvts, kneesNumberId, juce::StringArray(std::vector<juce::String>(kneeIndexButtons.size()).data(), kneeIndexButtons.size())),
+    channelAggregationTypeButtons(audioProcessor.apvts, channelAggrerationTypeId, channelAggregationTypes),
+    balFilterTypeButtons(audioProcessor.apvts, balFilterTypeId, balFilterTypes),
     gainSlider(audioProcessor.apvts, gainId),
     thresholdSlider(audioProcessor.apvts, thresholdId + "0"),
     ratioSlider(audioProcessor.apvts, ratioId + "0"),
@@ -20,6 +20,7 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     attackSlider(audioProcessor.apvts, attackId),
     releaseSlider(audioProcessor.apvts, releaseId),
     toolButton("matchButton"),
+    themeButtons({ "Minimal style", "Brutal style" }, ButtonChoiceComponent::Orientation::vertical),
     groupRect(0.f, 0.f, 0.f, 0.f),
     laf(std::make_unique<MCAltLookAndFeel>()),
     standardRotaryParameters(gainSlider.getRotaryParameters())
@@ -29,17 +30,9 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     laf->setupToolButton(toolButton);
     toolButton.onClick = [this] { toolButtonClicked(); };
 
-    minimalThemeButton.setButtonText(minimalThemeStr);
-    brutalThemeButton.setButtonText(brutalThemeStr);
-    minimalThemeButton.setConnectedEdges(juce::Button::ConnectedOnBottom);
-    brutalThemeButton.setConnectedEdges(juce::Button::ConnectedOnTop);
-    for (auto* themeButton : { &minimalThemeButton, &brutalThemeButton })
-    {
-        themeButton->setClickingTogglesState(true);
-        themeButton->setRadioGroupId(2, juce::NotificationType::dontSendNotification);
-        themeButton->onClick = [this] { themeButtonClicked(); };
-        addAndMakeVisible(*themeButton);
-    }
+    // Index 0 = minimal (MCAltLookAndFeel), index 1 = brutal (MCDefaultLookAndFeel).
+    themeButtons.onChange = [this] { themeButtonClicked(); };
+    addAndMakeVisible(themeButtons);
 
     ComponentInitializerHelper::initTextButton(
         this, 
@@ -67,13 +60,13 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     freeFormCurve = std::make_unique<CurvePlotComponent>();
     std::vector<float> empty;
     freeFormCurve->setData(empty);
-    freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberComboBox.getSelectedId());
+    freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberButtons.getSelectedId());
     
     thresholdSlider.onValueChange = [&]
         {
             if (thresholdSlider.getIsParameterChanging())
                 return;
-            freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberComboBox.getSelectedId());
+            freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberButtons.getSelectedId());
             int checkedButtonIndex = getCheckedButtonIndex();
             if (checkedButtonIndex >= 0)
                 updateSlidersBounds(checkedButtonIndex, false, true);
@@ -82,7 +75,7 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
         {
             if (kneeWidthSlider.getIsParameterChanging())
                 return;
-            freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberComboBox.getSelectedId());
+            freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberButtons.getSelectedId());
             int checkedButtonIndex = getCheckedButtonIndex();
             if (checkedButtonIndex >= 0)
                 updateSlidersBounds(checkedButtonIndex, true, false);
@@ -91,32 +84,27 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
         {
             if (ratioSlider.getIsParameterChanging())
                 return;
-            freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberComboBox.getSelectedId());
+            freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberButtons.getSelectedId());
         };
 
     gainSlider.onValueChange = [&]
         {
-            freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberComboBox.getSelectedId());
+            freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberButtons.getSelectedId());
         };
-    kneesNumberComboBox.onChange = [&]
+    kneesNumberButtons.onChange = [&]
         {
             updateKneeIndexButtonsVisibility();
-            freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberComboBox.getSelectedId());
+            freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberButtons.getSelectedId());
             int checkedButtonIndex = getCheckedButtonIndex();
             if (checkedButtonIndex >= 0)
                 updateSlidersBounds(checkedButtonIndex, true, true);
         };
     
-    int selectedId = kneesNumberComboBox.getSelectedId();
+    int selectedId = kneesNumberButtons.getSelectedId();
     for (int i = 1; i <= kneeIndexButtons.size(); i++)
-        kneesNumberComboBox.changeItemText(i, std::to_string(i));
-    kneesNumberComboBox.setSelectedId(selectedId);
-    kneesNumberComboBox.repaint();
-
-    auto controlBackgroundColour = findColour(MCLookAndFeel::controlBackgroundColourId);
-    kneesNumberComboBox.setColour(juce::ComboBox::backgroundColourId, controlBackgroundColour);
-    balFilterTypeComboBox.setColour(juce::ComboBox::backgroundColourId, controlBackgroundColour);
-    channelAggregationTypeComboBox.setColour(juce::ComboBox::backgroundColourId, controlBackgroundColour);
+        kneesNumberButtons.changeItemText(i, std::to_string(i));
+    kneesNumberButtons.setSelectedId(selectedId);
+    kneesNumberButtons.repaint();
 
     addAndMakeVisible(thresholdSlider);
     addAndMakeVisible(gainSlider);
@@ -124,15 +112,15 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     addAndMakeVisible(kneeWidthSlider);
     addAndMakeVisible(attackSlider);
     addAndMakeVisible(releaseSlider);
-    addAndMakeVisible(kneesNumberComboBox);
-    addAndMakeVisible(balFilterTypeComboBox);
-    addAndMakeVisible(channelAggregationTypeComboBox);
+    addAndMakeVisible(kneesNumberButtons);
+    addAndMakeVisible(balFilterTypeButtons);
+    addAndMakeVisible(channelAggregationTypeButtons);
     addAndMakeVisible(toolButton);
     addAndMakeVisible(freeFormCurve.get());
 
-    ComponentInitializerHelper::initLabel(this, kneesNumberLabel, &kneesNumberComboBox, false);
-    ComponentInitializerHelper::initLabel(this, balFilterTypeLabel, &balFilterTypeComboBox, false);
-    ComponentInitializerHelper::initLabel(this, channelAggregationTypeLabel, &channelAggregationTypeComboBox, false);
+    ComponentInitializerHelper::initLabel(this, kneesNumberLabel, &kneesNumberButtons, false);
+    ComponentInitializerHelper::initLabel(this, balFilterTypeLabel, &balFilterTypeButtons, false);
+    ComponentInitializerHelper::initLabel(this, channelAggregationTypeLabel, &channelAggregationTypeButtons, false);
 
     kneeIndexButtons[0]->setToggleState(true, true);
 
@@ -145,10 +133,9 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
         audioProcessor.isInputBusConnected(1)));
     createController();
 
-    if (audioProcessor.getThemeIndex() == 0)
-        minimalThemeButton.setToggleState(true, juce::NotificationType::sendNotification);
-    else
-        brutalThemeButton.setToggleState(true, juce::NotificationType::sendNotification);
+    themeButtons.setSelectedItemIndex(audioProcessor.getThemeIndex(), juce::sendNotificationSync);
+
+    juce::NullCheckedInvocation::invoke(kneesNumberButtons.onChange);
 }
 
 MatchCompressorAudioProcessorEditor::~MatchCompressorAudioProcessorEditor()
@@ -198,11 +185,11 @@ void MatchCompressorAudioProcessorEditor::resized()
 
     rightPanelBounds.removeFromTop(resetButton.getHeight() + 4 * margin);
     auto y = rightPanelBounds.getY();
-    kneesNumberComboBox.setBounds(rightPanelBounds.getX(), y, rightPanelControlWidth, comboBoxHeight);
+    kneesNumberButtons.setBounds(rightPanelBounds.getX(), y, rightPanelControlWidth, comboBoxHeight);
     y += comboBoxHeight + 3 * margin;
-    balFilterTypeComboBox.setBounds(rightPanelBounds.getX(), y, rightPanelControlWidth, comboBoxHeight);
+    balFilterTypeButtons.setBounds(rightPanelBounds.getX(), y, rightPanelControlWidth, comboBoxHeight);
     y += comboBoxHeight + 3 * margin;
-    channelAggregationTypeComboBox.setBounds(rightPanelBounds.getX(), y, rightPanelControlWidth, comboBoxHeight);
+    channelAggregationTypeButtons.setBounds(rightPanelBounds.getX(), y, rightPanelControlWidth, comboBoxHeight);
 
     // Left panel
     
@@ -212,9 +199,7 @@ void MatchCompressorAudioProcessorEditor::resized()
 
     toolButton.setBounds(bounds.getRight() - matchButtonSize, bounds.getY(), matchButtonSize, matchButtonSize);
 
-    const int themeButtonHeight = matchButtonSize / 2;
-    minimalThemeButton.setBounds(bounds.getX(), bounds.getY(), themeButtonWidth, themeButtonHeight);
-    brutalThemeButton.setBounds(bounds.getX(), bounds.getY() + themeButtonHeight, themeButtonWidth, themeButtonHeight);
+    themeButtons.setBounds(bounds.getX(), bounds.getY(), themeButtonWidth, matchButtonSize);
 
     bounds.removeFromTop(matchButtonSize + 2 * margin);
     groupRect.setX(bounds.getX() - margin + 1);
@@ -295,7 +280,7 @@ int MatchCompressorAudioProcessorEditor::getCheckedButtonIndex()
 
 void MatchCompressorAudioProcessorEditor::updateKneeIndexButtonsVisibility()
 {
-    int newKneesNumber = kneesNumberComboBox.getSelectedId();
+    int newKneesNumber = kneesNumberButtons.getSelectedId();
     if (getCheckedButtonIndex() >= newKneesNumber && newKneesNumber >= 1)
         kneeIndexButtons[newKneesNumber - 1]->setToggleState(true, true);
     for (int i = 0; i < kneeIndexButtons.size(); i++)
@@ -359,7 +344,7 @@ void MatchCompressorAudioProcessorEditor::updateSlidersBounds(
         *apvts.getRawParameterValue(thresholdId + std::to_string(fromIndex - 1)) + 
         *apvts.getRawParameterValue(kneeWidthId + std::to_string(fromIndex - 1)) * 0.5f;
     const float nextIndexBound =
-        fromIndex == kneesNumberComboBox.getSelectedId() - 1 ?
+        fromIndex == kneesNumberButtons.getSelectedId() - 1 ?
         -10.f * thresholdRange.start : // much more than it can really be
         *apvts.getRawParameterValue(thresholdId + std::to_string(fromIndex + 1)) - 
         *apvts.getRawParameterValue(kneeWidthId + std::to_string(fromIndex + 1)) * 0.5f;
@@ -395,7 +380,7 @@ void MatchCompressorAudioProcessorEditor::updateSlidersBounds(
     for (int i = 0; i < kneeIndexButtons.size(); i++)
     {
         if (i < kneesNumber)
-            kneesNumberComboBox.setItemEnabled(i + 1, true);
+            kneesNumberButtons.setItemEnabled(i + 1, true);
         else
         {
             auto prevStr = std::to_string(i - 1);
@@ -404,7 +389,7 @@ void MatchCompressorAudioProcessorEditor::updateSlidersBounds(
             float prevKneeWidth =
                 *apvts.getRawParameterValue(kneeWidthId + prevStr);
             float leftBound = std::min(prevThreshold + 0.5f * prevKneeWidth, 0.f);
-            kneesNumberComboBox.setItemEnabled(i + 1, leftBound < 0.f);
+            kneesNumberButtons.setItemEnabled(i + 1, leftBound < 0.f);
         }
     }
 }
@@ -436,16 +421,12 @@ void MatchCompressorAudioProcessorEditor::toolButtonClicked()
 
 void MatchCompressorAudioProcessorEditor::themeButtonClicked()
 {
-    if (brutalThemeButton.getToggleState())
-    {
-        audioProcessor.setThemeIndex(1);
+    int index = themeButtons.getSelectedItemIndex();
+    audioProcessor.setThemeIndex(index);
+    if (index == 1)
         applyTheme(std::make_unique<MCDefaultLookAndFeel>());
-    }
     else
-    {
-        audioProcessor.setThemeIndex(0);
         applyTheme(std::make_unique<MCAltLookAndFeel>());
-    }
 }
 
 void MatchCompressorAudioProcessorEditor::applyTheme(std::unique_ptr<MCLookAndFeel> newLaf)
@@ -457,11 +438,6 @@ void MatchCompressorAudioProcessorEditor::applyTheme(std::unique_ptr<MCLookAndFe
     laf->setupToolButton(toolButton);
     for (auto& kneeIndexButton : kneeIndexButtons)
         laf->setupKneeIndexButton(*kneeIndexButton);
-
-    auto controlBackgroundColour = findColour(MCLookAndFeel::controlBackgroundColourId);
-    kneesNumberComboBox.setColour(juce::ComboBox::backgroundColourId, controlBackgroundColour);
-    balFilterTypeComboBox.setColour(juce::ComboBox::backgroundColourId, controlBackgroundColour);
-    channelAggregationTypeComboBox.setColour(juce::ComboBox::backgroundColourId, controlBackgroundColour);
 
     sendLookAndFeelChange();
 

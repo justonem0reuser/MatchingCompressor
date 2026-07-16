@@ -5,7 +5,8 @@
 #include "MatchWindow.h"
 #include "Components/CurvePlotComponent.h"
 #include "Components/SliderWithAttachment.h"
-#include "Components/ComboBoxWithAttachment.h"
+#include "Components/ButtonChoiceComponent.h"
+#include "Components/ButtonChoiceWithAttachment.h"
 #include "Components/BaseMainView.h"
 #include "Controllers/MainController.h"
 #include "LookAndFeel/MCLookAndFeel.h"
@@ -47,7 +48,7 @@ private:
     // Components
     juce::ImageButton toolButton;
     juce::TextButton resetButton;
-    juce::TextButton brutalThemeButton, minimalThemeButton;
+    ButtonChoiceComponent themeButtons;
     std::array<std::unique_ptr<juce::ImageButton>, DynamicShaper<float>::maxKneesNumber> kneeIndexButtons;
     std::array<std::unique_ptr<juce::Label>, DynamicShaper<float>::maxKneesNumber> kneeIndexLabels;
     juce::Label
@@ -61,10 +62,10 @@ private:
         ratioSlider, 
         attackSlider, 
         releaseSlider;
-    ComboBoxWithAttachment 
-        kneesNumberComboBox,
-        balFilterTypeComboBox, 
-        channelAggregationTypeComboBox;
+    ButtonChoiceWithAttachment
+        kneesNumberButtons,
+        balFilterTypeButtons,
+        channelAggregationTypeButtons;
     std::unique_ptr<CurvePlotComponent> freeFormCurve;
 
     // Look and feel properties

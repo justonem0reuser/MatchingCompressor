@@ -1,24 +1,21 @@
 #include "MatchingData.h"
 #include "Messages.h"
 #include "Ranges.h"
-#include "../DSP/DynamicShaper.h"
 
 MatchingData::MatchingData():
 	properties("properties"),
     initProperties(properties.getType())
 {
-    // Sharp accuracy decreasing below -60 dB when optimizing in dBs;
-    // accuracy doesn't decreased when optimizing in gain units instead of dBs.
-    // For hard-knee optimization gainRegionsNumber=100, quantileRegionsNumber=1000 are enough
-    // and it makes the process significantly faster;
-    // For soft-knee optimization values around gainRegionsNumber=500, quantileRegionsNumber=5000 are needed.
+    juce::StringArray kneesNumberChoices;
+    for (int i = (int)kneesNumberRange.start; i <= (int)kneesNumberRange.end; i++)
+        kneesNumberChoices.add(juce::String(i));
 
     parameterInfos.push_back(ParameterInfo(
         setGainRegionsNumberId, "Gain regions number", 4000, 1000, 5000, 1, false, true));
     parameterInfos.push_back(ParameterInfo(
         setQuantileRegionsNumberId, "Quantile regions number", 400, 100, 1000, 1, false, true));
     parameterInfos.push_back(ParameterInfo(
-        setKneesNumberId, "Knees number", 1, 1, DynamicShaper<float>::maxKneesNumber, 1, false, true));
+        setKneesNumberId, "Knees number", 1, kneesNumberChoices));
     parameterInfos.push_back(ParameterInfo(
         setKneeTypeId, "Knee type", 1, kneeTypes));
     parameterInfos.push_back(ParameterInfo(

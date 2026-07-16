@@ -1,4 +1,5 @@
 #include "SettingsComponent.h"
+#include "ButtonChoicePropertyComponent.h"
 
 SettingsComponent::SettingsComponent(
     Component* parent,
@@ -55,12 +56,8 @@ juce::Array<juce::PropertyComponent*> SettingsComponent::createPropertyComponent
             juce::Array<juce::var> values;
             for (int j = 1; j <= info.choices.size(); j++)
                 values.add(j);
-            auto* comp = new juce::ChoicePropertyComponent(
-                prop, info.text, info.choices, values);
-            for (int j = 0; j < comp->getNumChildComponents(); j++)
-                if (auto comboBox = dynamic_cast<juce::ComboBox*>(comp->getChildComponent(j)))
-                    comboBox->setLookAndFeel(&getLookAndFeel());
-            components.add(comp);
+            components.add(new ButtonChoicePropertyComponent(
+                prop, info.text, info.choices, values));
         }
         else
         {
