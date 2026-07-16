@@ -111,7 +111,8 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
         quantileRegionsNumberSoft = quantileRegionsNumber;
     }
 
-    this->destSamples = destSamples;
+    std::vector<std::vector<float>> refNormalized;
+    const float maxAmp = normalize(refSamples, destSamples, refNormalized, this->destSamples);
 
     spec.maximumBlockSize = 1000; // will not be used
 
@@ -126,7 +127,7 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
     std::vector<float> referenceDensityFunction, referenceDensityFunctionSoft;
 
     auto refDensity = QuantilesCalculator::calculateDensityFunc(
-        refSamples, 
+        refNormalized,
         gainRegionsNumber);
     int nonEmptyBeansNumber = 0;
     for (double d : refDensity)
@@ -143,7 +144,7 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
     if (kneeType == KneeType::soft)
     {
         refDensity = QuantilesCalculator::calculateDensityFunc(
-            refSamples, 
+            refNormalized,
             gainRegionsNumberSoft);
         nonEmptyBeansNumber = 0;
         for (double d : refDensity)
@@ -239,7 +240,9 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
                 throw std::runtime_error(cannotCalculateErrStr.toStdString());
         }
     
-        return resArrayToVector(c);
+        auto result = resArrayToVector(c);
+        denormalize(result, maxAmp);
+        return result;
     }
     catch (const alglib::ap_error&)
     {
@@ -446,7 +449,7 @@ std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
 
             double yDb = FuncAndGradCalculator::calculateWithoutGain(
                 envDb, params, false, dBeans != nullptr ? &gradDb : nullptr); // true would require division by envDb
-            double yAbs = (double)x * juce::Decibels::decibelsToGain(yDb - envDb);
+            double yAbs = x * juce::Decibels::decibelsToGain(yDb - envDb);
 
             if (dBeans == nullptr)
                 QuantilesCalculator::putToBeans((float)yAbs, res, weight);

@@ -30,13 +30,20 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
         kneesNumber, 
         kneeType == KneeType::soft);
 
+    std::vector<std::vector<float>> refNormalized, destNormalized;
+    const float maxAmp = normalize(
+        refSamples, 
+        destSamples, 
+        refNormalized, 
+        destNormalized);
+
     std::vector<float> localReferenceStat, localDestStat;
     localReferenceStat = QuantilesCalculator::calculateQuantiles(
-        refSamples, 
+        refNormalized, 
         g.gainRegions, 
         g.quantileRegions);
     localDestStat = QuantilesCalculator::calculateQuantiles(
-        destSamples, 
+        destNormalized, 
         g.gainRegions, 
         g.quantileRegions);
 
@@ -70,7 +77,10 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
 
     if (rep.terminationtype < 0)
         throw std::runtime_error(cannotCalculateErrStr.toStdString());
-    return resArrayToVector(c);
+
+    auto result = resArrayToVector(c);
+    denormalize(result, maxAmp);
+    return result;
 }
 
 void CompParamsCalculatorNoEnv::calculateFunctional(

@@ -97,3 +97,39 @@ std::vector<float> CompParamsCalculator::resArrayToVector(alglib::real_1d_array&
     }
     return res;
 }
+
+float CompParamsCalculator::normalize(
+    const std::vector<std::vector<float>>& refSamples,
+    const std::vector<std::vector<float>>& destSamples,
+    std::vector<std::vector<float>>& refNormalized,
+    std::vector<std::vector<float>>& destNormalized)
+{
+    float maxAmp = 0.f;
+    for (auto& ch : refSamples)
+        for (float sample : ch)
+            maxAmp = std::max(maxAmp, std::fabs(sample));
+    for (auto& ch : destSamples)
+        for (float sample : ch)
+            maxAmp = std::max(maxAmp, std::fabs(sample));
+
+    const float scale = maxAmp > 0.f ? 1.f / maxAmp : 1.f;
+    refNormalized = refSamples;
+    destNormalized = destSamples;
+    for (auto& ch : refNormalized)
+        for (auto& sample : ch)
+            sample *= scale;
+    for (auto& ch : destNormalized)
+        for (auto& sample : ch)
+            sample *= scale;
+    return maxAmp;
+}
+
+void CompParamsCalculator::denormalize(std::vector<float>& result, float maxAmp)
+{
+    if (maxAmp <= 0.f || maxAmp == 1.f)
+        return;
+    const float thresholdOffsetDb = 20.f * std::log10(maxAmp);
+    const int kneesNumber = ((int)result.size() - 1) / 3;
+    for (int k = 0; k < kneesNumber; ++k)
+        result[1 + 3 * k] += thresholdOffsetDb;
+}

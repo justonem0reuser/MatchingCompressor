@@ -75,4 +75,13 @@ protected:
     /// <param name="c">alglib result vector</param>
     /// <returns>std::vector result</returns>
     std::vector<float> resArrayToVector(alglib::real_1d_array& c);
+
+    // required for audio data taken from buses as it can exceed [-1; 1] boundaries
+    static float normalize(
+        const std::vector<std::vector<float>>& refSamples,
+        const std::vector<std::vector<float>>& destSamples,
+        std::vector<std::vector<float>>& refNormalized,
+        std::vector<std::vector<float>>& destNormalized);
+
+    static void denormalize(std::vector<float>& result, float maxAmp);
 };
