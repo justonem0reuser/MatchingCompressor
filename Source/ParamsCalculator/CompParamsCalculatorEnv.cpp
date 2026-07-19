@@ -194,52 +194,52 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
         if (rep.terminationtype < 0)
             throw std::runtime_error(cannotCalculateErrStr.toStdString());
 
-    if (kneeType == KneeType::soft)
-    {
-        calculatedFunctions.clear();
-        activeEnvTable = &xEnvTableSoft;
-        activeEnvDbByCol = &envDbByColSoft;
-        gainRegionsNumber = gainRegionsNumberSoft;
-        quantileRegionsNumber = quantileRegionsNumberSoft;
-        x.setlength(quantileRegionsNumberSoft, 1);
-        y.setlength(quantileRegionsNumberSoft);
-        for (int i = 0; i < quantileRegionsNumberSoft; i++)
+        if (kneeType == KneeType::soft)
         {
-            x[i][0] = i;// currentBeanCenter;
-            y[i] = referenceDensityFunctionSoft[i];
-        }
-
-        for (int i = 0; i < kneesNumber; i++)
-        {
-            bndl[3 + 3 * i] = kneeWidthRange.start;
-            bndu[3 + 3 * i] = kneeWidthRange.end;
-            c[3 + 3 * i] = 0.5f * (kneeWidthRange.start + kneeWidthRange.end);
-        }
-        
-        // check knees intersection
-        for (int i = 1; i < kneesNumber; i++)
-        {
-            auto maxWidthsSum = 2.0 * (c[3 * i + 1] - c[3 * i - 2] - fineThreshold);
-            auto widthsSum = c[3 * i] + c[3 * i + 3];
-            if (widthsSum > maxWidthsSum)
+            calculatedFunctions.clear();
+            activeEnvTable = &xEnvTableSoft;
+            activeEnvDbByCol = &envDbByColSoft;
+            gainRegionsNumber = gainRegionsNumberSoft;
+            quantileRegionsNumber = quantileRegionsNumberSoft;
+            x.setlength(quantileRegionsNumberSoft, 1);
+            y.setlength(quantileRegionsNumberSoft);
+            for (int i = 0; i < quantileRegionsNumberSoft; i++)
             {
-                auto k = maxWidthsSum > 0.0 ? maxWidthsSum / widthsSum : 0.0;
-                c[3 * i] *= k;
-                c[3 * i + 3] *= k;
+                x[i][0] = i;// currentBeanCenter;
+                y[i] = referenceDensityFunctionSoft[i];
             }
-        }
 
-        lsfitcreatefg(x, y, c, true, state);
-        lsfitsetcond(state, epsx, maxits);
-        lsfitsetscale(state, s);
-        lsfitsetbc(state, bndl, bndu);
-        lsfitfit(state, calculateFunctional, calculateGradient, nullptr, this);
-        lsfitresults(state, c, rep);
+            for (int i = 0; i < kneesNumber; i++)
+            {
+                bndl[3 + 3 * i] = kneeWidthRange.start;
+                bndu[3 + 3 * i] = kneeWidthRange.end;
+                c[3 + 3 * i] = 0.5 * (kneeWidthRange.start + kneeWidthRange.end);
+            }
+        
+            // check knees intersection
+            for (int i = 1; i < kneesNumber; i++)
+            {
+                auto maxWidthsSum = 2.0 * (c[3 * i + 1] - c[3 * i - 2] - fineThreshold);
+                auto widthsSum = c[3 * i] + c[3 * i + 3];
+                if (widthsSum > maxWidthsSum)
+                {
+                    auto k = maxWidthsSum > 0.0 ? maxWidthsSum / widthsSum : 0.0;
+                    c[3 * i] *= k;
+                    c[3 * i + 3] *= k;
+                }
+            }
+
+            lsfitcreatefg(x, y, c, true, state);
+            lsfitsetcond(state, epsx, maxits);
+            lsfitsetscale(state, s);
+            lsfitsetbc(state, bndl, bndu);
+            lsfitfit(state, calculateFunctional, calculateGradient, nullptr, this);
+            lsfitresults(state, c, rep);
 
             if (rep.terminationtype < 0)
                 throw std::runtime_error(cannotCalculateErrStr.toStdString());
         }
-    
+
         auto result = resArrayToVector(c);
         denormalize(result, maxAmp);
         return result;
