@@ -431,7 +431,7 @@ std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
 
     const double scaleCoeff = 0.05 * std::log(10.0);
     const int n = params.length();
-    std::vector<float> grad(n);
+    std::vector<double> grad(n);
     alglib::real_1d_array gradDb;
     if (dBeans != nullptr)
         gradDb.setlength(n);
@@ -452,13 +452,13 @@ std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
             double yAbs = x * juce::Decibels::decibelsToGain(yDb - envDb);
 
             if (dBeans == nullptr)
-                QuantilesCalculator::putToBeans((float)yAbs, res, weight);
+                QuantilesCalculator::putToBeans(yAbs, res, weight);
             else
             {
                 double scale = yAbs * scaleCoeff;
                 for (int p = 1; p < n; p++) // p = 0 is gain
-                    grad[p] = (float)(scale * gradDb[p]);
-                QuantilesCalculator::putToBeans((float)yAbs, res, weight, &grad, dBeans);
+                    grad[p] = scale * gradDb[p];
+                QuantilesCalculator::putToBeans(yAbs, res, weight, &grad, dBeans);
             }
         }
     }

@@ -81,6 +81,11 @@ int QuantilesCalculator::calculateKernelTaps(
     double* weights, 
     double* slopes)
 {
+    if (!(value >= 0.0)) // NaN and negatives
+        value = 0.0; 
+    else if (value > 1.0)
+        value = 1.0;
+    
     const double pos = value * binCount - 0.5;
     const int nearestBean = (int)std::floor(pos + 0.5);
     const double offset = pos - nearestBean;
@@ -100,10 +105,10 @@ int QuantilesCalculator::calculateKernelTaps(
 }
 
 void QuantilesCalculator::putToBeans(
-    float value, 
+    double value, 
     std::vector<double>& beans, 
     int weight,
-    std::vector<float>* grad,
+    std::vector<double>* grad,
     std::vector<std::vector<double>>* dBeans)
 {
     jassert((grad == nullptr) == (dBeans == nullptr));
@@ -113,7 +118,7 @@ void QuantilesCalculator::putToBeans(
     const int count = (int)beans.size();
     double weights[kernelSupport], slopes[kernelSupport];
     const int leftBean = calculateKernelTaps(
-        std::fabs((double)value), 
+        std::fabs(value), 
         count, 
         weights,
         grad ? slopes : nullptr);
@@ -123,7 +128,7 @@ void QuantilesCalculator::putToBeans(
         const int bin = std::clamp(leftBean + i, 0, count - 1);
         beans[bin] += weights[i] * weight;
         for (int j = 0; j < gradCount; j++)
-            (*dBeans)[j][bin] += slopes[i] * (double)(*grad)[j] * weight;
+            (*dBeans)[j][bin] += slopes[i] * (*grad)[j] * weight;
     }
 }
 

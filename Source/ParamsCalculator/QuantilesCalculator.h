@@ -17,10 +17,10 @@ public:
         std::vector<std::vector<double>>* jacobian = nullptr);
 
     static void putToBeans(
-        float value, 
+        double value, 
         std::vector<double>& beans, 
         int weight,
-        std::vector<float>* grad = nullptr,
+        std::vector<double>* grad = nullptr,
         std::vector<std::vector<double>>* dBeans = nullptr);
 
     static std::vector<double> calculateDensityFunc(
