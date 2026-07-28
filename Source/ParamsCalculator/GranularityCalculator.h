@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <limits>
 
 struct Granularity
 {
@@ -45,4 +46,9 @@ private:
     static constexpr int gainRegionsSoft = 5000;
     static constexpr int minSamplesPerBin = 32;
     static constexpr int occupancyCoeff = 3;
+
+    static_assert(
+        (long long)gainRegionsSoft* gainRegionsSoft <= std::numeric_limits<int>::max()
+        && (long long)gainRegionsMaxHard * gainRegionsMaxHard <= std::numeric_limits<int>::max(),
+        "Envelope histogram area must fit in int");
 };

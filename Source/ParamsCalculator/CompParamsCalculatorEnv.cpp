@@ -1,3 +1,4 @@
+#include <limits>
 #include "CompParamsCalculatorEnv.h"
 #include "GranularityCalculator.h"
 #include "QuantilesCalculator.h"
@@ -314,7 +315,7 @@ std::vector<float> CompParamsCalculatorEnv::calculateFunction(
     if (jacobian != nullptr)
     {
         const int parLength = parameters.length();
-        const int beanCount = (int)activeEnvTable->cols();
+        const int beanCount = (int)activeEnvDbByCol->size(); // == histogram columns
         dBeansPtr = &dBeans;
         dBeans.assign(parLength, std::vector<double>(beanCount, 0.0));
         jacobian->assign(parLength, std::vector<double>(quantileRegionsNumber, 0.0));
@@ -335,10 +336,7 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
         gainRegionsNumber != gainRegionsNumberSoft ||
         quantileRegionsNumber != quantileRegionsNumberSoft;
 
-    xEnvTable.setlength(gainRegionsNumber, gainRegionsNumber);
-    for (int i = 0; i < gainRegionsNumber; i++)
-        for (int j = 0; j < gainRegionsNumber; j++)
-            xEnvTable[i][j] = 0.;
+    xEnvTable.assign((size_t)(gainRegionsNumber * gainRegionsNumber), 0);
 
     const double delta = 1.0 / gainRegionsNumber;
     envDbByCol.resize(gainRegionsNumber);
@@ -348,10 +346,7 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
 
     if (isSoftRequired)
     {
-        xEnvTableSoft.setlength(gainRegionsNumberSoft, gainRegionsNumberSoft);
-        for (int i = 0; i < gainRegionsNumberSoft; i++)
-            for (int j = 0; j < gainRegionsNumberSoft; j++)
-                xEnvTableSoft[i][j] = 0.;
+        xEnvTableSoft.assign((size_t)(gainRegionsNumberSoft * gainRegionsNumberSoft), 0);
 
         const double deltaSoft = 1.0 / gainRegionsNumberSoft;
         envDbByColSoft.resize(gainRegionsNumberSoft);
@@ -364,6 +359,9 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
     auto numSamples = samples[0].size();
     spec.numChannels = numChannels;
     spec.sampleRate = sampleRate;
+    jassert((long long)numChannels * (long long)numSamples
+        <= (long long)std::numeric_limits<std::int32_t>::max());
+
     dynamicProcessor.setEnvParameters(
         attackMs,
         releaseMs,
@@ -380,12 +378,12 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
             float env = dynamicProcessor.calculateEnv(0, sample);
             int i1 = std::min((int)(sAbs * gainRegionsNumber), gainRegionsNumber - 1);
             int i2 = std::min((int)(env * gainRegionsNumber), gainRegionsNumber - 1);
-            xEnvTable[i1][i2]++;
+            xEnvTable[i1 * gainRegionsNumber + i2]++;
             if (isSoftRequired)
             {
                 i1 = std::min((int)(sAbs * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
                 i2 = std::min((int)(env * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
-                xEnvTableSoft[i1][i2]++;
+                xEnvTableSoft[i1 * gainRegionsNumberSoft + i2]++;
             }
         }
     }
@@ -401,18 +399,18 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
             dynamicProcessor.calculateStereoEnv(sample0, sample1, out0, out1);
             int i1 = std::min((int)(sAbs0 * gainRegionsNumber), gainRegionsNumber - 1);
             int i2 = std::min((int)(out0 * gainRegionsNumber), gainRegionsNumber - 1);
-            xEnvTable[i1][i2]++;
+            xEnvTable[i1 * gainRegionsNumber + i2]++;
             i1 = std::min((int)(sAbs1 * gainRegionsNumber), gainRegionsNumber - 1);
             i2 = std::min((int)(out1 * gainRegionsNumber), gainRegionsNumber - 1);
-            xEnvTable[i1][i2]++;
+            xEnvTable[i1 * gainRegionsNumber + i2]++;
             if (isSoftRequired)
             {
                 i1 = std::min((int)(sAbs0 * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
                 i2 = std::min((int)(out0 * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
-                xEnvTableSoft[i1][i2]++;
+                xEnvTableSoft[i1 * gainRegionsNumberSoft + i2]++;
                 i1 = std::min((int)(sAbs1 * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
                 i2 = std::min((int)(out1 * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
-                xEnvTableSoft[i1][i2]++;
+                xEnvTableSoft[i1 * gainRegionsNumberSoft + i2]++;
             }
         }
     }
@@ -425,7 +423,7 @@ std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
     const alglib::real_1d_array& params,
     std::vector<std::vector<double>>* dBeans)
 {
-    auto size = (int)activeEnvTable->cols();
+    size_t size = (int)activeEnvDbByCol->size();
     float delta = 1.f / size;
     std::vector<double> res(size, 0.0);
 
@@ -439,9 +437,10 @@ std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
     for (auto i = 0; i < size; i++)
     {
         float x = (i + 0.5f) * delta; // recalculate each step to increase precision
+        const std::int32_t* row = activeEnvTable->data() + i * size;
         for (auto j = 0; j < size; j++)
         {
-            auto weight = (*activeEnvTable)[i][j];
+            std::int32_t weight = row[j];
             if (weight == 0)
                 continue;
 
