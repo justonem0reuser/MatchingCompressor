@@ -359,7 +359,7 @@ void MatchCompressorAudioProcessor::updateCompressorParameters()
         EnvCalculationType::RMS;
     if (newBalFilterType != balFilterType)
     {
-        balFilterType == newBalFilterType;
+        balFilterType = newBalFilterType;
         freeShaper.setBallisticFilterType(newBalFilterType);
     }
 
