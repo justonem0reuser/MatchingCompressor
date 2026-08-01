@@ -33,11 +33,11 @@ double CompParamsCalculator::calculateFine(
             if (gradPtr != nullptr)
             {
                 auto& grad = *gradPtr;
-                double valueToAdd = 2.0 * fineCoeff * fineDelta;
-                grad[prevTInd] += valueToAdd;
-                grad[prevKneeInd] += valueToAdd;
-                grad[curTInd] -= valueToAdd; // -
-                grad[curKneeInd] += valueToAdd;
+                double valueToAdd = fineCoeff * fineDelta;
+                grad[prevTInd]    -= 2.0 * valueToAdd;
+                grad[prevKneeInd] -= valueToAdd;
+                grad[curTInd]     += 2.0 * valueToAdd;
+                grad[curKneeInd]  -= valueToAdd;
             }
         }
     }
