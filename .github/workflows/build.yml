@@ -49,10 +49,12 @@ jobs:
       - name: Download Inno Setup (if not cached)
         shell: pwsh
         run: |
+          $ProgressPreference = 'SilentlyContinue'
           if (-not (Test-Path "$PWD/build/_deps/inno-setup/ISCC.exe")) {
               New-Item -ItemType Directory -Force -Path build/_deps/inno-setup
-              Invoke-WebRequest "https://jrsoftware.org/download.php/is.exe" -OutFile "build/_deps/inno-setup/is.exe"
+              Invoke-WebRequest "https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe" -OutFile "build/_deps/inno-setup/is.exe"
               Start-Process "build/_deps/inno-setup/is.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /DIR=$PWD/build/_deps/inno-setup" -Wait
+              if (-not (Test-Path "$PWD/build/_deps/inno-setup/ISCC.exe")) { throw "Inno Setup install failed" }
           }
 
       - name: Configure CMake
