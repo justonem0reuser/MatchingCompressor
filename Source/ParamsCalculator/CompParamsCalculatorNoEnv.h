@@ -15,7 +15,6 @@ class CompParamsCalculatorNoEnv : public CompParamsCalculator
 public:
     std::vector<float> calculateCompressorParameters(
         std::vector<std::vector<float>>& refSamples, 
-        double refSampleRate,
         std::vector<std::vector<float>>& destSamples, 
         double destSampleRate,
         juce::ValueTree& properties) override;

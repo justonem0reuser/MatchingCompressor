@@ -6,7 +6,6 @@
 
 std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
     std::vector<std::vector<float>>& refSamples, 
-    double refSampleRate,
     std::vector<std::vector<float>>& destSamples, 
     double destSampleRate,
     juce::ValueTree& properties)
@@ -48,11 +47,18 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
 
     setInitGuessAndBounds(kneesNumber, kneeType, c, bndl, bndu);
 
-    lsfitcreatefg(x, y, c, true, state);
-    lsfitsetcond(state, epsx, maxits);
-    lsfitsetbc(state, bndl, bndu);
-    lsfitfit(state, calculateFunctional, calculateGradient);
-    lsfitresults(state, c, rep);
+    try
+    {
+        lsfitcreatefg(x, y, c, true, state);
+        lsfitsetcond(state, epsx, maxits);
+        lsfitsetbc(state, bndl, bndu);
+        lsfitfit(state, calculateFunctional, calculateGradient);
+        lsfitresults(state, c, rep);
+    }
+    catch (const alglib::ap_error&)
+    {
+        throw std::runtime_error(cannotCalculateErrStr.toStdString());
+    }
 
     if (rep.terminationtype < 0)
         throw std::runtime_error(cannotCalculateErrStr.toStdString());

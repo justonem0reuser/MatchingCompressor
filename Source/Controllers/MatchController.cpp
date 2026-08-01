@@ -44,7 +44,7 @@ void MatchController::calculateCompressorParameters()
     dataReceiverController.getReceivedData(refSamples, refSampleRate, destSamples, destSampleRate);
     auto calculator = CompParamsCalculatorFactory::create(destSamples, matchingData.properties);
     matchingData.calculatedCompParams = calculator->calculateCompressorParameters(
-        refSamples, refSampleRate,
+        refSamples, 
         destSamples, destSampleRate,
         matchingData.properties);
     juce::NullCheckedInvocation::invoke(CompParamsCalculated);

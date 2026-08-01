@@ -20,7 +20,6 @@ std::vector<float>& CompParamsCalculatorEnv::getY(const alglib::real_1d_array& c
 
 std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
     std::vector<std::vector<float>>& refSamples, 
-    double refSampleRate,
     std::vector<std::vector<float>>& destSamples, 
     double destSampleRate,
     juce::ValueTree& properties)
@@ -62,7 +61,7 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
     calculatedFunctions.clear();
     calculateEnvelopeStatistics(
         this->destSamples, 
-        refSampleRate, 
+        destSampleRate, 
         attackMs, 
         releaseMs);
 
@@ -95,33 +94,40 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
         s[3 + 3 * i] = 100.;
     }
 
-    lsfitcreatef(x, y, c, diffstep, state);
-    lsfitsetcond(state, epsx, maxits);
-    lsfitsetbc(state, bndl, bndu);
-    lsfitsetscale(state, s);
-    lsfitfit(state, calculateFunctional, nullptr, this);
-    lsfitresults(state, c, rep);
-
-    if (rep.terminationtype < 0)
-        throw std::runtime_error(cannotCalculateErrStr.toStdString());
-
-    if (kneeType == KneeType::soft)
+    try
     {
-        for (int i = 0; i < kneesNumber; i++)
-        {
-            bndl[3 + 3 * i] = kneeWidthRange.start;
-            bndu[3 + 3 * i] = kneeWidthRange.end;
-            c[3 + 3 * i] = 0.5f * (kneeWidthRange.start + kneeWidthRange.end);
-        }
+        lsfitcreatef(x, y, c, diffstep, state);
+        lsfitsetcond(state, epsx, maxits);
         lsfitsetbc(state, bndl, bndu);
+        lsfitsetscale(state, s);
         lsfitfit(state, calculateFunctional, nullptr, this);
         lsfitresults(state, c, rep);
 
         if (rep.terminationtype < 0)
             throw std::runtime_error(cannotCalculateErrStr.toStdString());
-    }
+
+        if (kneeType == KneeType::soft)
+        {
+            for (int i = 0; i < kneesNumber; i++)
+            {
+                bndl[3 + 3 * i] = kneeWidthRange.start;
+                bndu[3 + 3 * i] = kneeWidthRange.end;
+                c[3 + 3 * i] = 0.5f * (kneeWidthRange.start + kneeWidthRange.end);
+            }
+            lsfitsetbc(state, bndl, bndu);
+            lsfitfit(state, calculateFunctional, nullptr, this);
+            lsfitresults(state, c, rep);
+
+            if (rep.terminationtype < 0)
+                throw std::runtime_error(cannotCalculateErrStr.toStdString());
+        }
     
-    return resArrayToVector(c);
+        return resArrayToVector(c);
+    }
+    catch (const alglib::ap_error&)
+    {
+        throw std::runtime_error(cannotCalculateErrStr.toStdString());
+    }
 }
 
 void CompParamsCalculatorEnv::calculateFunctional(

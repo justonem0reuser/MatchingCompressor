@@ -9,7 +9,7 @@
 class CompParamsCalculator
 {
 public:
-    enum KneeType
+    enum class KneeType
     {
         hard,
         soft
@@ -19,14 +19,12 @@ public:
     /// Best match compressing parameters calculation.
     /// </summary>
     /// <param name="refSamples">reference audio</param>
-    /// <param name="refSampleRate">reference sample rate</param>
     /// <param name="destSamples">destination audio</param>
     /// <param name="destSampleRate">destination sample rate</param>
     /// <param name="properties">calculation properties</param>
     /// <returns>best match compressing parameters vector</returns>
     virtual std::vector<float> calculateCompressorParameters(
         std::vector<std::vector<float>>& refSamples, 
-        double refSampleRate,
         std::vector<std::vector<float>>& destSamples, 
         double destSampleRate,
         juce::ValueTree& properties) = 0;

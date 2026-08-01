@@ -4,7 +4,7 @@
 class BaseDataReceiver
 {
 public:
-	enum SetDataState
+	enum class SetDataState
 	{
 		NotSet,
 		SetFromFile,

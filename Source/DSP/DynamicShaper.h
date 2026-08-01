@@ -18,7 +18,7 @@ public:
 
     using KneesArray = std::array<SampleType, maxKneesNumber>;
 
-    enum ChannelAggregationType
+    enum class ChannelAggregationType
     {
         separate,
         max,
