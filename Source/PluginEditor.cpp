@@ -251,6 +251,13 @@ void MatchCompressorAudioProcessorEditor::resetToCalculatedData()
     kneeWidthSlider.setNormalisableRange({ kneeWidthRange.start, kneeWidthRange.end, kneeWidthRange.interval });
     kneeWidthSlider.setRotaryParameters(standardRotaryParameters);
 
+    // As checking disabled button is prohibited 
+    // given the current version of ButtonChoiceComponent,
+    // enabling all buttons is necessary.
+    // If ButtonChoiceComponent behavior is changed, this will become redundant.
+    for (int i = 1; i <= kneesNumberButtons.getNumItems(); i++)
+        kneesNumberButtons.setItemEnabled(i, true);
+
     juce::NullCheckedInvocation::invoke(ResetButtonClicked);
 
     auto& matchingData = audioProcessor.getMatchingData();
