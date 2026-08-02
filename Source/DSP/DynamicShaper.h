@@ -51,6 +51,7 @@ public:
         if (context.isBypassed)
         {
             outputBlock.copyFrom(inputBlock);
+            gainSmoothed.skip((int)numSamples);
             return;
         }
 
@@ -58,13 +59,15 @@ public:
         {
             auto* inputSamples = inputBlock.getChannelPointer(0);
             auto* outputSamples = outputBlock.getChannelPointer(0);
-            SampleType env;
+            SampleType env = lastEnv0;
 
             for (auto i = 0; i < numSamples; i++)
             {
+                gainSmoothed.getNextValue();
                 env = envelopeFilter.processSample(0, inputSamples[i]);
                 outputSamples[i] = calculateGain(inputSamples[i], env);
             }
+            lastEnv0 = lastEnv1 = env;
         }
         else
         {
@@ -77,36 +80,42 @@ public:
             {
             case ChannelAggregationType::separate:
             {
-                SampleType env0, env1;
+                SampleType env0 = lastEnv0, env1 = lastEnv1;
                 for (auto i = 0; i < numSamples; i++)
                 {
+                    gainSmoothed.getNextValue();
                     env0 = envelopeFilter.processSample(0, inputSamples0[i]);
                     env1 = envelopeFilter.processSample(1, inputSamples1[i]);
                     outputSamples0[i] = calculateGain(inputSamples0[i], env0);
                     outputSamples1[i] = calculateGain(inputSamples1[i], env1);
                 }
+                lastEnv0 = env0;
+                lastEnv1 = env1;
                 break;
             }
             case ChannelAggregationType::max:
             {
-                SampleType env;
+                SampleType env = lastEnv0;
                 for (auto i = 0; i < numSamples; i++)
                 {
+                    gainSmoothed.getNextValue();
                     env = calculateStereoEnvMax(inputSamples0[i], inputSamples1[i]);
                     outputSamples0[i] = calculateGain(inputSamples0[i], env);
                     outputSamples1[i] = calculateGain(inputSamples1[i], env);
                 }
+                lastEnv0 = lastEnv1 = env;
                 break;
             }
             case ChannelAggregationType::mean:
             {
-                SampleType env;
+                SampleType env = lastEnv0;
                 for (auto i = 0; i < numSamples; i++)
                 {
                     env = calculateStereoEnvMean(inputSamples0[i], inputSamples1[i]);
                     outputSamples0[i] = calculateGain(inputSamples0[i], env);
                     outputSamples1[i] = calculateGain(inputSamples1[i], env);
                 }
+                lastEnv0 = lastEnv1 = env;
                 break;
             }
             }
@@ -123,6 +132,8 @@ public:
         SampleType newRelease,
         EnvCalculationType newBalFilterType,
         ChannelAggregationType newChannelAggregationType);
+
+    void setGainSmoothingTime(SampleType newTimeMs);
 
     // compression parameters setters
     void setGain(SampleType newGain);
@@ -147,16 +158,21 @@ public:
 
 private:
     constexpr static SampleType dbToGainCoeff = 0.1660964047443681;
+    constexpr static SampleType silenceGain = 1.0e-6;
 
     int size = 0;
     int channelsNumber = 0;
     double sampleRate = 44100.0;
+    SampleType gainSmoothingTimeMs = 0.0;
     SampleType attackTime = 10.0, releaseTime = 100.0, gainDb = 0.0;
     EnvCalculationType balFilterType = EnvCalculationType::peak;
     ChannelAggregationType channelAggregationType = ChannelAggregationType::separate;
     
+    SampleType lastEnv0 = 0.0, lastEnv1 = 0.0;
+    juce::SmoothedValue<SampleType, juce::ValueSmoothingTypes::Multiplicative> gainSmoothed{ (SampleType)1.0 };
+
     KneesArray
-        gain, 
+        gain, // gain[0] is always 1
         threshold, 
         thresholdInverse, 
         ratioInverseMinusOne,
@@ -179,6 +195,9 @@ private:
 
     inline SampleType calculateStereoEnvMax(SampleType inputValue0, SampleType inputValue1);
     inline SampleType calculateStereoEnvMean(SampleType inputValue0, SampleType inputValue1);
+
+    void seedEnvelopeFilter(SampleType envValue0, SampleType envValue1);
+    SampleType aggregateLastEnv(ChannelAggregationType type) const;
 
     // quicker version of juce::Decibels::decibelsToGain
     static inline SampleType dbToGain(SampleType decibels);

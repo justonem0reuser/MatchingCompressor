@@ -54,6 +54,7 @@ void MatchCompressorAudioProcessor::prepareToPlay(double sampleRate, int samples
     spec.numChannels = mainBusNumChannels;
     chain.get<ChainPositions::MainBusCollector>().prepare(spec);
     chain.get<ChainPositions::CompressorExpander>().prepare(spec);
+    chain.get<ChainPositions::CompressorExpander>().setGainSmoothingTime(gainSmoothingTimeMs);
 
     spec.numChannels = sidechainNumChannels;
     auto& sidechainCollector = chain.get<ChainPositions::SidechainCollector>();

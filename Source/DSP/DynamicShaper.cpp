@@ -6,7 +6,7 @@ DynamicShaper<SampleType>::DynamicShaper()
     envelopeFilter.setAttackTime(attackTime);
     envelopeFilter.setReleaseTime(releaseTime);
     envelopeFilter.setLevelCalculationType(balFilterType);
-    gain[0] = dbToGain(gainDb);
+    gain[0] = 1.0;
 }
 
 template <typename SampleType>
@@ -18,12 +18,23 @@ void DynamicShaper<SampleType>::prepare(const juce::dsp::ProcessSpec& spec)
     sampleRate = spec.sampleRate;
     channelsNumber = spec.numChannels;
     envelopeFilter.prepare(spec);
+    lastEnv0 = lastEnv1 = 0.0;
+    gainSmoothed.reset(sampleRate, gainSmoothingTimeMs * 0.001);
 }
 
 template <typename SampleType>
 void DynamicShaper<SampleType>::reset()
 {
     envelopeFilter.reset();
+    lastEnv0 = lastEnv1 = 0.0;
+    gainSmoothed.setCurrentAndTargetValue(gainSmoothed.getTargetValue());
+}
+
+template <typename SampleType>
+void DynamicShaper<SampleType>::setGainSmoothingTime(SampleType newTimeMs)
+{
+    gainSmoothingTimeMs = newTimeMs;
+    gainSmoothed.reset(sampleRate, newTimeMs * 0.001);
 }
 
 // envelope parameters setters
@@ -46,16 +57,23 @@ template<typename SampleType>
 void DynamicShaper<SampleType>::setBallisticFilterType(
     EnvCalculationType newType)
 {
+    if (newType == balFilterType)
+        return;
     balFilterType = newType;
     envelopeFilter.setLevelCalculationType(balFilterType);
+    seedEnvelopeFilter(lastEnv0, lastEnv1);
 }
 
 template<typename SampleType>
 void DynamicShaper<SampleType>::setChannelAggregationType(
     ChannelAggregationType newType)
 {
+    if (newType == channelAggregationType)
+        return;
+    SampleType newEnv = aggregateLastEnv(newType);
     channelAggregationType = newType;
-    envelopeFilter.reset();
+    seedEnvelopeFilter(newEnv, newEnv);
+    lastEnv0 = lastEnv1 = newEnv;
 }
 
 template<typename SampleType>
@@ -77,8 +95,15 @@ template<typename SampleType>
 void DynamicShaper<SampleType>::setGain(SampleType newGain)
 {
     gainDb = newGain;
-    gain[0] = dbToGain(gainDb);
-    updateOneKneeGain(0, true);
+    SampleType newGainLinear = dbToGain(gainDb);
+    if (newGainLinear == 0.0)
+    {
+        gainSmoothed.setCurrentAndTargetValue(newGainLinear);
+        return;
+    }
+    if (gainSmoothed.getCurrentValue() == 0.0)
+        gainSmoothed.setCurrentAndTargetValue(silenceGain);
+    gainSmoothed.setTargetValue(newGainLinear);
 }
 
 template<typename SampleType>
@@ -101,7 +126,7 @@ void DynamicShaper<SampleType>::setCompParameters(
     int kneesNumber)
 {
     size = kneesNumber;
-    gain[0] = dbToGain(newGainDb);
+    setGain(newGainDb);
     for (int i = 0; i < size; i++)
     {
         updateOneKneeParameters(newThresholdsDb[i], newRatios[i], newWidthsDb[i], i);
@@ -116,7 +141,12 @@ SampleType DynamicShaper<SampleType>::calculateEnv(
     int channel,
     SampleType inputValue)
 {
-    return envelopeFilter.processSample(channel, inputValue);
+    SampleType env = envelopeFilter.processSample(channel, inputValue);
+    if (channel == 0)
+        lastEnv0 = env;
+    else
+        lastEnv1 = env;
+    return env;
 }
 
 template<typename SampleType>
@@ -141,6 +171,8 @@ void DynamicShaper<SampleType>::calculateStereoEnv(SampleType inputValue0, Sampl
         break;
     }
     }
+    lastEnv0 = env0;
+    lastEnv1 = env1;
 }
 
 template<typename SampleType>
@@ -159,8 +191,8 @@ SampleType DynamicShaper<SampleType>::calculateStereoEnvMean(
 {
     SampleType meanValue =
         balFilterType == EnvCalculationType::peak ?
-        0.5f * (std::fabs(inputValue0) + std::fabs(inputValue1)) :
-        std::sqrt(0.5f * (inputValue0 * inputValue0 + inputValue1 * inputValue1));
+        (SampleType)0.5 * (std::fabs(inputValue0) + std::fabs(inputValue1)) :
+        std::sqrt((SampleType)0.5 * (inputValue0 * inputValue0 + inputValue1 * inputValue1));
     return envelopeFilter.processSample(0, meanValue);
 }
 
@@ -172,13 +204,15 @@ SampleType DynamicShaper<SampleType>::calculateGain(
     if (size == 0)
         return inputValue;
     
+    SampleType makeUpGain = gainSmoothed.getCurrentValue();
+
     // find knee index
     int i = -1;
     for (int j = 0; j < size; j++)
         i += (int)(envValue > kneeLeftBound[j]);
 
     if (i < 0)
-        return gain[0] * inputValue;
+        return makeUpGain * inputValue;
 
     SampleType coeff;
     if (envValue >= kneeRightBound[i])
@@ -190,10 +224,45 @@ SampleType DynamicShaper<SampleType>::calculateGain(
         SampleType envYDb = envDb * (envDb * aQuadCoeff[i] + bQuadCoeff[i]) + cQuadCoeff[i];
         coeff = dbToGain(envYDb - envDb);
     }
-    return gain[i] * inputValue * coeff;
+    return makeUpGain * gain[i] * inputValue * coeff;
 }
 
 // private methods
+
+template<typename SampleType>
+void DynamicShaper<SampleType>::seedEnvelopeFilter(
+    SampleType envValue0,
+    SampleType envValue1)
+{
+    if (channelsNumber <= 0) // not prepared yet
+        return;
+
+    envelopeFilter.setAttackTime((SampleType)0.0);
+    envelopeFilter.setReleaseTime((SampleType)0.0);
+    envelopeFilter.processSample(0, envValue0);
+    if (channelsNumber > 1)
+        envelopeFilter.processSample(1, envValue1);
+    envelopeFilter.setAttackTime(attackTime);
+    envelopeFilter.setReleaseTime(releaseTime);
+}
+
+template<typename SampleType>
+SampleType DynamicShaper<SampleType>::aggregateLastEnv(
+    ChannelAggregationType type) const
+{
+    switch (type)
+    {
+    case ChannelAggregationType::max:
+        return std::fmax(lastEnv0, lastEnv1);
+    case ChannelAggregationType::mean:
+        return
+            balFilterType == EnvCalculationType::peak ?
+            (SampleType)0.5 * (lastEnv0 + lastEnv1) :
+            std::sqrt((SampleType)0.5 * (lastEnv0 * lastEnv0 + lastEnv1 * lastEnv1));
+    default:
+        return (SampleType)0.5 * (lastEnv0 + lastEnv1);
+    }
+}
 
 template<typename SampleType>
 void DynamicShaper<SampleType>::updateOneKneeGain(

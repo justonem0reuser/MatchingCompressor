@@ -88,7 +88,8 @@ public:
     void setThemeIndex(int index);
 
 private:
-    const int stateVersion = 2;
+    static constexpr int stateVersion = 2;
+    static constexpr float gainSmoothingTimeMs = 20.f;
 
     Chain chain;
     
