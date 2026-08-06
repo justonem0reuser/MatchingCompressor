@@ -100,10 +100,6 @@
               file="Source/Utilities/AudioFileReader.cpp"/>
         <FILE id="rmJCNK" name="AudioFileReader.h" compile="0" resource="0"
               file="Source/Utilities/AudioFileReader.h"/>
-        <FILE id="Lk7rEQ" name="CurveCalculator.cpp" compile="1" resource="0"
-              file="Source/Utilities/CurveCalculator.cpp"/>
-        <FILE id="LRLGnT" name="CurveCalculator.h" compile="0" resource="0"
-              file="Source/Utilities/CurveCalculator.h"/>
         <FILE id="nQzZU8" name="ExceptionHelper.h" compile="0" resource="0"
               file="Source/Utilities/ExceptionHelper.h"/>
       </GROUP>
@@ -122,7 +118,6 @@
               file="Source/Controllers/MatchController.h"/>
       </GROUP>
       <GROUP id="{A0AACCEF-A4AA-DF7C-86DA-7033C6A25E70}" name="Data">
-        <FILE id="dQkhun" name="CurveBounds.h" compile="0" resource="0" file="Source/Data/CurveBounds.h"/>
         <FILE id="whgmnU" name="CurveData.h" compile="0" resource="0" file="Source/Data/CurveData.h"/>
         <FILE id="ivUolZ" name="MatchingData.cpp" compile="1" resource="0"
               file="Source/Data/MatchingData.cpp"/>

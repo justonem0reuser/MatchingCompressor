@@ -171,7 +171,6 @@ target_sources(MatchingCompressor
     "Source/LookAndFeel/MCDefaultLookAndFeel.cpp"
     "Source/LookAndFeel/MCAltLookAndFeel.cpp"
     "Source/Utilities/AudioFileReader.cpp"
-    "Source/Utilities/CurveCalculator.cpp"
 )
 
 juce_add_binary_data(MatchingCompressor_BinaryData
