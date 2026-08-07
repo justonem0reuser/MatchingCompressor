@@ -3,19 +3,17 @@
 
 double FuncAndGradCalculator::calculateWithoutGain(
     double levelDb,
-    const alglib::real_1d_array& c,
+    const double* c,
+    int kneesNumber,
     bool convertResultToLinear,
-    alglib::real_1d_array* grad)
+    double* grad)
 {
     //c : Gain (doesn't used), [Threshold, 1/Ratio, Knee weight] * n
 
     double res = 0;
 
-    const int cLength = c.length();
-    const int size = (cLength - 1) / 3;
-
     int index = -1;
-    for (int i = 0; i < size; i++)
+    for (int i = 0; i < kneesNumber; i++)
     {
         auto i3 = 3 * i;
         auto curThreshold = c[i3 + 1];
@@ -29,13 +27,13 @@ double FuncAndGradCalculator::calculateWithoutGain(
             res += mask * (curThreshold - c[i3 - 2]) * (c[i3 - 1] - 1);
         if (grad != nullptr)
         {
-            (*grad)[i3 + 1] = (*grad)[i3 + 2] = (*grad)[i3 + 3] = 0.0;
+            grad[i3 + 1] = grad[i3 + 2] = grad[i3 + 3] = 0.0;
             if (i > 0 && mask != 0)
             {
                 auto prevRatioInvM1 = c[i3 - 1] - 1;
-                (*grad)[i3 + 1] += prevRatioInvM1;
-                (*grad)[i3 - 2] -= prevRatioInvM1;
-                (*grad)[i3 - 1] += curThreshold - c[i3 - 2];
+                grad[i3 + 1] += prevRatioInvM1;
+                grad[i3 - 2] -= prevRatioInvM1;
+                grad[i3 - 1] += curThreshold - c[i3 - 2];
             }
         }
     }
@@ -58,8 +56,8 @@ double FuncAndGradCalculator::calculateWithoutGain(
             res += curThreshold + (levelDb - curThreshold) * curRatioInv;
             if (grad != nullptr)
             {
-                (*grad)[i3 + 1] += 1 - curRatioInv;
-                (*grad)[i3 + 2] += levelDb - curThreshold;
+                grad[i3 + 1] += 1 - curRatioInv;
+                grad[i3 + 2] += levelDb - curThreshold;
             }
         }
         else
@@ -88,9 +86,9 @@ double FuncAndGradCalculator::calculateWithoutGain(
                 auto dCdKW = 0.5 * (bQuadCoeff - prevRatioInv) +
                     curLeftBound * (aQuadCoeff - curLeftBound * dAdKW - dBdKW);
 
-                (*grad)[i3 + 1] += levelDb * (levelDb * dAdT + dBdT) + dCdT;
-                (*grad)[i3 + 2] += levelDb * (levelDb * dAdRInv + dBdRInv) + dCdRInv;
-                (*grad)[i3 + 3] += levelDb * (levelDb * dAdKW + dBdKW) + dCdKW;
+                grad[i3 + 1] += levelDb * (levelDb * dAdT + dBdT) + dCdT;
+                grad[i3 + 2] += levelDb * (levelDb * dAdRInv + dBdRInv) + dCdRInv;
+                grad[i3 + 3] += levelDb * (levelDb * dAdKW + dBdKW) + dCdKW;
 
                 if (index > 0)
                 {
@@ -98,7 +96,7 @@ double FuncAndGradCalculator::calculateWithoutGain(
                     auto dBdPrevRInv = 1 - 2.0 * curLeftBound * dAdPrevRInv;
                     auto dCdPrevRInv = -0.5 * curKneeWidth -
                         curLeftBound * (curLeftBound * dAdPrevRInv + dBdPrevRInv);
-                    (*grad)[i3 - 1] += levelDb * (levelDb * dAdPrevRInv + dBdPrevRInv) + dCdPrevRInv;
+                    grad[i3 - 1] += levelDb * (levelDb * dAdPrevRInv + dBdPrevRInv) + dCdPrevRInv;
                 }
             }
         }
@@ -110,8 +108,8 @@ double FuncAndGradCalculator::calculateWithoutGain(
         res = juce::Decibels::decibelsToGain(res);
         double coeff = 0.05 * std::log(10.0) * res;
         if (grad != nullptr)
-            for (int i = 1; i < cLength; i++)
-                (*grad)[i] *= coeff;
+            for (int i = 1; i < 3 * kneesNumber + 1; i++)
+                grad[i] *= coeff;
     }
 
     return res;

@@ -110,9 +110,10 @@ double CompParamsCalculatorNoEnv::calculateFunctionalAndGradientWithoutFine(
     //c : Gain, [Threshold, 1/Ratio, Knee weight] * n
     double func = c[0] + FuncAndGradCalculator::calculateWithoutGain(
         juce::Decibels::gainToDecibels(x[0], minusInfinityDb),
-        c,
+        c.getcontent(),
+        (c.length() - 1) / 3,
         false,
-        gradPtr);
+        gradPtr != nullptr ? gradPtr->getcontent() : nullptr);
     if (gradPtr != nullptr)
         (*gradPtr)[0] = 1.0;
     dbToGain(c.length(), func, gradPtr);

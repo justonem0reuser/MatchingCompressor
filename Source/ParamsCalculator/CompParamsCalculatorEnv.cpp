@@ -447,7 +447,11 @@ std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
             double envDb = (*activeEnvDbByCol)[j];
 
             double yDb = FuncAndGradCalculator::calculateWithoutGain(
-                envDb, params, false, dBins != nullptr ? &gradDb : nullptr); // true would require division by envDb
+                envDb,
+                params.getcontent(),
+                (n - 1) / 3,
+                false, // true would require division by envDb
+                dBins != nullptr ? gradDb.getcontent() : nullptr);
             double yAbs = x * juce::Decibels::decibelsToGain(yDb - envDb);
 
             if (dBins == nullptr)

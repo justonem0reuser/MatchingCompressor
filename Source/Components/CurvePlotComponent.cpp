@@ -1,5 +1,6 @@
 #include "CurvePlotComponent.h"
 #include "../Data/Messages.h"
+#include "../ParamsCalculator/FuncAndGradCalculator.h"
 
 CurvePlotComponent::CurvePlotComponent() :
     PlotWithCoordinateSystemComponent(
@@ -87,63 +88,62 @@ juce::Path CurvePlotComponent::calculateCurve(
         return {};
     auto size = (compParamsSize - 1) / 3;
 
-    juce::Path curve;
-    float compGain, compThreshold, compRatioM1, compKneeWidth, kneeStart, kneeEnd;
-    float lastCompRatioM1 = 1.f;
+    std::vector<double> coreParams(compParamsSize);
+    coreParams[0] = compParams[0];
     for (int i = 0; i < size; i++)
     {
         if (compParams[3 * i + 1] > 0.f ||
             compParams[3 * i + 2] <= 0.f ||
             compParams[3 * i + 3] < 0.f)
             return {};
-        compThreshold = compParams[3 * i + 1];
-        compRatioM1 = 1.f / compParams[3 * i + 2];
-        compKneeWidth = compParams[3 * i + 3];
-        kneeStart = compThreshold - 0.5f * compKneeWidth;
-        kneeEnd = kneeStart + compKneeWidth;
+        coreParams[3 * i + 1] = compParams[3 * i + 1];
+        coreParams[3 * i + 2] = 1.0 / compParams[3 * i + 2];
+        coreParams[3 * i + 3] = compParams[3 * i + 3];
+    }
+
+    float compGain = compParams[0];
+    auto levelToOutput = [&](float levelDb)
+    {
+        return (float)FuncAndGradCalculator::calculateWithoutGain(
+            levelDb, coreParams.data(), (int)size) + compGain;
+    };
+
+    juce::Path curve;
+    for (int i = 0; i < size; i++)
+    {
+        float compThreshold = compParams[3 * i + 1];
+        float compKneeWidth = compParams[3 * i + 3];
+        float kneeStart = compThreshold - 0.5f * compKneeWidth;
+        float kneeEnd = kneeStart + compKneeWidth;
 
         if (i == 0)
         {
-            compGain = compParams[0];
-            float startThreshold = std::min(inputXMin, kneeStart);
-            curve.startNewSubPath(mapX(startThreshold), mapY(startThreshold + compGain));
-            curve.lineTo(mapX(kneeStart), mapY(kneeStart + compGain));
+            float startLevel = std::min(inputXMin, kneeStart);
+            curve.startNewSubPath(mapX(startLevel), mapY(levelToOutput(startLevel)));
+            curve.lineTo(mapX(kneeStart), mapY(levelToOutput(kneeStart)));
         }
-        else
-            compGain += (compThreshold - compParams[3 * i - 2]) * (lastCompRatioM1 - 1.f);
 
         if (compKneeWidth > 0)
         {
             kneePoints.push_back(curve.getCurrentPosition());
-            float aQuadCoeff = 0.5f * (compRatioM1 - lastCompRatioM1) / compKneeWidth;
-            float bQuadCoeff = lastCompRatioM1 - 2.f * aQuadCoeff * kneeStart;
-            float cQuadCoeff = compThreshold -
-                0.5f * lastCompRatioM1 * compKneeWidth -
-                kneeStart * (kneeStart * aQuadCoeff + bQuadCoeff);
 
-            float x = kneeStart;
             float dx = -inputXMin / (graphXMax - graphXMin);
             if (compParams[3 * i + 2] < 1.f)
                 dx *= compParams[3 * i + 2];
-            for (x += dx; x < kneeEnd && x < 0.f; x += dx)
-            {
-                float y = x * (x * aQuadCoeff + bQuadCoeff) + cQuadCoeff + compGain;
-                curve.lineTo(mapX(x), mapY(y));
-            }
+            for (float x = kneeStart + dx; x < kneeEnd && x < 0.f; x += dx)
+                curve.lineTo(mapX(x), mapY(levelToOutput(x)));
+
             if (kneeEnd <= 0.f)
             {
-                float y = kneeEnd * (kneeEnd * aQuadCoeff + bQuadCoeff) + cQuadCoeff + compGain;
-                curve.lineTo(mapX(kneeEnd), mapY(y));
+                curve.lineTo(mapX(kneeEnd), mapY(levelToOutput(kneeEnd)));
                 kneePoints.push_back(curve.getCurrentPosition());
             }
         }
+
         float rightBoundX = i == size - 1 ? inputXMax :
             compParams[3 * i + 4] - 0.5f * compParams[3 * i + 6];
-        float rightBoundY = compThreshold + (rightBoundX - compThreshold) * compRatioM1 + compGain;
-        curve.lineTo(mapX(rightBoundX), mapY(rightBoundY));
-        lastCompRatioM1 = compRatioM1;
+        curve.lineTo(mapX(rightBoundX), mapY(levelToOutput(rightBoundX)));
     }
-
     return curve;
 }
 

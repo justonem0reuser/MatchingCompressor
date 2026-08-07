@@ -11,7 +11,8 @@ class FuncAndGradCalculator
 public:
     static double calculateWithoutGain(
         double levelDb,
-        const alglib::real_1d_array& c,
+        const double* c,
+        int kneesNumber,
         bool convertResultToLinear = false,
-        alglib::real_1d_array* grad = nullptr);
+        double* grad = nullptr);
 };
