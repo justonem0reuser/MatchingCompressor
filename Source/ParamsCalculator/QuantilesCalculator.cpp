@@ -21,23 +21,23 @@ std::vector<float> QuantilesCalculator::density2Quantiles(
     std::vector<double>& density,
     int size,
     int samplesNumber,
-    std::vector<std::vector<double>>* dBeans,
+    std::vector<std::vector<double>>* dBins,
     std::vector<std::vector<double>>* jacobian)
 {
-    jassert((dBeans == nullptr) == (jacobian == nullptr));
+    jassert((dBins == nullptr) == (jacobian == nullptr));
 
     // The internal calculation is performed in double
     // to prevent accuracy loss for large values.
     // The result is casted to float.
     std::vector<float> res(size, 0.0f);
     const int densitySize = density.size();
-    const double densityBeanWidth = 1.0 / densitySize;
+    const double densityBinWidth = 1.0 / densitySize;
     const double qCoeff = samplesNumber / (size + 1.0);
 
     int regionIndex = 0;
     double cumulativeValue = 0.0;
     double quantileValue = (regionIndex + 1.0) * qCoeff;
-    const int paramsCount = dBeans == nullptr ? 0 : (*dBeans).size();
+    const int paramsCount = dBins == nullptr ? 0 : (*dBins).size();
     std::vector<double> cumulativeDeriv(paramsCount, 0.0);
     std::vector<double> nextDeriv(paramsCount, 0.0);
 
@@ -45,18 +45,18 @@ std::vector<float> QuantilesCalculator::density2Quantiles(
     {
         const double di = density[i];
         const double nextValue = cumulativeValue + di;
-        const double resCoeff = di == 0.0 ? 1.0 : densityBeanWidth / di; // isn't used if di == 0.0
+        const double resCoeff = di == 0.0 ? 1.0 : densityBinWidth / di; // isn't used if di == 0.0
         const double jacCoeff = di == 0.0 ? 1.0 : resCoeff / di; // isn't used if di == 0.0
         for (int p = 0; p < paramsCount; p++)
-            nextDeriv[p] = cumulativeDeriv[p] + (*dBeans)[p][i];
+            nextDeriv[p] = cumulativeDeriv[p] + (*dBins)[p][i];
 
         while (nextValue >= quantileValue && regionIndex != size)
         {
-            double leftGain = i * densityBeanWidth;
+            double leftGain = i * densityBinWidth;
             res[regionIndex] = (float)(leftGain + resCoeff * (quantileValue - cumulativeValue));
             for (int p = 0; p < paramsCount; p++)
                 (*jacobian)[p][regionIndex] =
-                jacCoeff * (-cumulativeDeriv[p] * di - (quantileValue - cumulativeValue) * (*dBeans)[p][i]);
+                jacCoeff * (-cumulativeDeriv[p] * di - (quantileValue - cumulativeValue) * (*dBins)[p][i]);
             regionIndex++;
             quantileValue = (regionIndex + 1.0) * qCoeff; // recalculating to avoid precision errors
         }
@@ -87,8 +87,8 @@ int QuantilesCalculator::calculateKernelTaps(
         value = 1.0;
     
     const double pos = value * binCount - 0.5;
-    const int nearestBean = (int)std::floor(pos + 0.5);
-    const double offset = pos - nearestBean;
+    const int nearestBin = (int)std::floor(pos + 0.5);
+    const double offset = pos - nearestBin;
 
     // Quadratic B-spline
     weights[0] = 0.5 * (0.5 - offset) * (0.5 - offset);
@@ -101,23 +101,23 @@ int QuantilesCalculator::calculateKernelTaps(
         slopes[1] = (-2.0 * offset) * binCount;
         slopes[2] = (offset + 0.5) * binCount;
     }
-    return nearestBean - 1;
+    return nearestBin - 1;
 }
 
-void QuantilesCalculator::putToBeans(
+void QuantilesCalculator::putToBins(
     double value, 
-    std::vector<double>& beans, 
+    std::vector<double>& bins, 
     int weight,
     std::vector<double>* grad,
-    std::vector<std::vector<double>>* dBeans)
+    std::vector<std::vector<double>>* dBins)
 {
-    jassert((grad == nullptr) == (dBeans == nullptr));
+    jassert((grad == nullptr) == (dBins == nullptr));
     jassert((grad == nullptr) ||
-        ((*dBeans).size() == (*grad).size() && (*dBeans)[0].size() == beans.size()));
+        ((*dBins).size() == (*grad).size() && (*dBins)[0].size() == bins.size()));
 
-    const int count = (int)beans.size();
+    const int count = (int)bins.size();
     double weights[kernelSupport], slopes[kernelSupport];
-    const int leftBean = calculateKernelTaps(
+    const int leftBin = calculateKernelTaps(
         std::fabs(value), 
         count, 
         weights,
@@ -125,22 +125,22 @@ void QuantilesCalculator::putToBeans(
     const int gradCount = grad != nullptr ? (int)(*grad).size() : 0;
     for (int i = 0; i < kernelSupport; i++)
     {
-        const int bin = std::clamp(leftBean + i, 0, count - 1);
-        beans[bin] += weights[i] * weight;
+        const int bin = std::clamp(leftBin + i, 0, count - 1);
+        bins[bin] += weights[i] * weight;
         for (int j = 0; j < gradCount; j++)
-            (*dBeans)[j][bin] += slopes[i] * (*grad)[j] * weight;
+            (*dBins)[j][bin] += slopes[i] * (*grad)[j] * weight;
     }
 }
 
 std::vector<double> QuantilesCalculator::calculateDensityFunc(
     std::vector<std::vector<float>>& samples,
-    int beanCount)
+    int binCount)
 {
-    std::vector<double> densFunc(beanCount, 0.0);
+    std::vector<double> densFunc(binCount, 0.0);
     auto numChannels = samples.size();
     auto numSamples = samples[0].size();
     for (auto i = 0; i < numChannels; i++)
         for (auto j = 0; j < numSamples; j++)
-            putToBeans(samples[i][j], densFunc, 1);
+            putToBins(samples[i][j], densFunc, 1);
     return densFunc;
 }

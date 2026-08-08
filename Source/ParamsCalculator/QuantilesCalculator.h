@@ -13,19 +13,19 @@ public:
         std::vector<double>& density,
         int size,
         int samplesNumber,
-        std::vector<std::vector<double>>* dBeans = nullptr,
+        std::vector<std::vector<double>>* dBins = nullptr,
         std::vector<std::vector<double>>* jacobian = nullptr);
 
-    static void putToBeans(
+    static void putToBins(
         double value, 
-        std::vector<double>& beans, 
+        std::vector<double>& bins, 
         int weight,
         std::vector<double>* grad = nullptr,
-        std::vector<std::vector<double>>* dBeans = nullptr);
+        std::vector<std::vector<double>>* dBins = nullptr);
 
     static std::vector<double> calculateDensityFunc(
         std::vector<std::vector<float>>& samples,
-        int beanCount);
+        int binCount);
 
 private:
     static constexpr int kernelSupport = 3; // quadratic B-spline

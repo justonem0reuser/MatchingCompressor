@@ -59,7 +59,7 @@ private:
 
     std::vector<double> calculateYDensity(
         const alglib::real_1d_array& params,
-        std::vector<std::vector<double>>* dBeans = nullptr);
+        std::vector<std::vector<double>>* dBins = nullptr);
 
     static void calculateFunctional(
         const alglib::real_1d_array& c,

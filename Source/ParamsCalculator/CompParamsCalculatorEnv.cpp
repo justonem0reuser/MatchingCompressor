@@ -130,13 +130,13 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
     auto refDensity = QuantilesCalculator::calculateDensityFunc(
         refNormalized,
         gainRegionsNumber);
-    int nonEmptyBeansNumber = 0;
+    int nonEmptyBinsNumber = 0;
     for (double d : refDensity)
         if (d > 0.0)
-            nonEmptyBeansNumber++;
+            nonEmptyBinsNumber++;
     quantileRegionsNumber = GranularityCalculator::capQuantilesNumberByOccupancy(
         quantileRegionsNumber,
-        nonEmptyBeansNumber);
+        nonEmptyBinsNumber);
     referenceDensityFunction =
         QuantilesCalculator::density2Quantiles(
             refDensity,
@@ -147,13 +147,13 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
         refDensity = QuantilesCalculator::calculateDensityFunc(
             refNormalized,
             gainRegionsNumberSoft);
-        nonEmptyBeansNumber = 0;
+        nonEmptyBinsNumber = 0;
         for (double d : refDensity)
             if (d > 0.0)
-                nonEmptyBeansNumber++;
+                nonEmptyBinsNumber++;
         quantileRegionsNumberSoft = GranularityCalculator::capQuantilesNumberByOccupancy(
             quantileRegionsNumberSoft,
-            nonEmptyBeansNumber);
+            nonEmptyBinsNumber);
         referenceDensityFunctionSoft = QuantilesCalculator::density2Quantiles(
             refDensity,
             quantileRegionsNumberSoft,
@@ -172,7 +172,7 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
 
     for (int i = 0; i < quantileRegionsNumber; i++)
     {
-        x[i][0] = i;// currentBeanCenter;
+        x[i][0] = i;// currentBinCenter;
         y[i] = referenceDensityFunction[i];
     }
 
@@ -206,7 +206,7 @@ std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
             y.setlength(quantileRegionsNumberSoft);
             for (int i = 0; i < quantileRegionsNumberSoft; i++)
             {
-                x[i][0] = i;// currentBeanCenter;
+                x[i][0] = i;// currentBinCenter;
                 y[i] = referenceDensityFunctionSoft[i];
             }
 
@@ -309,21 +309,21 @@ std::vector<float> CompParamsCalculatorEnv::calculateFunction(
     std::vector<std::vector<double>>* jacobian)
 {
     auto samplesCount = samples.size() * samples[0].size();
-    std::vector<std::vector<double>> dBeans;
-    std::vector<std::vector<double>>* dBeansPtr = nullptr;
+    std::vector<std::vector<double>> dBins;
+    std::vector<std::vector<double>>* dBinsPtr = nullptr;
 
     if (jacobian != nullptr)
     {
         const int parLength = parameters.length();
-        const int beanCount = (int)activeEnvDbByCol->size(); // == histogram columns
-        dBeansPtr = &dBeans;
-        dBeans.assign(parLength, std::vector<double>(beanCount, 0.0));
+        const int binCount = (int)activeEnvDbByCol->size(); // == histogram columns
+        dBinsPtr = &dBins;
+        dBins.assign(parLength, std::vector<double>(binCount, 0.0));
         jacobian->assign(parLength, std::vector<double>(quantileRegionsNumber, 0.0));
     }
 
-    auto yDensity = calculateYDensity(parameters, dBeansPtr);
+    auto yDensity = calculateYDensity(parameters, dBinsPtr);
     return QuantilesCalculator::density2Quantiles(
-        yDensity, quantileRegionsNumber, samplesCount, dBeansPtr, jacobian);
+        yDensity, quantileRegionsNumber, samplesCount, dBinsPtr, jacobian);
 }
 
 void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
@@ -421,7 +421,7 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
 
 std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
     const alglib::real_1d_array& params,
-    std::vector<std::vector<double>>* dBeans)
+    std::vector<std::vector<double>>* dBins)
 {
     size_t size = (int)activeEnvDbByCol->size();
     float delta = 1.f / size;
@@ -431,7 +431,7 @@ std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
     const int n = params.length();
     std::vector<double> grad(n);
     alglib::real_1d_array gradDb;
-    if (dBeans != nullptr)
+    if (dBins != nullptr)
         gradDb.setlength(n);
 
     for (auto i = 0; i < size; i++)
@@ -447,17 +447,17 @@ std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
             double envDb = (*activeEnvDbByCol)[j];
 
             double yDb = FuncAndGradCalculator::calculateWithoutGain(
-                envDb, params, false, dBeans != nullptr ? &gradDb : nullptr); // true would require division by envDb
+                envDb, params, false, dBins != nullptr ? &gradDb : nullptr); // true would require division by envDb
             double yAbs = x * juce::Decibels::decibelsToGain(yDb - envDb);
 
-            if (dBeans == nullptr)
-                QuantilesCalculator::putToBeans(yAbs, res, weight);
+            if (dBins == nullptr)
+                QuantilesCalculator::putToBins(yAbs, res, weight);
             else
             {
                 double scale = yAbs * scaleCoeff;
                 for (int p = 1; p < n; p++) // p = 0 is gain
                     grad[p] = scale * gradDb[p];
-                QuantilesCalculator::putToBeans(yAbs, res, weight, &grad, dBeans);
+                QuantilesCalculator::putToBins(yAbs, res, weight, &grad, dBins);
             }
         }
     }
