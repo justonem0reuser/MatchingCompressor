@@ -12,7 +12,7 @@ jobs:
       juce_version: ${{ steps.read_versions.outputs.JUCE_VERSION }}
       alglib_version: ${{ steps.read_versions.outputs.ALGLIB_VERSION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
     
       - id: set_version
         run: |
@@ -38,10 +38,10 @@ jobs:
       - set-version
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Restore cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: build/_deps
           key: windows-deps-${{ needs.set-version.outputs.juce_version }}-${{ needs.set-version.outputs.alglib_version }}
@@ -70,7 +70,7 @@ jobs:
           cmake --build . --config Release --parallel
 
       - name: Upload build VST artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: output-vst3-windows
           path: ./build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3
@@ -99,7 +99,7 @@ jobs:
           & $isccPath /O"$outputDir" $issPath
 
       - name: Upload installer artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: output-ins-windows
           path: ./build/inno
@@ -110,14 +110,14 @@ jobs:
       - set-version
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Unlike Windows and MacOS cache, Linux cache doesn't include JUCE build files
       # as building JUCE requires additional dependencies installation,
       # therefore dependency version conflicts can occur
       # between JUCE and MatchingCompressor.
       - name: Restore cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
               build/_deps/alglib-${{ needs.set-version.outputs.alglib_version }}
@@ -148,7 +148,7 @@ jobs:
         run: cmake --build build --config Release -- -j$(nproc)
 
       - name: Upload VST3 artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: output-vst3-linux
           path: ./build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3
@@ -159,10 +159,10 @@ jobs:
       - set-version
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Restore cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: build/_deps
           key: macos-deps-${{ needs.set-version.outputs.juce_version }}-${{ needs.set-version.outputs.alglib_version }}
@@ -179,13 +179,13 @@ jobs:
           cmake --build . --config Release -- -j$(sysctl -n hw.ncpu)
 
       - name: Upload VST3 artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: output-vst3-macos
           path: ./build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3
 
       - name: Upload AU artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: output-au-macos
           path: ./build/MatchingCompressor_artefacts/Release/AU/MatchingCompressor.component
@@ -203,13 +203,13 @@ jobs:
 
     steps:
       - name: Download VST3 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: output-vst3-windows
           path: MatchingCompressor.vst3
 
       - name: Download installator artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: output-ins-windows
           path: MatchingCompressor-installer
@@ -243,7 +243,7 @@ jobs:
 
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: output-vst3-linux
           path: MatchingCompressor.vst3
@@ -273,13 +273,13 @@ jobs:
 
     steps:
     - name: Download VST3 artifact
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: output-vst3-macos
         path: MatchingCompressor.vst3
 
     - name: Download AU artifact
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: output-au-macos
         path: MatchingCompressor.component
