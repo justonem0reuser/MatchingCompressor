@@ -63,8 +63,8 @@ void CompParamsCalculator::setInitGuessAndBounds(
         c[1 + 3 * i] = thresholdRange.start +
             (thresholdRange.end - thresholdRange.start) * 
             (i + 1) / (kneesNumber + 1);
-        bndl[2 + 3 * i] = 1. / ratioRange.end;
-        bndu[2 + 3 * i] = 2. - ratioRange.start;
+        bndl[2 + 3 * i] = ratioInverseRange.start;
+        bndu[2 + 3 * i] = ratioInverseRange.end;
         c[2 + 3 * i] = 1.;
         if (kneeType == KneeType::hard)
             bndl[3 + 3 * i] = bndu[3 + 3 * i] = c[3 + 3 * i] = 0;
@@ -77,19 +77,10 @@ void CompParamsCalculator::setInitGuessAndBounds(
     }
 }
 
-std::vector<float> CompParamsCalculator::resArrayToVector(alglib::real_1d_array& c)
+std::vector<float> CompParamsCalculator::resArrayToVector(const alglib::real_1d_array& c)
 {
-    auto cLength = c.length();
-    auto kneesNumber = (cLength - 1) / 3;
-    std::vector<float> res(cLength);
-    res[0] = c[0];
-    for (auto i = 0; i < kneesNumber; i++)
-    {
-        res[3 * i + 1] = c[3 * i + 1];
-        res[3 * i + 2] = 1. / c[3 * i + 2];
-        res[3 * i + 3] = c[3 * i + 3];
-    }
-    return res;
+    const double* data = c.getcontent();
+    return { data, data + c.length() };
 }
 
 float CompParamsCalculator::normalize(

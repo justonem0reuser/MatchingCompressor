@@ -38,7 +38,7 @@ MatchCompressorAudioProcessor::MatchCompressorAudioProcessor()
     {
         auto iStr = std::to_string(i);
         thresholdParams[i] = apvts.getRawParameterValue(thresholdId + iStr);
-        ratioParams[i] = apvts.getRawParameterValue(ratioId + iStr);
+        ratioInverseParams[i] = apvts.getRawParameterValue(ratioInverseId + iStr);
         kneeWidthParams[i] = apvts.getRawParameterValue(kneeWidthId + iStr);
     }
 
@@ -219,6 +219,28 @@ void MatchCompressorAudioProcessor::getStateInformation (juce::MemoryBlock& dest
     tree.writeToStream(mos);
 }
 
+static void convertRatioParamsToVersion3(juce::ValueTree& params)
+{
+    const juce::String oldRatioId = "ratio";
+    for (auto child : params)
+    {
+        if (!child.hasType("PARAM"))
+            continue;
+        auto id = child.getProperty("id").toString();
+        if (!id.startsWith(oldRatioId) || id.startsWith(ratioInverseId))
+            continue;
+
+        float oldValue = child.getProperty("value");
+        float ratioInverse = oldValue < 1.f ? 2.f - oldValue : 1.f / oldValue;
+        child.setProperty("value",
+            std::clamp(ratioInverse, ratioInverseRange.start, ratioInverseRange.end),
+            nullptr);
+        child.setProperty("id",
+            ratioInverseId + id.substring(oldRatioId.length()),
+            nullptr);
+    }
+}
+
 void MatchCompressorAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
     auto tree = juce::ValueTree::readFromData(data, sizeInBytes);
@@ -228,6 +250,7 @@ void MatchCompressorAudioProcessor::setStateInformation(const void* data, int si
     int version = tree.getProperty("version", 0);
     if (version < 2)
     {
+        convertRatioParamsToVersion3(tree);
         apvts.replaceState(tree);
         return;
     }
@@ -236,7 +259,11 @@ void MatchCompressorAudioProcessor::setStateInformation(const void* data, int si
 
     auto params = tree.getChildWithName(apvts.state.getType());
     if (params.isValid())
+    {
+        if (version < 3)
+            convertRatioParamsToVersion3(params);
         apvts.replaceState(params);
+    }
 
     auto matchingParams = tree.getChildWithName(matchingData.initProperties.getType());
     if (matchingParams.isValid())
@@ -305,9 +332,7 @@ void MatchCompressorAudioProcessor::updateCompressorParameters()
     for (int i = 0; i < kneesNumber; i++)
     {
         float newThreshold = thresholdParams[i]->load(std::memory_order_relaxed);
-        float newRatio = ratioParams[i]->load(std::memory_order_relaxed);
-        if (newRatio < 1.f)
-            newRatio = 1.f / (2.f - newRatio);
+        float newRatio = 1.f / ratioInverseParams[i]->load(std::memory_order_relaxed);
         float newKneeWidth = kneeWidthParams[i]->load(std::memory_order_relaxed);
 
         bool isKneeChanged =
@@ -429,12 +454,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout MatchCompressorAudioProcesso
             thresholdId + std::to_string(i), 
             "Threshold", thresholdRange, 0.f, "dB",
             juce::AudioProcessorParameter::Category::genericParameter,
-            dbStringFromValue, dbValueFromString));
+            dbStringFromValue, thresholdValueFromString));
         layout.add(std::make_unique<juce::AudioParameterFloat>(
-            ratioId + std::to_string(i),
-            "Ratio", ratioRange, 1.f, "",
+            ratioInverseId + std::to_string(i),
+            "Ratio", ratioInverseRange, 1.f, "",
             juce::AudioProcessorParameter::Category::genericParameter,
-            ratioStringFromValue, ratioValueFromString));
+            ratioInverseStringFromValue, ratioInverseValueFromString));
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             kneeWidthId + std::to_string(i),
             "Knee Width", kneeWidthRange, 0.f, "dB",
@@ -446,20 +471,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout MatchCompressorAudioProcesso
 
 // parameters values displaying and reading
 
-juce::String MatchCompressorAudioProcessor::ratioStringFromValue(float value, int maximumStringLength)
+juce::String MatchCompressorAudioProcessor::ratioInverseStringFromValue(float value, int maximumStringLength)
 {
-    if (value >= 1.f)
+    if (value <= 1.f)
     {
-        juce::String res(value, 2);
+        juce::String res(1.f / value, 2);
         return res + ": 1";
     }
     else
     {
-        juce::String res(2.f - value, 2);
+        juce::String res(value, 2);
         return "1 : " + res;
     }
 }
-float MatchCompressorAudioProcessor::ratioValueFromString(const juce::String& text)
+float MatchCompressorAudioProcessor::ratioInverseValueFromString(const juce::String& text)
 {
     juce::String s = text.removeCharacters(" ").replaceCharacter(',', '.');
     float res;
@@ -468,32 +493,16 @@ float MatchCompressorAudioProcessor::ratioValueFromString(const juce::String& te
         res = s.substring(2).getFloatValue();
         if (res <= 0.f)
             res = 1.f;
-        else if (res < 1.f)
-        {
-            res = 1.f / res;
-            res = std::clamp(res, 1.f, ratioRange.end);
-        }
-        else
-        {
-            res = 2.f - res;
-            res = std::clamp(res, ratioRange.start, 1.f);
-        }
     }
     else
     {
         if (s.endsWith(":1"))
             s = s.substring(0, s.length() - 2);
         res = s.getFloatValue();
-        if (res < 1.f && res > 0.f)
-        {
-            res = 2.f - 1.f / res;
-            res = std::clamp(res, ratioRange.start, 1.f);
-        }
-        else
-            res = std::clamp(res, 1.f, ratioRange.end);
+        res = res > 0.f ? 1.f / res : 1.f;
     }
-     
-    return res;
+
+    return std::clamp(res, ratioInverseRange.start, ratioInverseRange.end);
 }
 
 juce::String MatchCompressorAudioProcessor::dbStringFromValue(float value, int maximumStringLength)
@@ -504,6 +513,11 @@ juce::String MatchCompressorAudioProcessor::dbStringFromValue(float value, int m
 float MatchCompressorAudioProcessor::dbValueFromString(const juce::String& text)
 {
     return text.getFloatValue();
+}
+
+float MatchCompressorAudioProcessor::thresholdValueFromString(const juce::String& text)
+{
+    return -std::abs(text.getFloatValue());
 }
 
 //==============================================================================

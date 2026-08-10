@@ -16,7 +16,7 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     balFilterTypeButtons(audioProcessor.apvts, balFilterTypeId, balFilterTypes),
     gainSlider(audioProcessor.apvts, gainId),
     thresholdSlider(audioProcessor.apvts, thresholdId + "0"),
-    ratioSlider(audioProcessor.apvts, ratioId + "0"),
+    ratioSlider(audioProcessor.apvts, ratioInverseId + "0"),
     kneeWidthSlider(audioProcessor.apvts, kneeWidthId + "0"),
     attackSlider(audioProcessor.apvts, attackId),
     releaseSlider(audioProcessor.apvts, releaseId),
@@ -349,7 +349,7 @@ void MatchCompressorAudioProcessorEditor::updateAttachments()
     {
         auto iStr = std::to_string(checkedButtonIndex);
         thresholdSlider.changeParameter(thresholdId + iStr);
-        ratioSlider.changeParameter(ratioId + iStr);
+        ratioSlider.changeParameter(ratioInverseId + iStr);
         kneeWidthSlider.changeParameter(kneeWidthId + iStr);
         updateSlidersBounds(checkedButtonIndex, true, true);
     }

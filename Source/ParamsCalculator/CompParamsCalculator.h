@@ -72,12 +72,11 @@ protected:
         alglib::real_1d_array& bndu);
 
     /// <summary>
-    /// Converting alglib result vector into std::vector form
-    /// with converting 1/ratio to ratio.
+    /// Converting alglib result vector into std::vector form.
     /// </summary>
     /// <param name="c">alglib result vector</param>
     /// <returns>std::vector result</returns>
-    std::vector<float> resArrayToVector(alglib::real_1d_array& c);
+    static std::vector<float> resArrayToVector(const alglib::real_1d_array& c);
 
     // required for audio data taken from buses as it can exceed [-1; 1] boundaries
     static float normalize(

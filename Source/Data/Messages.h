@@ -45,7 +45,7 @@ const juce::String
 	kneesNumberId = "kneesNumber",
 	gainId = "gain",
 	thresholdId = "threshold",
-	ratioId = "ratio",
+	ratioInverseId = "ratioInverse",
 	kneeWidthId = "kneeWidth",
 	attackId = "attack",
 	releaseId = "release",

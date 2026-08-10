@@ -94,7 +94,8 @@ public:
     void setThemeIndex(int index);
 
 private:
-    static constexpr int stateVersion = 2;
+    const int stateVersion = 3;
+
     static constexpr float gainSmoothingTimeMs = 20.f;
 
     Chain chain;
@@ -113,7 +114,7 @@ private:
     std::atomic<float>* balFilterTypeParam;
     std::atomic<float>* channelAggrerationTypeParam;
     ParamsArray thresholdParams;
-    ParamsArray ratioParams;
+    ParamsArray ratioInverseParams;
     ParamsArray kneeWidthParams;
 
     // for checking and setting compressor parameters
@@ -135,10 +136,11 @@ private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     
     // parameters values displaying and reading
-    static juce::String ratioStringFromValue(float value, int maximumStringLength);
-    static float ratioValueFromString(const juce::String& text);
+    static juce::String ratioInverseStringFromValue(float value, int maximumStringLength);
+    static float ratioInverseValueFromString(const juce::String& text);
     static juce::String dbStringFromValue(float value, int maximumStringLength);
     static float dbValueFromString(const juce::String& text);
+    static float thresholdValueFromString(const juce::String& text);
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MatchCompressorAudioProcessor)

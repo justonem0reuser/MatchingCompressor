@@ -211,14 +211,12 @@ private:
         for (int i = 0; i < kneesNumber; i++)
         {
             float t = params[i * 3 + 1];
-            float r = params[i * 3 + 2];
+            float ratioInverse = params[i * 3 + 2];
             float kw = params[i * 3 + 3];
-            if (r < 1)
-                r = 2.f - 1.f / r;
 
             auto iStr = std::to_string(i);
             setParameter(thresholdId + iStr, thresholdRange, t);
-            setParameter(ratioId + iStr, ratioRange, r);
+            setParameter(ratioInverseId + iStr, ratioInverseRange, ratioInverse);
             setParameter(kneeWidthId + iStr, kneeWidthRange, kw);
         }
     }

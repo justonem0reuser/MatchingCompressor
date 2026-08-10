@@ -88,12 +88,10 @@ std::vector<float> MatchController::getCurrentCompParams(
     {
         auto iStr = std::to_string(i);
         float thr = *apvts.getRawParameterValue(thresholdId + iStr);
-        float r = *apvts.getRawParameterValue(ratioId + iStr);
+        float ratioInverse = *apvts.getRawParameterValue(ratioInverseId + iStr);
         float kw = *apvts.getRawParameterValue(kneeWidthId + iStr);
-        if (r < 1.f)
-            r = 1.f / (2.f - r);
         params[1 + 3 * i] = thr;
-        params[2 + 3 * i] = r;
+        params[2 + 3 * i] = ratioInverse;
         params[3 + 3 * i] = kw;
     }
     return params;

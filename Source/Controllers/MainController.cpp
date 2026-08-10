@@ -94,24 +94,21 @@ void MainController::onResetButtonClicked()
 
     for (int i = 0; i < DynamicShaper<float>::maxKneesNumber; i++)
     {
-        float t, r, kw;
+        float t, ratioInverse, kw;
         if (i < kneesNumber)
         {
             t = matchingData.calculatedCompParams[i * 3 + 1];
-            r = matchingData.calculatedCompParams[i * 3 + 2];
+            ratioInverse = matchingData.calculatedCompParams[i * 3 + 2];
             kw = matchingData.calculatedCompParams[i * 3 + 3];
         }
         else
         {
             t = kw = 0.f;
-            r = matchingData.calculatedCompParams[2];
+            ratioInverse = matchingData.calculatedCompParams[2];
         }
-        if (r < 1)
-            r = 2.f - 1.f / r;
-
         auto iStr = std::to_string(i);
         setParameter(thresholdId + iStr, thresholdRange, t);
-        setParameter(ratioId + iStr, ratioRange, r);
+        setParameter(ratioInverseId + iStr, ratioInverseRange, ratioInverse);
         setParameter(kneeWidthId + iStr, kneeWidthRange, kw);
     }
 }

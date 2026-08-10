@@ -340,7 +340,7 @@ void CompParamsCalculatorEnv::paramsToC(
     for (int k = 0; k < kneesNumber; k++)
     {
         c[1 + 3 * k] = params[1 + 3 * k] - thrOffsetDb;
-        c[2 + 3 * k] = 1.0 / params[2 + 3 * k];
+        c[2 + 3 * k] = params[2 + 3 * k];
         c[3 + 3 * k] = keepKneeWidth ? params[3 + 3 * k] : 0.0;
     }
 }

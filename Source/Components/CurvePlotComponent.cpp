@@ -32,11 +32,8 @@ void CurvePlotComponent::updateActualParameters(
             auto tPar = apvts.getParameter(thresholdId + std::to_string(i));
             actualCompParams[i * 3 + 1] = tPar->convertFrom0to1(tPar->getValue());
 
-            auto rPar = apvts.getParameter(ratioId + std::to_string(i));
-            auto r = rPar->convertFrom0to1(rPar->getValue());
-            if (r < 1.f)
-                r = 1.f / (2.f - r);
-            actualCompParams[i * 3 + 2] = r;
+            auto rPar = apvts.getParameter(ratioInverseId + std::to_string(i));
+            actualCompParams[i * 3 + 2] = rPar->convertFrom0to1(rPar->getValue());
 
             auto kPar = apvts.getParameter(kneeWidthId + std::to_string(i));
             actualCompParams[i * 3 + 3] = kPar->convertFrom0to1(kPar->getValue());
@@ -132,24 +129,19 @@ juce::Path CurvePlotComponent::calculateCurve(
         return {};
     auto size = (compParamsSize - 1) / 3;
 
-    std::vector<double> coreParams(compParamsSize);
-    coreParams[0] = compParams[0];
     for (int i = 0; i < size; i++)
-    {
         if (compParams[3 * i + 1] > 0.f ||
             compParams[3 * i + 2] <= 0.f ||
             compParams[3 * i + 3] < 0.f)
             return {};
-        coreParams[3 * i + 1] = compParams[3 * i + 1];
-        coreParams[3 * i + 2] = 1.0 / compParams[3 * i + 2];
-        coreParams[3 * i + 3] = compParams[3 * i + 3];
-    }
+
+    std::vector<double> compParamsDbl(compParams.begin(), compParams.end());
 
     float compGain = compParams[0];
     auto levelToOutput = [&](float levelDb)
         {
             return (float)FuncAndGradCalculator::calculateWithoutGain(
-                levelDb, coreParams.data(), (int)size) + compGain;
+                levelDb, compParamsDbl.data(), (int)size) + compGain;
         };
 
     juce::Path curve;
