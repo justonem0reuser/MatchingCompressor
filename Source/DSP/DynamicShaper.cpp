@@ -6,7 +6,7 @@ DynamicShaper<SampleType>::DynamicShaper()
     envelopeFilter.setAttackTime(attackTime);
     envelopeFilter.setReleaseTime(releaseTime);
     envelopeFilter.setLevelCalculationType(balFilterType);
-    gain[0] = 1.0;
+    gain[0] = one;
 }
 
 template <typename SampleType>
@@ -18,15 +18,15 @@ void DynamicShaper<SampleType>::prepare(const juce::dsp::ProcessSpec& spec)
     sampleRate = spec.sampleRate;
     channelsNumber = spec.numChannels;
     envelopeFilter.prepare(spec);
-    lastEnv0 = lastEnv1 = 0.0;
-    gainSmoothed.reset(sampleRate, gainSmoothingTimeMs * 0.001);
+    lastEnv0 = lastEnv1 = zero;
+    gainSmoothed.reset(sampleRate, gainSmoothingTimeMs * (SampleType)0.001);
 }
 
 template <typename SampleType>
 void DynamicShaper<SampleType>::reset()
 {
     envelopeFilter.reset();
-    lastEnv0 = lastEnv1 = 0.0;
+    lastEnv0 = lastEnv1 = zero;
     gainSmoothed.setCurrentAndTargetValue(gainSmoothed.getTargetValue());
 }
 
@@ -34,7 +34,7 @@ template <typename SampleType>
 void DynamicShaper<SampleType>::setGainSmoothingTime(SampleType newTimeMs)
 {
     gainSmoothingTimeMs = newTimeMs;
-    gainSmoothed.reset(sampleRate, newTimeMs * 0.001);
+    gainSmoothed.reset(sampleRate, newTimeMs * (SampleType)0.001);
 }
 
 // envelope parameters setters
@@ -191,8 +191,8 @@ SampleType DynamicShaper<SampleType>::calculateStereoEnvMean(
 {
     SampleType meanValue =
         balFilterType == EnvCalculationType::peak ?
-        (SampleType)0.5 * (std::fabs(inputValue0) + std::fabs(inputValue1)) :
-        std::sqrt((SampleType)0.5 * (inputValue0 * inputValue0 + inputValue1 * inputValue1));
+        half * (std::fabs(inputValue0) + std::fabs(inputValue1)) :
+        std::sqrt(half * (inputValue0 * inputValue0 + inputValue1 * inputValue1));
     return envelopeFilter.processSample(0, meanValue);
 }
 
@@ -209,7 +209,10 @@ SampleType DynamicShaper<SampleType>::calculateGain(
     // find knee index
     int i = -1;
     for (int j = 0; j < size; j++)
-        i += (int)(envValue > kneeLeftBound[j]);
+    {
+        int mask = (int)(envValue > kneeLeftBound[j]);
+        i = mask * j + (1 - mask) * i;
+    }
 
     if (i < 0)
         return makeUpGain * inputValue;
@@ -221,8 +224,11 @@ SampleType DynamicShaper<SampleType>::calculateGain(
     else
     {
         SampleType envDb = juce::Decibels::gainToDecibels(envValue);
-        SampleType envYDb = envDb * (envDb * aQuadCoeff[i] + bQuadCoeff[i]) + cQuadCoeff[i];
-        coeff = dbToGain(envYDb - envDb);
+        SampleType kneeOffsetDb = envDb - kneeLeftBoundDb[i];
+        SampleType reductionDb = kneeOffsetDb *
+            (kneeOffsetDb * kneeQuadCoeff[i] + prevRatioInverseMinusOne[i]) +
+            kneeLeftReductionDb[i];
+        coeff = dbToGain(reductionDb);
     }
     return makeUpGain * gain[i] * inputValue * coeff;
 }
@@ -237,8 +243,8 @@ void DynamicShaper<SampleType>::seedEnvelopeFilter(
     if (channelsNumber <= 0) // not prepared yet
         return;
 
-    envelopeFilter.setAttackTime((SampleType)0.0);
-    envelopeFilter.setReleaseTime((SampleType)0.0);
+    envelopeFilter.setAttackTime(zero);
+    envelopeFilter.setReleaseTime(zero);
     envelopeFilter.processSample(0, envValue0);
     if (channelsNumber > 1)
         envelopeFilter.processSample(1, envValue1);
@@ -257,10 +263,10 @@ SampleType DynamicShaper<SampleType>::aggregateLastEnv(
     case ChannelAggregationType::mean:
         return
             balFilterType == EnvCalculationType::peak ?
-            (SampleType)0.5 * (lastEnv0 + lastEnv1) :
-            std::sqrt((SampleType)0.5 * (lastEnv0 * lastEnv0 + lastEnv1 * lastEnv1));
+            half * (lastEnv0 + lastEnv1) :
+            std::sqrt(half * (lastEnv0 * lastEnv0 + lastEnv1 * lastEnv1));
     default:
-        return (SampleType)0.5 * (lastEnv0 + lastEnv1);
+        return half * (lastEnv0 + lastEnv1);
     }
 }
 
@@ -289,36 +295,26 @@ void DynamicShaper<SampleType>::updateOneKneeParameters(
         newRatio > 0.0 &&
         newWidthDb >= 0.0);
 
-    SampleType prevRatioInverse =
-        kneeIndex == 0 ?
-        1.0 :
-        ratioInverseMinusOne[kneeIndex - 1] + 1.0;
-
-    SampleType newKneeWidth = newWidthDb >= minKneeWidth ? newWidthDb : 0;
+    prevRatioInverseMinusOne[kneeIndex] =
+        kneeIndex == 0 ? zero : ratioInverseMinusOne[kneeIndex - 1];
     threshold[kneeIndex] = dbToGain(newThreshold);
-    thresholdInverse[kneeIndex] = 1.0 / threshold[kneeIndex];
-    ratioInverseMinusOne[kneeIndex] = 1.0 / newRatio - 1.0;
+    thresholdInverse[kneeIndex] = one / threshold[kneeIndex];
+    ratioInverseMinusOne[kneeIndex] = one / newRatio - one;
     powCoeff[kneeIndex] = std::pow(thresholdInverse[kneeIndex], ratioInverseMinusOne[kneeIndex]);
-    kneeLeftBoundDb[kneeIndex] = newThreshold - 0.5f * newKneeWidth;
+    SampleType halfWidthDb = half * newWidthDb;
+    kneeLeftBoundDb[kneeIndex] = newThreshold - halfWidthDb;
     kneeLeftBound[kneeIndex] = dbToGain(kneeLeftBoundDb[kneeIndex]);
-    kneeRightBound[kneeIndex] = dbToGain(newThreshold + 0.5f * newKneeWidth);
-
-    if (newKneeWidth > 0)
-    {
-        aQuadCoeff[kneeIndex] = 0.5 * (ratioInverseMinusOne[kneeIndex] + 1.0 - prevRatioInverse) / newKneeWidth;
-        bQuadCoeff[kneeIndex] = prevRatioInverse - 2.0 * aQuadCoeff[kneeIndex] * kneeLeftBoundDb[kneeIndex];
-        cQuadCoeff[kneeIndex] = newThreshold -
-            0.5 * prevRatioInverse * newKneeWidth -
-            kneeLeftBoundDb[kneeIndex] * (kneeLeftBoundDb[kneeIndex] * aQuadCoeff[kneeIndex] + bQuadCoeff[kneeIndex]);
-    }
-    else
-        aQuadCoeff[kneeIndex] = bQuadCoeff[kneeIndex] = cQuadCoeff[kneeIndex] = 0.0;
+    kneeRightBound[kneeIndex] = dbToGain(newThreshold + halfWidthDb);
+    kneeLeftReductionDb[kneeIndex] = -halfWidthDb * prevRatioInverseMinusOne[kneeIndex];
+    kneeQuadCoeff[kneeIndex] = newWidthDb > zero ?
+        half * (ratioInverseMinusOne[kneeIndex] - prevRatioInverseMinusOne[kneeIndex]) / newWidthDb :
+        zero;
 }
 
 template<typename SampleType>
 SampleType DynamicShaper<SampleType>::dbToGain(SampleType decibels)
 {
-    return decibels > minusInfinityDb ? std::exp2(decibels * dbToGainCoeff) : 0.0;
+    return decibels > minusInfinityDb ? std::exp2(decibels * dbToGainCoeff) : zero;
 }
 
 //==============================================================================

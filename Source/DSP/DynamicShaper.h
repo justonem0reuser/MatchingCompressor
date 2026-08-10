@@ -12,8 +12,7 @@ template <typename SampleType>
 class DynamicShaper
 {
 public:
-    constexpr static SampleType minusInfinityDb = -200.0;
-    constexpr static SampleType minKneeWidth = 0.1;
+    constexpr static SampleType minusInfinityDb = (SampleType)-200.0;
     const static int maxKneesNumber = 3;
 
     using KneesArray = std::array<SampleType, maxKneesNumber>;
@@ -157,19 +156,26 @@ public:
     void calculateStereoEnv(SampleType inputValue0, SampleType inputValue1, SampleType& env0, SampleType& env1);
 
 private:
-    constexpr static SampleType dbToGainCoeff = 0.1660964047443681;
-    constexpr static SampleType silenceGain = 1.0e-6;
+    constexpr static SampleType zero = (SampleType)0.0;
+    constexpr static SampleType half = (SampleType)0.5;
+    constexpr static SampleType one = (SampleType)1.0;
+
+    constexpr static SampleType dbToGainCoeff = (SampleType)0.1660964047443681;
+    constexpr static SampleType silenceGain = (SampleType)1.0e-6;
 
     int size = 0;
     int channelsNumber = 0;
     double sampleRate = 44100.0;
-    SampleType gainSmoothingTimeMs = 0.0;
-    SampleType attackTime = 10.0, releaseTime = 100.0, gainDb = 0.0;
+    SampleType gainSmoothingTimeMs = (SampleType)0.0;
+    SampleType attackTime = (SampleType)10.0;
+    SampleType releaseTime = (SampleType)100.0;
+    SampleType gainDb = (SampleType)0.0;
     EnvCalculationType balFilterType = EnvCalculationType::peak;
     ChannelAggregationType channelAggregationType = ChannelAggregationType::separate;
     
-    SampleType lastEnv0 = 0.0, lastEnv1 = 0.0;
-    juce::SmoothedValue<SampleType, juce::ValueSmoothingTypes::Multiplicative> gainSmoothed{ (SampleType)1.0 };
+    SampleType lastEnv0 = (SampleType)0.0;
+    SampleType lastEnv1 = (SampleType)0.0;
+    juce::SmoothedValue<SampleType, juce::ValueSmoothingTypes::Multiplicative> gainSmoothed{ one };
 
     KneesArray
         gain, // gain[0] is always 1
@@ -180,9 +186,9 @@ private:
         kneeLeftBoundDb,
         kneeLeftBound,
         kneeRightBound,
-        aQuadCoeff,
-        bQuadCoeff,
-        cQuadCoeff;
+        kneeLeftReductionDb,
+        prevRatioInverseMinusOne,
+        kneeQuadCoeff;
 
     juce::dsp::BallisticsFilter<SampleType> envelopeFilter;
 

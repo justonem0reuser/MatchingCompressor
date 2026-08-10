@@ -16,15 +16,8 @@ double CompParamsCalculator::calculateFine(
         int prevTInd = prevKneeInd - 2;
         int curTInd = prevKneeInd + 1;
 
-        auto curKnee =
-            c[curKneeInd] >= DynamicShaper<float>::minKneeWidth ?
-            c[curKneeInd] : 0.0;
-        auto prevKnee =
-            c[prevKneeInd] >= DynamicShaper<float>::minKneeWidth ?
-            c[prevKneeInd] : 0.0;
-
-        auto curLeftBound = c[curTInd] - 0.5 * curKnee;
-        auto prevRightBound = c[prevTInd] + 0.5 * prevKnee;
+        auto curLeftBound = c[curTInd] - 0.5 * c[curKneeInd];
+        auto prevRightBound = c[prevTInd] + 0.5 * c[prevKneeInd];
 
         auto fineDelta = curLeftBound - prevRightBound - fineThreshold;
         if (fineDelta < 0.0)
