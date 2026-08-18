@@ -8,5 +8,7 @@ public:
         const double* c,
         int kneesNumber,
         bool convertResultToLinear = false,
-        double* grad = nullptr);
+        double* grad = nullptr,
+        const double* widths = nullptr,
+        const double* dWidthDThreshold = nullptr);
 };

@@ -6,7 +6,9 @@ double FuncAndGradCalculator::calculateWithoutGain(
     const double* c,
     int kneesNumber,
     bool convertResultToLinear,
-    double* grad)
+    double* grad,
+    const double* widths,
+    const double* dWidthDThreshold)
 {
     //c : Gain (doesn't used), [Threshold, 1/Ratio, Knee weight] * n
 
@@ -17,7 +19,7 @@ double FuncAndGradCalculator::calculateWithoutGain(
     {
         auto i3 = 3 * i;
         auto curThreshold = c[i3 + 1];
-        auto curKnee = c[i3 + 3];
+        auto curKnee = widths != nullptr ? widths[i] : c[i3 + 3];
 
         bool isBandStarted = levelDb > curThreshold - 0.5 * curKnee;
         index = isBandStarted ? i : index;
@@ -44,7 +46,7 @@ double FuncAndGradCalculator::calculateWithoutGain(
         auto prevRatioInv = index == 0 ? 1.0 : c[i3 - 1];
         auto curThreshold = c[i3 + 1];
         auto curRatioInv = c[i3 + 2];
-        auto curKneeWidth = c[i3 + 3];
+        auto curKneeWidth = widths != nullptr ? widths[index] : c[i3 + 3];
         auto curLeftBound = curThreshold - 0.5 * curKneeWidth;
 
         if (levelDb >= curThreshold + 0.5 * curKneeWidth)
@@ -70,7 +72,22 @@ double FuncAndGradCalculator::calculateWithoutGain(
             {
                 grad[i3 + 1] += 1.0 - prevRatioInv - ratioInvDelta * kneePos;
                 grad[i3 + 2] += 0.5 * kneeOffset * kneePos;
-                grad[i3 + 3] += 0.5 * ratioInvDelta * kneePos * (1.0 - kneePos);
+
+                auto dResDWidth = 0.5 * ratioInvDelta * kneePos * (1.0 - kneePos);
+                if (widths == nullptr)
+                    grad[i3 + 3] += dResDWidth;
+                else
+                {
+                    jassert(dWidthDThreshold != nullptr);
+                    auto dWidth = dWidthDThreshold != nullptr ? dWidthDThreshold[index] : 0.0;
+                    if (dWidth != 0.0)
+                    {
+                        int neighbour = dWidth > 0.0 ? index - 1 : index + 1;
+                        jassert(neighbour >= 0 && neighbour < kneesNumber);
+                        grad[i3 + 1] += dResDWidth * dWidth;
+                        grad[1 + 3 * neighbour] -= dResDWidth * dWidth;
+                    }
+                }
 
                 if (index > 0)
                     grad[i3 - 1] += kneeOffset - 0.5 * curKneeWidth -

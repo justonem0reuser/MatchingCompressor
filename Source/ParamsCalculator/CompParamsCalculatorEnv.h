@@ -89,6 +89,11 @@ private:
     std::vector<std::int32_t>* activeEnvTable = &xEnvTable;
     std::vector<double>* activeEnvDbByCol = &envDbByCol;
 
+    // Non-empty while the knee widths follow the thresholds instead of being optimized.
+    std::vector<double> nominalKneeWidths, kneeWidths, dKneeWidthDThreshold;
+
+    void updateKneeWidths(const alglib::real_1d_array& c);
+
     std::vector<double> calculateYDensity(
         const alglib::real_1d_array& params,
         std::vector<std::vector<double>>* dBins = nullptr);

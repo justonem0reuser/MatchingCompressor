@@ -7,6 +7,14 @@
 #include "../Data/Ranges.h"
 #include "interpolation.h"
 
+void CompParamsCalculatorEnv::updateKneeWidths(const alglib::real_1d_array& c)
+{
+    if (nominalKneeWidths.empty())
+        return;
+    calculateKneeWidths(c.getcontent(), kneesNumber, nominalKneeWidths.data(),
+        kneeWidths.data(), dKneeWidthDThreshold.data());
+}
+
 void CompParamsCalculatorEnv::addFine(
     const alglib::real_1d_array& c,
     FunctionAndJacobian& fj,
@@ -23,7 +31,10 @@ void CompParamsCalculatorEnv::addFine(
             fineGrad[p] = 0.0;
     }
 
-    float fine = (float)calculateFine(c, withJacobian ? &fineGrad : nullptr);
+    float fine = (float)calculateFine(
+        c, 
+        withJacobian ? &fineGrad : nullptr,
+        kneeWidths.empty() ? nullptr : kneeWidths.data());
     for (int i = 0; i < qLength; i++)
         fj.q[i] += fine;
 
@@ -40,6 +51,7 @@ std::vector<float>& CompParamsCalculatorEnv::getY(const alglib::real_1d_array& c
     auto it = calculatedFunctions.find(c);
     if (it == calculatedFunctions.end())
     {
+        updateKneeWidths(c);
         FunctionAndJacobian fj;
         fj.q = calculateFunction(destSamples, c, nullptr);
         addFine(c, fj, false);
@@ -55,6 +67,7 @@ CompParamsCalculatorEnv::FunctionAndJacobian& CompParamsCalculatorEnv::getYAndJ(
     auto it = calculatedFunctions.find(c);
     if (it == calculatedFunctions.end() || !it->second.hasJacobian)
     {
+        updateKneeWidths(c);
         FunctionAndJacobian fj;
         fj.q = calculateFunction(destSamples, c, &fj.jac); // q + jacobian
         fj.hasJacobian = true;
@@ -210,13 +223,27 @@ std::vector<float> CompParamsCalculatorEnv::solve(
     alglib::lsfitstate state;
     alglib::lsfitreport rep;
 
+    nominalKneeWidths.clear();
+    kneeWidths.clear();
+    dKneeWidthDThreshold.clear();
+
     setInitGuessAndBounds(kneesNumber, kneeType, c, bndl, bndu);
     if (warmStart != nullptr)
     {
         jassert((int)warmStart->size() == c.length());
         paramsToC(*warmStart, c);
-        for (int k = 0; k < kneesNumber; k++)
-            bndl[3 + 3 * k] = bndu[3 + 3 * k] = 0.0;
+        for (int i = 0; i < kneesNumber; i++)
+            bndl[3 + 3 * i] = bndu[3 + 3 * i] = 0.0;
+    }
+    else
+    {
+        nominalKneeWidths.assign(
+            kneesNumber, 
+            kneeType == KneeType::soft ? 0.5 * (kneeWidthRange.start + kneeWidthRange.end) : 0.0);
+        kneeWidths.assign(kneesNumber, 0.0);
+        dKneeWidthDThreshold.assign(kneesNumber, 0.0);
+        for (int i = 0; i < kneesNumber; i++)
+            bndl[3 + 3 * i] = bndu[3 + 3 * i] = c[3 + 3 * i] = 0.0;
     }
     activeEnvTable = &xEnvTable;
     activeEnvDbByCol = &envDbByCol;
@@ -250,6 +277,17 @@ std::vector<float> CompParamsCalculatorEnv::solve(
         if (rep.terminationtype < 0)
             throw std::runtime_error(cannotCalculateErrStr.toStdString());
 
+        if (!nominalKneeWidths.empty())
+        {
+            calculateKneeWidths(c.getcontent(), kneesNumber, nominalKneeWidths.data(),
+                kneeWidths.data());
+            for (int i = 0; i < kneesNumber; i++)
+                c[3 + 3 * i] = kneeWidths[i];
+            nominalKneeWidths.clear();
+            kneeWidths.clear();
+            dKneeWidthDThreshold.clear();
+        }
+
         const std::vector<float>* finalTarget = &target;
 
         if (kneeType == KneeType::soft && warmStart == nullptr)
@@ -270,20 +308,6 @@ std::vector<float> CompParamsCalculatorEnv::solve(
             {
                 bndl[3 + 3 * i] = kneeWidthRange.start;
                 bndu[3 + 3 * i] = kneeWidthRange.end;
-                c[3 + 3 * i] = 0.5f * (kneeWidthRange.start + kneeWidthRange.end);
-            }
-        
-            // check knees intersection
-            for (int i = 1; i < kneesNumber; i++)
-            {
-                auto maxWidthsSum = 2.0 * (c[3 * i + 1] - c[3 * i - 2] - fineThreshold);
-                auto widthsSum = c[3 * i] + c[3 * i + 3];
-                if (widthsSum > maxWidthsSum)
-                {
-                    auto k = maxWidthsSum > 0.0 ? maxWidthsSum / widthsSum : 0.0;
-                    c[3 * i] *= k;
-                    c[3 * i + 3] *= k;
-                }
             }
 
             lsfitcreatefg(x, y, c, true, state);
@@ -562,6 +586,8 @@ std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
     std::vector<double> res(size, 0.0);
 
     const double scaleCoeff = 0.05 * std::log(10.0);
+    const double* widths = kneeWidths.empty() ? nullptr : kneeWidths.data();
+    const double* dWidths = kneeWidths.empty() ? nullptr : dKneeWidthDThreshold.data();
     const int n = params.length();
     std::vector<double> grad(n);
     alglib::real_1d_array gradDb;
@@ -585,7 +611,9 @@ std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
                 params.getcontent(), 
                 (n - 1) / 3,
                 false, // true would require division by envDb
-                dBins != nullptr ? gradDb.getcontent() : nullptr);
+                dBins != nullptr ? gradDb.getcontent() : nullptr,
+                widths,
+                dWidths);
             double yAbs = x * juce::Decibels::decibelsToGain(yDb - envDb);
 
             if (dBins == nullptr)

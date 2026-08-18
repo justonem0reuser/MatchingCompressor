@@ -31,6 +31,7 @@ protected:
     constexpr static double fineThreshold = 0.1;
     constexpr static double fineCoeff = 100.0;
 
+    constexpr static int paramsPerKnee = 3;
 
     static float fitMismatch(double rmsError, const std::vector<float>& target);
     float lastFitMismatch = 0.f;
@@ -50,10 +51,31 @@ protected:
     /// gradient array
     /// (if it is not nullptr then fine coefficients are added to it)
     /// </param>
+    /// <param name="widths">
+    /// knee widths taken from here instead of from c, 
+    /// for the mode where the width is derived from the thresholds; 
+    /// nullptr = read the widths from c
+    /// </param>
     /// <returns>fine value</returns>
     static double calculateFine(
         const alglib::real_1d_array& c,
-        alglib::real_1d_array* gradPtr = nullptr);
+        alglib::real_1d_array* gradPtr = nullptr,
+        const double* widths = nullptr);
+
+    /// <summary>
+    /// Knee widths derived from their nominal values and the thresholds.
+    /// </summary>
+    /// <param name="c">array of compression parameters</param>
+    /// <param name="kneesNumber">number of compressor knees</param>
+    /// <param name="nominalWidths">requested width per knee; the result never exceeds it</param>
+    /// <param name="widths">out: resulting width per knee</param>
+    /// <param name="dWidthDThreshold">out, optional: derivative of each width over its own threshold</param>
+    static void calculateKneeWidths(
+        const double* c,
+        int kneesNumber,
+        const double* nominalWidths,
+        double* widths,
+        double* dWidthDThreshold = nullptr);
 
     /// <summary>
     /// Initial parameters preparation for 
