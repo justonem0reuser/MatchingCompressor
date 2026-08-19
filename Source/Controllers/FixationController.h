@@ -104,7 +104,8 @@ public:
             return false;
 
         worker = std::make_unique<FixationWorker>();
-        worker->prepare(destSamples, matchingData.destSampleRate, matchingData.properties);
+        juce::ValueTree config = getCurrentParamsTree();
+        worker->prepare(destSamples, matchingData.destSampleRate, config);
         hasSessionReference = false;
         worker->arm(getCurrentAttack(), getCurrentRelease(), getCurrentCompParams());
         wireCallbacks();
@@ -203,7 +204,7 @@ private:
 
     void applyFixationParams(float attackMs, float releaseMs, const std::vector<float>& params)
     {
-        int kneesNumber = processor.getMatchingData().properties.getProperty(setKneesNumberId);
+        int kneesNumber = ((int)params.size() - 1) / 3;
 
         setParameter(attackId, attackRange, attackMs);
         setParameter(releaseId, releaseRange, releaseMs);

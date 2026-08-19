@@ -54,6 +54,7 @@ public:
         estimator.updateBallistics(attackMs, releaseMs);
         lastBuiltAttack = attackMs;
         lastBuiltRelease = releaseMs;
+        estimator.captureNominalKneeWidths(currentParams);
         target = estimator.calculateQuantilesFor(currentParams);
         lastResult = currentParams;
         pendingAttack = attackMs;
@@ -173,6 +174,7 @@ private:
                     if (!params.empty())
                     {
                         rebuildIfNeeded(a, r);
+                        estimator.captureNominalKneeWidths(params);
                         target = estimator.calculateQuantilesFor(params);
                         lastResult = params;
                     }

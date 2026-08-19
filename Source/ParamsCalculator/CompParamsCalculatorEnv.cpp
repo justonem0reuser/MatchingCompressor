@@ -200,19 +200,20 @@ std::vector<float> CompParamsCalculatorEnv::solve(
     {
         jassert((int)warmStart->size() == c.length());
         paramsToC(*warmStart, c);
-        for (int i = 0; i < kneesNumber; i++)
-            bndl[3 + 3 * i] = bndu[3 + 3 * i] = 0.0;
+        nominalKneeWidths = fixationNominalWidths;
     }
     else
-    {
         nominalKneeWidths.assign(
-            kneesNumber, 
+            kneesNumber,
             kneeType == KneeType::soft ? 0.5 * (kneeWidthRange.start + kneeWidthRange.end) : 0.0);
+
+    if (!nominalKneeWidths.empty())
+    {
         kneeWidths.assign(kneesNumber, 0.0);
         dKneeWidthDThreshold.assign(kneesNumber, 0.0);
-        for (int i = 0; i < kneesNumber; i++)
-            bndl[3 + 3 * i] = bndu[3 + 3 * i] = c[3 + 3 * i] = 0.0;
     }
+    for (int i = 0; i < kneesNumber; i++)
+        bndl[3 + 3 * i] = bndu[3 + 3 * i] = c[3 + 3 * i] = 0.0;
     activeEnvTable = &xEnvTable;
     activeEnvDbByCol = &envDbByCol;
     quantileRegionsNumber = (int)target.size();
@@ -248,6 +249,8 @@ std::vector<float> CompParamsCalculatorEnv::solve(
 
         enforceKneeGaps(c, kneesNumber, false);
 
+        lastFitMismatch = fitMismatchAt(c, target);
+
         if (!nominalKneeWidths.empty())
         {
             calculateKneeWidths(c.getcontent(), kneesNumber, nominalKneeWidths.data(),
@@ -258,8 +261,6 @@ std::vector<float> CompParamsCalculatorEnv::solve(
             kneeWidths.clear();
             dKneeWidthDThreshold.clear();
         }
-
-        const std::vector<float>* finalTarget = &target;
 
         if (kneeType == KneeType::soft && warmStart == nullptr)
         {
@@ -294,10 +295,8 @@ std::vector<float> CompParamsCalculatorEnv::solve(
 
             enforceKneeGaps(c, kneesNumber, true);
 
-            finalTarget = &targetSoft;
+            lastFitMismatch = fitMismatchAt(c, targetSoft);
         }
-
-        lastFitMismatch = fitMismatchAt(c, *finalTarget);
 
         auto result = resArrayToVector(c);
         denormalize(result, maxAmp);
@@ -351,12 +350,31 @@ std::vector<float> CompParamsCalculatorEnv::calculateQuantilesFor(const std::vec
     activeEnvDbByCol = &envDbByCol;
     calculatedFunctions.clear();
 
+    nominalKneeWidths = fixationNominalWidths;
+    if (!nominalKneeWidths.empty())
+    {
+        kneeWidths.assign(kneesNumber, 0.0);
+        dKneeWidthDThreshold.assign(kneesNumber, 0.0);
+    }
+
     const auto& quantiles = getY(c);
     const double gain = juce::Decibels::decibelsToGain(c[0]);
     std::vector<float> res(quantiles.size());
     for (size_t i = 0; i < quantiles.size(); i++)
         res[i] = (float)((double)quantiles[i] * gain);
+
+    nominalKneeWidths.clear();
+    kneeWidths.clear();
+    dKneeWidthDThreshold.clear();
     return res;
+}
+
+void CompParamsCalculatorEnv::captureNominalKneeWidths(const std::vector<float>& params)
+{
+    jassert((int)params.size() >= 3 * kneesNumber + 1);
+    fixationNominalWidths.resize(kneesNumber);
+    for (int i = 0; i < kneesNumber; i++)
+        fixationNominalWidths[i] = params[3 + 3 * i];
 }
 
 float CompParamsCalculatorEnv::scoreAgainstReference(const std::vector<float>& params)

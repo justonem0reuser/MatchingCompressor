@@ -46,6 +46,8 @@ public:
     // prepare()+updateBallistics() must be called before it.
     std::vector<float> calculateQuantilesFor(const std::vector<float>& params);
 
+    void captureNominalKneeWidths(const std::vector<float>& params);
+
     float scoreAgainstReference(const std::vector<float>& params);
 
 private:
@@ -91,6 +93,8 @@ private:
 
     // Non-empty while the knee widths follow the thresholds instead of being optimized.
     std::vector<double> nominalKneeWidths, kneeWidths, dKneeWidthDThreshold;
+
+    std::vector<double> fixationNominalWidths;
 
     void updateKneeWidths(const alglib::real_1d_array& c);
 
