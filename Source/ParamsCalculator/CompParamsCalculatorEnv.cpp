@@ -15,36 +15,6 @@ void CompParamsCalculatorEnv::updateKneeWidths(const alglib::real_1d_array& c)
         kneeWidths.data(), dKneeWidthDThreshold.data());
 }
 
-void CompParamsCalculatorEnv::addFine(
-    const alglib::real_1d_array& c,
-    FunctionAndJacobian& fj,
-    bool withJacobian)
-{
-    const int cLength = c.length();
-    const int qLength = (int)fj.q.size();
-
-    alglib::real_1d_array fineGrad;
-    if (withJacobian)
-    {
-        fineGrad.setlength(cLength);
-        for (int p = 0; p < cLength; p++)
-            fineGrad[p] = 0.0;
-    }
-
-    float fine = (float)calculateFine(
-        c, 
-        withJacobian ? &fineGrad : nullptr,
-        kneeWidths.empty() ? nullptr : kneeWidths.data());
-    for (int i = 0; i < qLength; i++)
-        fj.q[i] += fine;
-
-    if (withJacobian)
-        for (int i = 0; i < cLength; i++)
-            if (fineGrad[i] != 0.0)
-                for (int j = 0; j < qLength; j++)
-                    fj.jac[i][j] += fineGrad[i];
-}
-
 std::vector<float>& CompParamsCalculatorEnv::getY(const alglib::real_1d_array& c)
 {
     //c : Gain, Threshold, 1/Ratio, Knee weight, attack, release
@@ -54,7 +24,6 @@ std::vector<float>& CompParamsCalculatorEnv::getY(const alglib::real_1d_array& c
         updateKneeWidths(c);
         FunctionAndJacobian fj;
         fj.q = calculateFunction(destSamples, c, nullptr);
-        addFine(c, fj, false);
         it = calculatedFunctions.emplace(c, std::move(fj)).first;
     }
     return it->second.q;
@@ -71,7 +40,6 @@ CompParamsCalculatorEnv::FunctionAndJacobian& CompParamsCalculatorEnv::getYAndJ(
         FunctionAndJacobian fj;
         fj.q = calculateFunction(destSamples, c, &fj.jac); // q + jacobian
         fj.hasJacobian = true;
-        addFine(c, fj, true);
         if (it == calculatedFunctions.end())
             it = calculatedFunctions.emplace(c, std::move(fj)).first;
         else
@@ -270,12 +238,15 @@ std::vector<float> CompParamsCalculatorEnv::solve(
         lsfitcreatefg(x, y, c, true, state);
         lsfitsetcond(state, epsx, maxits);
         lsfitsetbc(state, bndl, bndu);
+        setKneeConstraints(state, kneesNumber, false);
         lsfitsetscale(state, s);
         lsfitfit(state, calculateFunctional, calculateGradient, nullptr, this);
         lsfitresults(state, c, rep);
 
         if (rep.terminationtype < 0)
             throw std::runtime_error(cannotCalculateErrStr.toStdString());
+
+        enforceKneeGaps(c, kneesNumber, false);
 
         if (!nominalKneeWidths.empty())
         {
@@ -314,16 +285,19 @@ std::vector<float> CompParamsCalculatorEnv::solve(
             lsfitsetcond(state, epsx, maxits);
             lsfitsetscale(state, s); 
             lsfitsetbc(state, bndl, bndu);
+            setKneeConstraints(state, kneesNumber, true); // the widths are variables again
             lsfitfit(state, calculateFunctional, calculateGradient, nullptr, this);
             lsfitresults(state, c, rep);
 
             if (rep.terminationtype < 0)
                 throw std::runtime_error(cannotCalculateErrStr.toStdString());
 
+            enforceKneeGaps(c, kneesNumber, true);
+
             finalTarget = &targetSoft;
         }
 
-        lastFitMismatch = fitMismatchExclFine(c, *finalTarget);
+        lastFitMismatch = fitMismatchAt(c, *finalTarget);
 
         auto result = resArrayToVector(c);
         denormalize(result, maxAmp);
@@ -335,19 +309,17 @@ std::vector<float> CompParamsCalculatorEnv::solve(
     }
 }
 
-float CompParamsCalculatorEnv::fitMismatchExclFine(
+float CompParamsCalculatorEnv::fitMismatchAt(
     const alglib::real_1d_array& c,
     const std::vector<float>& target)
 {
     auto& q = getY(c);
     const double coeff = juce::Decibels::decibelsToGain(c[0]);
-    const double fine = calculateFine(c);
     const int n = (int)target.size();
     double sumSq = 0.0;
     for (int i = 0; i < n; i++)
     {
-        double model = ((double)q[i] - fine) * coeff;
-        double res = model - target[i];
+        double res = (double)q[i] * coeff - target[i];
         sumSq += res * res;
     }
     return fitMismatch(std::sqrt(sumSq / std::max(1, n)), target);
@@ -381,11 +353,9 @@ std::vector<float> CompParamsCalculatorEnv::calculateQuantilesFor(const std::vec
 
     const auto& quantiles = getY(c);
     const double gain = juce::Decibels::decibelsToGain(c[0]);
-
-    const double fine = calculateFine(c);
     std::vector<float> res(quantiles.size());
     for (size_t i = 0; i < quantiles.size(); i++)
-        res[i] = (float)(((double)quantiles[i] - fine) * gain);
+        res[i] = (float)((double)quantiles[i] * gain);
     return res;
 }
 
@@ -402,8 +372,8 @@ float CompParamsCalculatorEnv::scoreAgainstReference(const std::vector<float>& p
 
     alglib::real_1d_array c;
     c.setlength(3 * kneesNumber + 1);
-    paramsToC(params, c, true); 
-    const float mismatch = fitMismatchExclFine(c, refTarget);
+    paramsToC(params, c, true);
+    const float mismatch = fitMismatchAt(c, refTarget);
 
     calculatedFunctions.clear();
     return mismatch;

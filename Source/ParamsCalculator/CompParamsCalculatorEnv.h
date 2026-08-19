@@ -51,8 +51,8 @@ public:
 private:
     struct FunctionAndJacobian
     {
-        std::vector<float> q; // quantiles + fine
-        std::vector<std::vector<double>> jac; // [param][quantile] + grad(fine)
+        std::vector<float> q; // quantiles
+        std::vector<std::vector<double>> jac; // [param][quantile]
         bool hasJacobian = false;
     };
 
@@ -123,16 +123,11 @@ private:
     std::vector<float>& getY(const alglib::real_1d_array& c);
     FunctionAndJacobian& getYAndJ(const alglib::real_1d_array& c);
 
-    void addFine(
-        const alglib::real_1d_array& c,
-        FunctionAndJacobian& fj,
-        bool withJacobian);
-    
     void setCompParameters(const alglib::real_1d_array& params);
 
     void paramsToC(const std::vector<float>& params, alglib::real_1d_array& c, bool keepKneeWidth = false);
 
     void configure(const juce::ValueTree& properties);
 
-    float fitMismatchExclFine(const alglib::real_1d_array& c, const std::vector<float>& target);
+    float fitMismatchAt(const alglib::real_1d_array& c, const std::vector<float>& target);
 };

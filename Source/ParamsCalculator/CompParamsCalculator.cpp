@@ -1,48 +1,79 @@
 #include "CompParamsCalculator.h"
 #include "../Data/Ranges.h"
+#include <algorithm>
 #include <limits>
 
-double CompParamsCalculator::calculateFine(
-    const alglib::real_1d_array& c,
-    alglib::real_1d_array* gradPtr,
-    const double* widths)
+void CompParamsCalculator::setKneeConstraints(
+    alglib::lsfitstate& state,
+    int kneesNumber,
+    bool isWidthVariable)
 {
-    int size = (c.length() - 1) / 3;
-    if (size <= 1)
-        return 0;
+    if (kneesNumber < 2)
+        return;
 
-    double fine = 0;
-    for (int i = 1; i < size; i++)
+    const int rowsCount = kneesNumber - 1;
+    const int cLength = paramsPerKnee * kneesNumber + 1;
+
+    alglib::real_2d_array constraints;
+    alglib::integer_1d_array types;
+    constraints.setlength(rowsCount, cLength + 1);
+    types.setlength(rowsCount);
+
+    for (int i = 0; i < rowsCount; i++)
     {
-        int prevKneeInd = 3 * i;
-        int curKneeInd = prevKneeInd + 3;
-        int prevTInd = prevKneeInd - 2;
-        int curTInd = prevKneeInd + 1;
+        for (int j = 0; j <= cLength; j++)
+            constraints[i][j] = 0.0;
 
-        auto curWidth = widths != nullptr ? widths[i] : c[curKneeInd];
-        auto prevWidth = widths != nullptr ? widths[i - 1] : c[prevKneeInd];
-
-        auto curLeftBound = c[curTInd] - 0.5 * curWidth;
-        auto prevRightBound = c[prevTInd] + 0.5 * prevWidth;
-
-        auto fineDelta = curLeftBound - prevRightBound - fineThreshold;
-        if (fineDelta < 0.0)
+        const int prevTInd = 1 + paramsPerKnee * i;
+        const int curTInd = prevTInd + paramsPerKnee;
+        if (isWidthVariable)
         {
-            fine += fineCoeff * fineDelta * fineDelta;
-            if (gradPtr != nullptr)
-            {
-                auto& grad = *gradPtr;
-                double valueToAdd = fineCoeff * fineDelta;
-                jassert(widths == nullptr ||
-                    (widths[i - 1] == 0.0 && widths[i] == 0.0));
-                grad[prevTInd] -= 2.0 * valueToAdd;
-                grad[prevKneeInd] -= valueToAdd;
-                grad[curTInd] += 2.0 * valueToAdd;
-                grad[curKneeInd] -= valueToAdd;
-            }
+            constraints[i][prevTInd] = -2.0;
+            constraints[i][curTInd] = 2.0;
+            constraints[i][prevTInd + 2] = -1.0;
+            constraints[i][curTInd + 2] = -1.0;
         }
+        else
+        {
+            constraints[i][prevTInd] = -1.0;
+            constraints[i][curTInd] = 1.0;
+        }
+        types[i] = 1; // >=
     }
-    return fine;
+
+    lsfitsetlc(state, constraints, types, rowsCount);
+}
+
+void CompParamsCalculator::enforceKneeGaps(
+    alglib::real_1d_array& c,
+    int kneesNumber,
+    bool isWidthVariable)
+{
+    for (int i = 1; i < kneesNumber; i++)
+    {
+        const int prevTInd = 1 + paramsPerKnee * (i - 1);
+        const int curTInd = prevTInd + paramsPerKnee;
+        const double prevWidth = isWidthVariable ? c[prevTInd + 2] : 0.0;
+        const double curWidth = isWidthVariable ? c[curTInd + 2] : 0.0;
+
+        double violation =
+            0.5 * (prevWidth + curWidth) - (c[curTInd] - c[prevTInd]);
+        if (violation <= 0.0)
+            continue;
+
+        const double widthSum = prevWidth + curWidth;
+        const double narrowing = std::min(2.0 * violation, widthSum);
+        if (narrowing > 0.0)
+        {
+            const double scale = 1.0 - narrowing / widthSum;
+            c[prevTInd + 2] = prevWidth * scale;
+            c[curTInd + 2] = curWidth * scale;
+            violation -= 0.5 * narrowing;
+        }
+        // Nothing left to narrow: the later threshold takes the rest.
+        if (violation > 0.0)
+            c[curTInd] += violation;
+    }
 }
 
 void CompParamsCalculator::calculateKneeWidths(
@@ -61,7 +92,7 @@ void CompParamsCalculator::calculateKneeWidths(
         if (i > 0)
         {
             const double limit =
-                2.0 * (threshold - c[1 + paramsPerKnee * (i - 1)] - fineThreshold)
+                2.0 * (threshold - c[1 + paramsPerKnee * (i - 1)])
                 - nominalWidths[i - 1];
             if (limit < width)
             {
@@ -72,7 +103,7 @@ void CompParamsCalculator::calculateKneeWidths(
         if (i < kneesNumber - 1)
         {
             const double limit =
-                2.0 * (c[1 + paramsPerKnee * (i + 1)] - threshold - fineThreshold)
+                2.0 * (c[1 + paramsPerKnee * (i + 1)] - threshold)
                 - nominalWidths[i + 1];
             if (limit < width)
             {
@@ -80,7 +111,7 @@ void CompParamsCalculator::calculateKneeWidths(
                 derivative = -2.0;
             }
         }
-        if (width < 0.0) // thresholds closer than the buffer, or out of order
+        if (width < 0.0) // thresholds are too close for any width, or out of order
         {
             width = 0.0;
             derivative = 0.0;

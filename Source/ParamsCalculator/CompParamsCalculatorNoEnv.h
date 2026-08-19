@@ -35,7 +35,7 @@ private:
         double& func,
         alglib::real_1d_array& grad,
         void* ptr);
-    static double calculateFunctionalAndGradientWithoutFine(
+    static double calculateFunctionalAndGradient(
         const alglib::real_1d_array& c,
         const alglib::real_1d_array& x,
         alglib::real_1d_array* gradPtr = nullptr);

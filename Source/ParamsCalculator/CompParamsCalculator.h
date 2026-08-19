@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "alglibinternal.h"
+#include "interpolation.h"
 
 /// <summary>
 /// Base matching compressor parameters calculation class
@@ -28,48 +29,22 @@ public:
     float getLastFitMismatch() const { return lastFitMismatch; }
 
 protected:
-    constexpr static double fineThreshold = 0.1;
-    constexpr static double fineCoeff = 100.0;
-
     constexpr static int paramsPerKnee = 3;
 
     static float fitMismatch(double rmsError, const std::vector<float>& target);
     float lastFitMismatch = 0.f;
 
 
-    /// <summary>
-    /// Fine calculation in case 
-    /// if the left bound of the previous knee is greater 
-    /// than the right bound of the next knee
-    /// or close to it.
-    /// Fine should be great enough to avoid such decisions.
-    /// </summary>
-    /// <param name="c">
-    /// alglib array of compression parameters
-    /// </param>
-    /// <param name="gradPtr">
-    /// gradient array
-    /// (if it is not nullptr then fine coefficients are added to it)
-    /// </param>
-    /// <param name="widths">
-    /// knee widths taken from here instead of from c, 
-    /// for the mode where the width is derived from the thresholds; 
-    /// nullptr = read the widths from c
-    /// </param>
-    /// <returns>fine value</returns>
-    static double calculateFine(
-        const alglib::real_1d_array& c,
-        alglib::real_1d_array* gradPtr = nullptr,
-        const double* widths = nullptr);
+    static void setKneeConstraints(
+        alglib::lsfitstate& state,
+        int kneesNumber,
+        bool isWidthVariable);
 
-    /// <summary>
-    /// Knee widths derived from their nominal values and the thresholds.
-    /// </summary>
-    /// <param name="c">array of compression parameters</param>
-    /// <param name="kneesNumber">number of compressor knees</param>
-    /// <param name="nominalWidths">requested width per knee; the result never exceeds it</param>
-    /// <param name="widths">out: resulting width per knee</param>
-    /// <param name="dWidthDThreshold">out, optional: derivative of each width over its own threshold</param>
+    static void enforceKneeGaps(
+        alglib::real_1d_array& c,
+        int kneesNumber,
+        bool isWidthVariable);
+
     static void calculateKneeWidths(
         const double* c,
         int kneesNumber,
@@ -78,8 +53,7 @@ protected:
         double* dWidthDThreshold = nullptr);
 
     /// <summary>
-    /// Initial parameters preparation for 
-    /// alglib problem solver.
+    /// Initial parameters preparation for alglib problem solver.
     /// </summary>
     /// <param name="kneesNumber">number of compressor knees</param>
     /// <param name="kneeType">knee type (soft or hard)</param>

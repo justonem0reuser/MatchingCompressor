@@ -67,6 +67,7 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
         lsfitcreatefg(x, y, c, true, state);
         lsfitsetcond(state, epsx, maxits);
         lsfitsetbc(state, bndl, bndu);
+        setKneeConstraints(state, kneesNumber, kneeType == KneeType::soft);
         lsfitfit(state, calculateFunctional, calculateGradient);
         lsfitresults(state, c, rep);
     }
@@ -78,6 +79,8 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
     if (rep.terminationtype < 0)
         throw std::runtime_error(cannotCalculateErrStr.toStdString());
 
+    enforceKneeGaps(c, kneesNumber, kneeType == KneeType::soft);
+
     {
         double sumSq = 0.0;
         alglib::real_1d_array xi;
@@ -85,7 +88,7 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
         for (int i = 0; i < g.quantileRegions; i++)
         {
             xi[0] = localDestStat[i];
-            double model = calculateFunctionalAndGradientWithoutFine(c, xi);
+            double model = calculateFunctionalAndGradient(c, xi);
             double res = model - localReferenceStat[i];
             sumSq += res * res;
         }
@@ -103,7 +106,7 @@ void CompParamsCalculatorNoEnv::calculateFunctional(
     double& func, 
     void* ptr)
 {
-    func = calculateFunctionalAndGradientWithoutFine(c, x) + calculateFine(c);
+    func = calculateFunctionalAndGradient(c, x);
 }
 
 void CompParamsCalculatorNoEnv::calculateGradient(
@@ -113,10 +116,10 @@ void CompParamsCalculatorNoEnv::calculateGradient(
     alglib::real_1d_array& grad, 
     void* ptr)
 {
-    func = calculateFunctionalAndGradientWithoutFine(c, x, &grad) + calculateFine(c, &grad);
+    func = calculateFunctionalAndGradient(c, x, &grad);
 }
 
-double CompParamsCalculatorNoEnv::calculateFunctionalAndGradientWithoutFine(
+double CompParamsCalculatorNoEnv::calculateFunctionalAndGradient(
     const alglib::real_1d_array& c, 
     const alglib::real_1d_array& x, 
     alglib::real_1d_array* gradPtr)
