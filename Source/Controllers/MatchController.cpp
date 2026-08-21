@@ -2,16 +2,16 @@
 #include "../ParamsCalculator/CompParamsCalculatorFactory.h"
 
 MatchController::MatchController(
-	BaseMatchView* matchView, 
-	MatchingData& matchingData,
-    MatchCompressorAudioProcessor& processor):
-	matchView(matchView),
-	matchingData(matchingData),
+    BaseMatchView* matchView,
+    MatchingData& matchingData,
+    MatchCompressorAudioProcessor& processor) :
+    matchView(matchView),
+    matchingData(matchingData),
     processor(processor),
     dataReceiverController(&matchView->getDataReceiver(), matchingData, processor)
 {
-    this->matchView->onOkButtonClicked = [this] 
-        { 
+    this->matchView->onOkButtonClicked = [this]
+        {
             try
             {
                 calculateCompressorParameters();
@@ -24,9 +24,9 @@ MatchController::MatchController(
                 this->matchView->catchException(e, dynamic_cast<juce::Component*>(this->matchView));
             }
         };
-    this->matchView->onCancelButtonClicked = 
-        [this] 
-        { 
+    this->matchView->onCancelButtonClicked =
+        [this]
+        {
             this->matchingData.properties.copyPropertiesFrom(this->matchingData.initProperties, nullptr);
             closeMatchWindow();
             juce::NullCheckedInvocation::invoke(MatchViewClosed);
@@ -61,10 +61,20 @@ void MatchController::calculateCompressorParameters()
         return;
     }
 
-    auto calculator = CompParamsCalculatorFactory::create(destSamples, matchingData.properties);
+    bool isKWeightingUsed = CompParamsCalculator::isKWeightingUsed(matchingData.properties);
+    std::vector<std::vector<float>> weightedRef, weightedDest;
+    if (isKWeightingUsed)
+    {
+        weightedRef = CompParamsCalculator::applyKWeighting(refSamples, matchingData.refSampleRate);
+        weightedDest = CompParamsCalculator::applyKWeighting(destSamples, matchingData.destSampleRate);
+    }
+    auto& matchingRef = isKWeightingUsed ? weightedRef : refSamples;
+    auto& matchingDest = isKWeightingUsed ? weightedDest : destSamples;
+
+    auto calculator = CompParamsCalculatorFactory::create(matchingDest, matchingData.properties);
     matchingData.calculatedCompParams = calculator->calculateCompressorParameters(
-        refSamples,
-        destSamples, matchingData.destSampleRate,
+        matchingRef,
+        matchingDest, matchingData.destSampleRate,
         matchingData.properties);
     matchingData.fitMismatch = calculator->getLastFitMismatch();
     matchingData.matchedWithReference = true;

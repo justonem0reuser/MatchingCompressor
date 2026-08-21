@@ -28,6 +28,12 @@ public:
 
     float getLastFitMismatch() const { return lastFitMismatch; }
 
+    static bool isKWeightingUsed(const juce::ValueTree& properties);
+
+    static std::vector<std::vector<float>> applyKWeighting(
+        const std::vector<std::vector<float>>& samples,
+        double sampleRate);
+
 protected:
     constexpr static int paramsPerKnee = 3;
     constexpr static int paramsPerKneeDerivedWidth = 2;

@@ -39,10 +39,21 @@ public:
     void prepare(
         std::vector<std::vector<float>>& refSamples,
         std::vector<std::vector<float>>& destSamples,
+        double refSampleRate,
         double destSampleRate,
         juce::ValueTree& properties)
     {
-        estimator.prepare(refSamples, destSamples, destSampleRate, properties);
+        isKWeightingUsed = CompParamsCalculator::isKWeightingUsed(properties);
+        if (isKWeightingUsed)
+        {
+            weightedRef = CompParamsCalculator::applyKWeighting(refSamples, refSampleRate);
+            weightedDest = CompParamsCalculator::applyKWeighting(destSamples, destSampleRate);
+        }
+        estimator.prepare(
+            isKWeightingUsed ? weightedRef : refSamples,
+            isKWeightingUsed ? weightedDest : destSamples,
+            destSampleRate,
+            properties);
         hasReference = true;
     }
 
@@ -52,7 +63,7 @@ public:
     {
         {
             const juce::SpinLock::ScopedLockType lock(pendingLock);
-            pendingStructureRef = &refSamples;
+            pendingStructureRef = isKWeightingUsed ? &weightedRef : &refSamples;
             pendingStructureProperties = properties;
         }
         structureGen.fetch_add(1, std::memory_order_release);
@@ -75,9 +86,9 @@ public:
         processedGen.store(requestGen.load());
     }
 
-    void start() 
-    { 
-        startThread(); 
+    void start()
+    {
+        startThread();
     }
 
     void stop()
@@ -300,6 +311,9 @@ private:
 
     CompParamsCalculatorEnv estimator;
     bool hasReference = false;
+
+    bool isKWeightingUsed = false;
+    std::vector<std::vector<float>> weightedRef, weightedDest;
 
     // Worker thread state.
     std::vector<float> target;

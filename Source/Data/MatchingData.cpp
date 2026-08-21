@@ -3,13 +3,15 @@
 #include "Ranges.h"
 
 MatchingData::MatchingData():
-	properties("properties"),
+    properties("properties"),
     initProperties(properties.getType())
 {
     juce::StringArray kneesNumberChoices;
     for (int i = (int)kneesNumberRange.start; i <= (int)kneesNumberRange.end; i++)
         kneesNumberChoices.add(juce::String(i));
 
+    parameterInfos.push_back(ParameterInfo(
+        setUseKWeightingId, "Use K-weighting filter", 1, useKWeighting));
     parameterInfos.push_back(ParameterInfo(
         setKneesNumberId, "Number of knees", 1, kneesNumberChoices));
     parameterInfos.push_back(ParameterInfo(

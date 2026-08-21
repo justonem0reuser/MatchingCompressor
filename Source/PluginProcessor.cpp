@@ -268,8 +268,14 @@ void MatchCompressorAudioProcessor::setStateInformation(const void* data, int si
     auto matchingParams = tree.getChildWithName(matchingData.initProperties.getType());
     if (matchingParams.isValid())
     {
-        matchingData.initProperties.copyPropertiesFrom(matchingParams, nullptr);
-        matchingData.properties.copyPropertiesFrom(matchingParams, nullptr);
+        // using copyPropertiesFrom here doesn't process new-added items properly
+        for (int i = 0; i < matchingParams.getNumProperties(); i++)
+        {
+            auto name = matchingParams.getPropertyName(i);
+            auto value = matchingParams[name];
+            matchingData.initProperties.setProperty(name, value, nullptr);
+            matchingData.properties.setProperty(name, value, nullptr);
+        }
     }
 }
 

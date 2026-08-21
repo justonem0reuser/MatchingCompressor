@@ -158,6 +158,7 @@ target_sources(MatchingCompressor
     "Source/Controllers/MatchController.cpp"
     "Source/DSP/DataCollector.cpp"
     "Source/DSP/DynamicShaper.cpp"
+    "Source/DSP/KWeightingFilter.cpp"
     "Source/Data/MatchingData.cpp"
     "Source/MatchWindow.cpp"
     "Source/ParamsCalculator/CompParamsCalculator.cpp"

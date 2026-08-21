@@ -137,6 +137,10 @@
         <FILE id="aFhIy1" name="DynamicShaper.cpp" compile="1" resource="0"
               file="Source/DSP/DynamicShaper.cpp"/>
         <FILE id="W48CcJ" name="DynamicShaper.h" compile="0" resource="0" file="Source/DSP/DynamicShaper.h"/>
+        <FILE id="SakN4E" name="KWeightingFilter.cpp" compile="1" resource="0"
+              file="Source/DSP/KWeightingFilter.cpp"/>
+        <FILE id="ua4wQk" name="KWeightingFilter.h" compile="0" resource="0"
+              file="Source/DSP/KWeightingFilter.h"/>
       </GROUP>
       <GROUP id="{00103A79-2FF9-F666-DCD1-9A2ACFE71930}" name="ParamsCalculator">
         <FILE id="PFaS9f" name="CompParamsCalculator.cpp" compile="1" resource="0"

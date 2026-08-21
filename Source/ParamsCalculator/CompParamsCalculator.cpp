@@ -1,7 +1,39 @@
 #include "CompParamsCalculator.h"
+#include "../Data/Messages.h"
 #include "../Data/Ranges.h"
+#include "../DSP/KWeightingFilter.h"
 #include <algorithm>
 #include <limits>
+
+bool CompParamsCalculator::isKWeightingUsed(const juce::ValueTree& properties)
+{
+    return (int)properties.getProperty(setUseKWeightingId) == 2;
+}
+
+std::vector<std::vector<float>> CompParamsCalculator::applyKWeighting(
+    const std::vector<std::vector<float>>& samples,
+    double sampleRate)
+{
+    juce::ScopedNoDenormals noDenormals;
+
+    juce::dsp::ProcessSpec spec;
+    spec.sampleRate = sampleRate;
+    spec.numChannels = 1;
+    spec.maximumBlockSize = 1;
+
+    KWeightingFilter<float> filter;
+    filter.prepare(spec);
+
+    std::vector<std::vector<float>> weighted(samples.size());
+    for (size_t i = 0; i < samples.size(); i++)
+    {
+        filter.reset();
+        weighted[i].resize(samples[i].size());
+        for (size_t j = 0; j < samples[i].size(); j++)
+            weighted[i][j] = filter.processSample(samples[i][j]);
+    }
+    return weighted;
+}
 
 void CompParamsCalculator::setKneeConstraints(
     alglib::lsfitstate& state,

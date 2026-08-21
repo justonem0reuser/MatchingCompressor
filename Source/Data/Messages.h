@@ -52,8 +52,9 @@ const juce::String
 	balFilterTypeId = "balFilterType",
 	channelAggrerationTypeId = "channelAggregationType";
 
-// settinfs IDs
+// settings IDs
 const juce::String 
+	setUseKWeightingId = "setUseKWeighting",
 	setKneesNumberId = "setKneesNumber",
 	setKneeTypeId = "setKneeType",
 	setAttackId = "setAttack",
@@ -62,6 +63,7 @@ const juce::String
 	setBalFilterTypeId = "setBalFilterType";
 
 const juce::StringArray 
+	useKWeighting{ "no", "yes" },
 	kneesNumbers{ "1", "2", "3" },
 	kneeTypes{ "hard", "soft" },
 	balFilterTypes{ "peak", "RMS" },

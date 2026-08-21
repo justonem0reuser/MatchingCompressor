@@ -36,7 +36,12 @@ public:
 
         worker = std::make_unique<FixationWorker>();
         juce::ValueTree paramsTree = getCurrentParamsTree();
-        worker->prepare(refSamples, destSamples, matchingData.destSampleRate, paramsTree);
+        worker->prepare(
+            refSamples,
+            destSamples,
+            matchingData.refSampleRate,
+            matchingData.destSampleRate,
+            paramsTree);
         preparedKneesNumber = (int)paramsTree.getProperty(setKneesNumberId);
         preparedBalFilterType = (int)paramsTree.getProperty(setBalFilterTypeId);
         preparedChannelAggregationType = (int)paramsTree.getProperty(setChannelAggregationTypeId);
