@@ -127,9 +127,7 @@ private:
     std::vector<float>& getY(const alglib::real_1d_array& c);
     FunctionAndJacobian& getYAndJ(const alglib::real_1d_array& c);
 
-    void setCompParameters(const alglib::real_1d_array& params);
-
-    void paramsToC(const std::vector<float>& params, alglib::real_1d_array& c, bool keepKneeWidth = false);
+    void paramsToC(const std::vector<float>& params, alglib::real_1d_array& c, bool isWidthVariable);
 
     void configure(const juce::ValueTree& properties);
 

@@ -10,30 +10,34 @@ double FuncAndGradCalculator::calculateWithoutGain(
     const double* widths,
     const double* dWidthDThreshold)
 {
-    //c : Gain (doesn't used), [Threshold, 1/Ratio, Knee weight] * n
+    //c : Gain (doesn't used), [Threshold, 1/Ratio (, Knee weight)] * n
+
+    const int stride = widths != nullptr ? 2 : 3;
 
     double res = 0;
 
     int index = -1;
     for (int i = 0; i < kneesNumber; i++)
     {
-        auto i3 = 3 * i;
-        auto curThreshold = c[i3 + 1];
-        auto curKnee = widths != nullptr ? widths[i] : c[i3 + 3];
+        auto iS = stride * i;
+        auto curThreshold = c[iS + 1];
+        auto curKnee = widths != nullptr ? widths[i] : c[iS + 3];
 
         bool isBandStarted = levelDb > curThreshold - 0.5 * curKnee;
         index = isBandStarted ? i : index;
         if (i > 0 && isBandStarted)
-            res += (curThreshold - c[i3 - 2]) * (c[i3 - 1] - 1);
+            res += (curThreshold - c[iS + 1 - stride]) * (c[iS + 2 - stride] - 1);
         if (grad != nullptr)
         {
-            grad[i3 + 1] = grad[i3 + 2] = grad[i3 + 3] = 0.0;
+            grad[iS + 1] = grad[iS + 2] = 0.0;
+            if (widths == nullptr)
+                grad[iS + 3] = 0.0;
             if (i > 0 && isBandStarted)
             {
-                auto prevRatioInvM1 = c[i3 - 1] - 1;
-                grad[i3 + 1] += prevRatioInvM1;
-                grad[i3 - 2] -= prevRatioInvM1;
-                grad[i3 - 1] += curThreshold - c[i3 - 2];
+                auto prevRatioInvM1 = c[iS + 2 - stride] - 1;
+                grad[iS + 1] += prevRatioInvM1;
+                grad[iS + 1 - stride] -= prevRatioInvM1;
+                grad[iS + 2 - stride] += curThreshold - c[iS + 1 - stride];
             }
         }
     }
@@ -42,11 +46,11 @@ double FuncAndGradCalculator::calculateWithoutGain(
         res += levelDb;
     else
     {
-        auto i3 = 3 * index;
-        auto prevRatioInv = index == 0 ? 1.0 : c[i3 - 1];
-        auto curThreshold = c[i3 + 1];
-        auto curRatioInv = c[i3 + 2];
-        auto curKneeWidth = widths != nullptr ? widths[index] : c[i3 + 3];
+        auto iS = stride * index;
+        auto prevRatioInv = index == 0 ? 1.0 : c[iS + 2 - stride];
+        auto curThreshold = c[iS + 1];
+        auto curRatioInv = c[iS + 2];
+        auto curKneeWidth = widths != nullptr ? widths[index] : c[iS + 3];
         auto curLeftBound = curThreshold - 0.5 * curKneeWidth;
 
         if (levelDb >= curThreshold + 0.5 * curKneeWidth)
@@ -54,8 +58,8 @@ double FuncAndGradCalculator::calculateWithoutGain(
             res += curThreshold + (levelDb - curThreshold) * curRatioInv;
             if (grad != nullptr)
             {
-                grad[i3 + 1] += 1 - curRatioInv;
-                grad[i3 + 2] += levelDb - curThreshold;
+                grad[iS + 1] += 1 - curRatioInv;
+                grad[iS + 2] += levelDb - curThreshold;
             }
         }
         else
@@ -70,12 +74,12 @@ double FuncAndGradCalculator::calculateWithoutGain(
 
             if (grad != nullptr)
             {
-                grad[i3 + 1] += 1.0 - prevRatioInv - ratioInvDelta * kneePos;
-                grad[i3 + 2] += 0.5 * kneeOffset * kneePos;
+                grad[iS + 1] += 1.0 - prevRatioInv - ratioInvDelta * kneePos;
+                grad[iS + 2] += 0.5 * kneeOffset * kneePos;
 
                 auto dResDWidth = 0.5 * ratioInvDelta * kneePos * (1.0 - kneePos);
                 if (widths == nullptr)
-                    grad[i3 + 3] += dResDWidth;
+                    grad[iS + 3] += dResDWidth;
                 else
                 {
                     jassert(dWidthDThreshold != nullptr);
@@ -84,13 +88,13 @@ double FuncAndGradCalculator::calculateWithoutGain(
                     {
                         int neighbour = dWidth > 0.0 ? index - 1 : index + 1;
                         jassert(neighbour >= 0 && neighbour < kneesNumber);
-                        grad[i3 + 1] += dResDWidth * dWidth;
-                        grad[1 + 3 * neighbour] -= dResDWidth * dWidth;
+                        grad[iS + 1] += dResDWidth * dWidth;
+                        grad[1 + stride * neighbour] -= dResDWidth * dWidth;
                     }
                 }
 
                 if (index > 0)
-                    grad[i3 - 1] += kneeOffset - 0.5 * curKneeWidth -
+                    grad[iS + 2 - stride] += kneeOffset - 0.5 * curKneeWidth -
                         0.5 * kneeOffset * kneePos;
             }
         }
@@ -101,7 +105,7 @@ double FuncAndGradCalculator::calculateWithoutGain(
         res = juce::Decibels::decibelsToGain(res);
         double coeff = 0.05 * std::log(10.0) * res;
         if (grad != nullptr)
-            for (int i = 1; i < 3 * kneesNumber + 1; i++)
+            for (int i = 1; i < stride * kneesNumber + 1; i++)
                 grad[i] *= coeff;
     }
 

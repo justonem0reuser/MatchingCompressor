@@ -195,31 +195,28 @@ std::vector<float> CompParamsCalculatorEnv::solve(
     kneeWidths.clear();
     dKneeWidthDThreshold.clear();
 
-    setInitGuessAndBounds(kneesNumber, kneeType, c, bndl, bndu);
+    setInitGuessAndBounds(kneesNumber, c, bndl, bndu, false);
     if (warmStart != nullptr)
     {
-        jassert((int)warmStart->size() == c.length());
-        paramsToC(*warmStart, c);
+        jassert((int)warmStart->size() == getVectorLength(kneesNumber, paramsPerKnee));
+        paramsToC(*warmStart, c, false);
+        jassert((int)fixationNominalWidths.size() == kneesNumber);
         nominalKneeWidths = fixationNominalWidths;
+        nominalKneeWidths.resize(kneesNumber, 0.0);
     }
     else
         nominalKneeWidths.assign(
             kneesNumber,
             kneeType == KneeType::soft ? 0.5 * (kneeWidthRange.start + kneeWidthRange.end) : 0.0);
 
-    if (!nominalKneeWidths.empty())
-    {
-        kneeWidths.assign(kneesNumber, 0.0);
-        dKneeWidthDThreshold.assign(kneesNumber, 0.0);
-    }
-    for (int i = 0; i < kneesNumber; i++)
-        bndl[3 + 3 * i] = bndu[3 + 3 * i] = c[3 + 3 * i] = 0.0;
+    kneeWidths.assign(kneesNumber, 0.0);
+    dKneeWidthDThreshold.assign(kneesNumber, 0.0);
     activeEnvTable = &xEnvTable;
     activeEnvDbByCol = &envDbByCol;
     quantileRegionsNumber = (int)target.size();
     x.setlength(quantileRegionsNumber, 1);
     y.setlength(quantileRegionsNumber);
-    s.setlength(3 * kneesNumber + 1);
+    s.setlength(getVectorLength(kneesNumber, paramsPerKneeDerivedWidth));
 
     for (int i = 0; i < quantileRegionsNumber; i++)
     {
@@ -227,12 +224,8 @@ std::vector<float> CompParamsCalculatorEnv::solve(
         y[i] = target[i];
     }
 
-    s[0] = 1.;
-    for (int i = 0; i < kneesNumber; i++)
-    {
-        s[1 + 3 * i] = s[2 + 3 * i] = 1.;
-        s[3 + 3 * i] = 100.;
-    }
+    for (int i = 0; i < s.length(); i++)
+        s[i] = 1.;
 
     try
     {
@@ -251,16 +244,12 @@ std::vector<float> CompParamsCalculatorEnv::solve(
 
         lastFitMismatch = fitMismatchAt(c, target);
 
-        if (!nominalKneeWidths.empty())
-        {
-            calculateKneeWidths(c.getcontent(), kneesNumber, nominalKneeWidths.data(),
-                kneeWidths.data());
-            for (int i = 0; i < kneesNumber; i++)
-                c[3 + 3 * i] = kneeWidths[i];
-            nominalKneeWidths.clear();
-            kneeWidths.clear();
-            dKneeWidthDThreshold.clear();
-        }
+        calculateKneeWidths(c.getcontent(), kneesNumber, nominalKneeWidths.data(),
+            kneeWidths.data());
+        insertKneeWidths(c, kneesNumber, kneeWidths.data());
+        nominalKneeWidths.clear();
+        kneeWidths.clear();
+        dKneeWidthDThreshold.clear();
 
         if (kneeType == KneeType::soft && warmStart == nullptr)
         {
@@ -276,17 +265,31 @@ std::vector<float> CompParamsCalculatorEnv::solve(
                 y[i] = targetSoft[i];
             }
 
+            bndl.setlength(c.length());
+            bndu.setlength(c.length());
+            s.setlength(c.length());
+            bndl[0] = gainRange.start;
+            bndu[0] = gainRange.end;
+            s[0] = 1.;
             for (int i = 0; i < kneesNumber; i++)
             {
-                bndl[3 + 3 * i] = kneeWidthRange.start;
-                bndu[3 + 3 * i] = kneeWidthRange.end;
+                bndl[getThresholdIndex(i, paramsPerKnee)] = thresholdRange.start;
+                bndu[getThresholdIndex(i, paramsPerKnee)] = thresholdRange.end;
+                bndl[getRatioInverseIndex(i, paramsPerKnee)] = ratioInverseRange.start;
+                bndu[getRatioInverseIndex(i, paramsPerKnee)] = ratioInverseRange.end;
+                bndl[getKneeWidthIndex(i)] = kneeWidthRange.start;
+                bndu[getKneeWidthIndex(i)] = kneeWidthRange.end;
+                s[getThresholdIndex(i, paramsPerKnee)] = 1.;
+                s[getRatioInverseIndex(i, paramsPerKnee)] = 1.;
+                s[getKneeWidthIndex(i)] = 100.;
             }
 
             lsfitcreatefg(x, y, c, true, state);
             lsfitsetcond(state, epsx, maxits);
             lsfitsetscale(state, s); 
             lsfitsetbc(state, bndl, bndu);
-            setKneeConstraints(state, kneesNumber, true); // the widths are variables again
+            // The widths are variables again.
+            setKneeConstraints(state, kneesNumber, true);
             lsfitfit(state, calculateFunctional, calculateGradient, nullptr, this);
             lsfitresults(state, c, rep);
 
@@ -327,35 +330,37 @@ float CompParamsCalculatorEnv::fitMismatchAt(
 void CompParamsCalculatorEnv::paramsToC(
     const std::vector<float>& params,
     alglib::real_1d_array& c,
-    bool keepKneeWidth)
+    bool isWidthVariable)
 {
+    const int stride = getStride(isWidthVariable);
+    jassert(c.length() == getVectorLength(kneesNumber, stride));
     const double thrOffsetDb =
         (maxAmp <= 0.f || maxAmp == 1.f) ? 0.0 : 20.0 * std::log10(maxAmp);
     c[0] = params[0];
     for (int k = 0; k < kneesNumber; k++)
     {
-        c[1 + 3 * k] = params[1 + 3 * k] - thrOffsetDb;
-        c[2 + 3 * k] = params[2 + 3 * k];
-        c[3 + 3 * k] = keepKneeWidth ? params[3 + 3 * k] : 0.0;
+        c[getThresholdIndex(k, stride)] = params[1 + 3 * k] - thrOffsetDb;
+        c[getRatioInverseIndex(k, stride)] = params[2 + 3 * k];
+        if (isWidthVariable)
+            c[getKneeWidthIndex(k)] = params[3 + 3 * k];
     }
 }
 
 std::vector<float> CompParamsCalculatorEnv::calculateQuantilesFor(const std::vector<float>& params)
 {
     alglib::real_1d_array c;
-    c.setlength(3 * kneesNumber + 1);
-    paramsToC(params, c);
+    c.setlength(getVectorLength(kneesNumber, paramsPerKneeDerivedWidth));
+    paramsToC(params, c, false);
 
     activeEnvTable = &xEnvTable;
     activeEnvDbByCol = &envDbByCol;
     calculatedFunctions.clear();
 
+    jassert((int)fixationNominalWidths.size() == kneesNumber);
     nominalKneeWidths = fixationNominalWidths;
-    if (!nominalKneeWidths.empty())
-    {
-        kneeWidths.assign(kneesNumber, 0.0);
-        dKneeWidthDThreshold.assign(kneesNumber, 0.0);
-    }
+    nominalKneeWidths.resize(kneesNumber, 0.0);
+    kneeWidths.assign(kneesNumber, 0.0);
+    dKneeWidthDThreshold.assign(kneesNumber, 0.0);
 
     const auto& quantiles = getY(c);
     const double gain = juce::Decibels::decibelsToGain(c[0]);
@@ -389,7 +394,7 @@ float CompParamsCalculatorEnv::scoreAgainstReference(const std::vector<float>& p
     calculatedFunctions.clear();
 
     alglib::real_1d_array c;
-    c.setlength(3 * kneesNumber + 1);
+    c.setlength(getVectorLength(kneesNumber, paramsPerKnee));
     paramsToC(params, c, true);
     const float mismatch = fitMismatchAt(c, refTarget);
 
@@ -428,25 +433,6 @@ void CompParamsCalculatorEnv::calculateGradient(
     const int cLength = c.length();
     for (int i = 1; i < cLength; i++)
         grad[i] = g * fj.jac[i][index];
-}
-
-void CompParamsCalculatorEnv::setCompParameters(const alglib::real_1d_array& params)
-{
-    jassert(params.length() >= 4 && (params.length() - 1) % 3 == 0);
-    int size = (params.length() - 1) / 3;
-    DynamicShaper<float>::KneesArray newThresholdsDb, newRatios, newWidthsDb;
-    for (int i = 0; i < size; i++)
-    {
-        newThresholdsDb[i] = params[1 + i * 3];
-        newRatios[i] = 1.0 / params[2 + i * 3];
-        newWidthsDb[i] = params[3 + i * 3];
-    }
-    dynamicProcessor.setCompParameters(
-        newThresholdsDb, 
-        newRatios, 
-        newWidthsDb, 
-        0., // gain will be taken into account in comp_func
-        size);
 }
 
 std::vector<float> CompParamsCalculatorEnv::calculateFunction(
@@ -597,7 +583,7 @@ std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
             double yDb = FuncAndGradCalculator::calculateWithoutGain(
                 envDb, 
                 params.getcontent(), 
-                (n - 1) / 3,
+                getKneesNumber(n, getStride(widths == nullptr)),
                 false, // true would require division by envDb
                 dBins != nullptr ? gradDb.getcontent() : nullptr,
                 widths,

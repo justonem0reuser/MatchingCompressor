@@ -30,6 +30,15 @@ public:
 
 protected:
     constexpr static int paramsPerKnee = 3;
+    constexpr static int paramsPerKneeDerivedWidth = 2;
+
+    constexpr static int getStride(bool isWidthVariable)
+        { return isWidthVariable ? paramsPerKnee : paramsPerKneeDerivedWidth; }
+    constexpr static int getThresholdIndex(int kneeIndex, int stride) { return 1 + stride * kneeIndex; }
+    constexpr static int getRatioInverseIndex(int kneeIndex, int stride) { return 2 + stride * kneeIndex; }
+    constexpr static int getKneeWidthIndex(int kneeIndex) { return 3 + paramsPerKnee * kneeIndex; }
+    constexpr static int getKneesNumber(int length, int stride) { return (length - 1) / stride; }
+    constexpr static int getVectorLength(int kneesNumber, int stride) { return stride * kneesNumber + 1; }
 
     static float fitMismatch(double rmsError, const std::vector<float>& target);
     float lastFitMismatch = 0.f;
@@ -45,6 +54,11 @@ protected:
         int kneesNumber,
         bool isWidthVariable);
 
+    static void insertKneeWidths(
+        alglib::real_1d_array& c,
+        int kneesNumber,
+        const double* widths);
+
     static void calculateKneeWidths(
         const double* c,
         int kneesNumber,
@@ -56,16 +70,19 @@ protected:
     /// Initial parameters preparation for alglib problem solver.
     /// </summary>
     /// <param name="kneesNumber">number of compressor knees</param>
-    /// <param name="kneeType">knee type (soft or hard)</param>
     /// <param name="c">initial parameter guess</param>
     /// <param name="bndl">parameter left bounds</param>
     /// <param name="bndu">parameter right bounds</param>
+    /// <param name="isWidthVariable">
+    /// true: optimal widths are defined by the solver;
+    /// false: widths are considered nominal unless it violates over-crossing condition
+    /// </param>
     void setInitGuessAndBounds(
         int kneesNumber,
-        KneeType kneeType,
         alglib::real_1d_array& c,
         alglib::real_1d_array& bndl,
-        alglib::real_1d_array& bndu);
+        alglib::real_1d_array& bndu,
+        bool isWidthVariable);
 
     /// <summary>
     /// Converting alglib result vector into std::vector form.

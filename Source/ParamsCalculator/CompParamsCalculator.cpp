@@ -11,8 +11,9 @@ void CompParamsCalculator::setKneeConstraints(
     if (kneesNumber < 2)
         return;
 
+    const int stride = getStride(isWidthVariable);
     const int rowsCount = kneesNumber - 1;
-    const int cLength = paramsPerKnee * kneesNumber + 1;
+    const int cLength = getVectorLength(kneesNumber, stride);
 
     alglib::real_2d_array constraints;
     alglib::integer_1d_array types;
@@ -24,19 +25,17 @@ void CompParamsCalculator::setKneeConstraints(
         for (int j = 0; j <= cLength; j++)
             constraints[i][j] = 0.0;
 
-        const int prevTInd = 1 + paramsPerKnee * i;
-        const int curTInd = prevTInd + paramsPerKnee;
         if (isWidthVariable)
         {
-            constraints[i][prevTInd] = -2.0;
-            constraints[i][curTInd] = 2.0;
-            constraints[i][prevTInd + 2] = -1.0;
-            constraints[i][curTInd + 2] = -1.0;
+            constraints[i][getThresholdIndex(i, stride)] = -2.0;
+            constraints[i][getThresholdIndex(i + 1, stride)] = 2.0;
+            constraints[i][getKneeWidthIndex(i)] = -1.0;
+            constraints[i][getKneeWidthIndex(i + 1)] = -1.0;
         }
         else
         {
-            constraints[i][prevTInd] = -1.0;
-            constraints[i][curTInd] = 1.0;
+            constraints[i][getThresholdIndex(i, stride)] = -1.0;
+            constraints[i][getThresholdIndex(i + 1, stride)] = 1.0;
         }
         types[i] = 1; // >=
     }
@@ -49,12 +48,13 @@ void CompParamsCalculator::enforceKneeGaps(
     int kneesNumber,
     bool isWidthVariable)
 {
+    const int stride = getStride(isWidthVariable);
     for (int i = 1; i < kneesNumber; i++)
     {
-        const int prevTInd = 1 + paramsPerKnee * (i - 1);
-        const int curTInd = prevTInd + paramsPerKnee;
-        const double prevWidth = isWidthVariable ? c[prevTInd + 2] : 0.0;
-        const double curWidth = isWidthVariable ? c[curTInd + 2] : 0.0;
+        const int prevTInd = getThresholdIndex(i - 1, stride);
+        const int curTInd = getThresholdIndex(i, stride);
+        const double prevWidth = isWidthVariable ? c[getKneeWidthIndex(i - 1)] : 0.0;
+        const double curWidth = isWidthVariable ? c[getKneeWidthIndex(i)] : 0.0;
 
         double violation =
             0.5 * (prevWidth + curWidth) - (c[curTInd] - c[prevTInd]);
@@ -66,14 +66,33 @@ void CompParamsCalculator::enforceKneeGaps(
         if (narrowing > 0.0)
         {
             const double scale = 1.0 - narrowing / widthSum;
-            c[prevTInd + 2] = prevWidth * scale;
-            c[curTInd + 2] = curWidth * scale;
+            c[getKneeWidthIndex(i - 1)] = prevWidth * scale;
+            c[getKneeWidthIndex(i)] = curWidth * scale;
             violation -= 0.5 * narrowing;
         }
         // Nothing left to narrow: the later threshold takes the rest.
         if (violation > 0.0)
             c[curTInd] += violation;
     }
+}
+
+void CompParamsCalculator::insertKneeWidths(
+    alglib::real_1d_array& c,
+    int kneesNumber,
+    const double* widths)
+{
+    alglib::real_1d_array wide;
+    wide.setlength(getVectorLength(kneesNumber, paramsPerKnee));
+    wide[0] = c[0];
+    for (int i = 0; i < kneesNumber; i++)
+    {
+        wide[getThresholdIndex(i, paramsPerKnee)] =
+            c[getThresholdIndex(i, paramsPerKneeDerivedWidth)];
+        wide[getRatioInverseIndex(i, paramsPerKnee)] =
+            c[getRatioInverseIndex(i, paramsPerKneeDerivedWidth)];
+        wide[getKneeWidthIndex(i)] = widths[i];
+    }
+    c = wide;
 }
 
 void CompParamsCalculator::calculateKneeWidths(
@@ -85,14 +104,14 @@ void CompParamsCalculator::calculateKneeWidths(
 {
     for (int i = 0; i < kneesNumber; i++)
     {
-        const double threshold = c[1 + paramsPerKnee * i];
+        const double threshold = c[getThresholdIndex(i, paramsPerKneeDerivedWidth)];
         double width = nominalWidths[i];
-        double derivative = 0.0; // nominal binds: the width does not follow the thresholds
+        double derivative = 0.0;
 
         if (i > 0)
         {
             const double limit =
-                2.0 * (threshold - c[1 + paramsPerKnee * (i - 1)])
+                2.0 * (threshold - c[getThresholdIndex(i - 1, paramsPerKneeDerivedWidth)])
                 - nominalWidths[i - 1];
             if (limit < width)
             {
@@ -103,7 +122,7 @@ void CompParamsCalculator::calculateKneeWidths(
         if (i < kneesNumber - 1)
         {
             const double limit =
-                2.0 * (c[1 + paramsPerKnee * (i + 1)] - threshold)
+                2.0 * (c[getThresholdIndex(i + 1, paramsPerKneeDerivedWidth)] - threshold)
                 - nominalWidths[i + 1];
             if (limit < width)
             {
@@ -125,14 +144,15 @@ void CompParamsCalculator::calculateKneeWidths(
 
 void CompParamsCalculator::setInitGuessAndBounds(
     int kneesNumber,
-    KneeType kneeType,
     alglib::real_1d_array& c,
     alglib::real_1d_array& bndl, 
-    alglib::real_1d_array& bndu)
+    alglib::real_1d_array& bndu,
+    bool isWidthVariable)
 {
-    // c: Gain, [Threshold, 1/Ratio, Knee weight] * kneesNum
+    // c: Gain, [Threshold, 1/Ratio (, Knee weight)] * kneesNumber
 
-    int cLength = 3 * kneesNumber + 1;
+    const int stride = getStride(isWidthVariable);
+    int cLength = getVectorLength(kneesNumber, stride);
     c.setlength(cLength);
     bndl.setlength(cLength);
     bndu.setlength(cLength);
@@ -143,22 +163,19 @@ void CompParamsCalculator::setInitGuessAndBounds(
 
     for (int i = 0; i < kneesNumber; i++)
     {
-        bndl[1 + 3 * i] = thresholdRange.start;
-        bndu[1 + 3 * i] = thresholdRange.end;
-        c[1 + 3 * i] = thresholdRange.start +
+        bndl[getThresholdIndex(i, stride)] = thresholdRange.start;
+        bndu[getThresholdIndex(i, stride)] = thresholdRange.end;
+        c[getThresholdIndex(i, stride)] = thresholdRange.start +
             (thresholdRange.end - thresholdRange.start) * 
             (i + 1) / (kneesNumber + 1);
-        bndl[2 + 3 * i] = ratioInverseRange.start;
-        bndu[2 + 3 * i] = ratioInverseRange.end;
-        c[2 + 3 * i] = 1.;
-        if (kneeType == KneeType::hard)
-            bndl[3 + 3 * i] = bndu[3 + 3 * i] = c[3 + 3 * i] = 0;
-        else
-        {
-            bndl[3 + 3 * i] = kneeWidthRange.start;
-            bndu[3 + 3 * i] = kneeWidthRange.end;
-            c[3 + 3 * i] = 0.5 * (kneeWidthRange.start + kneeWidthRange.end);
-        }
+        bndl[getRatioInverseIndex(i, stride)] = ratioInverseRange.start;
+        bndu[getRatioInverseIndex(i, stride)] = ratioInverseRange.end;
+        c[getRatioInverseIndex(i, stride)] = 1.;
+        if (!isWidthVariable)
+            continue;
+        bndl[getKneeWidthIndex(i)] = kneeWidthRange.start;
+        bndu[getKneeWidthIndex(i)] = kneeWidthRange.end;
+        c[getKneeWidthIndex(i)] = 0.5 * (kneeWidthRange.start + kneeWidthRange.end);
     }
 }
 

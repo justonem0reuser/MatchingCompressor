@@ -24,6 +24,9 @@ private:
     const alglib::ae_int_t maxits = 0;
     constexpr static double minusInfinityDb = DynamicShaper<double>::minusInfinityDb;
 
+    int kneesNumber = 1;
+    std::vector<double> kneeWidths, dKneeWidthDThreshold;
+
     static void calculateFunctional(
         const alglib::real_1d_array& c,
         const alglib::real_1d_array& x,
@@ -35,10 +38,10 @@ private:
         double& func,
         alglib::real_1d_array& grad,
         void* ptr);
-    static double calculateFunctionalAndGradient(
+    double calculateFunctionalAndGradient(
         const alglib::real_1d_array& c,
         const alglib::real_1d_array& x,
-        alglib::real_1d_array* gradPtr = nullptr);
+        alglib::real_1d_array* gradPtr = nullptr) const;
     static void dbToGain(
         int cLength,
         double& func,

@@ -14,7 +14,7 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
     int kneeTypeInt = properties.getProperty(setKneeTypeId);
     float attackMs = properties.getProperty(setAttackId);
     float releaseMs = properties.getProperty(setReleaseId);
-    int kneesNumber = properties.getProperty(setKneesNumberId);
+    kneesNumber = properties.getProperty(setKneesNumberId);
     int channelAggregationTypeInt = properties.getProperty(setChannelAggregationTypeId);
 
     KneeType kneeType =
@@ -60,15 +60,23 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
         y[i] = localReferenceStat[i];
     }
 
-    setInitGuessAndBounds(kneesNumber, kneeType, c, bndl, bndu);
+    const bool isWidthVariable = (kneeType == KneeType::soft);
+    setInitGuessAndBounds(kneesNumber, c, bndl, bndu, isWidthVariable);
+    kneeWidths.clear();
+    dKneeWidthDThreshold.clear();
+    if (!isWidthVariable)
+    {
+        kneeWidths.assign(kneesNumber, 0.0);
+        dKneeWidthDThreshold.assign(kneesNumber, 0.0);
+    }
 
     try
     {
         lsfitcreatefg(x, y, c, true, state);
         lsfitsetcond(state, epsx, maxits);
         lsfitsetbc(state, bndl, bndu);
-        setKneeConstraints(state, kneesNumber, kneeType == KneeType::soft);
-        lsfitfit(state, calculateFunctional, calculateGradient);
+        setKneeConstraints(state, kneesNumber, isWidthVariable);
+        lsfitfit(state, calculateFunctional, calculateGradient, nullptr, this);
         lsfitresults(state, c, rep);
     }
     catch (const alglib::ap_error&)
@@ -79,7 +87,7 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
     if (rep.terminationtype < 0)
         throw std::runtime_error(cannotCalculateErrStr.toStdString());
 
-    enforceKneeGaps(c, kneesNumber, kneeType == KneeType::soft);
+    enforceKneeGaps(c, kneesNumber, isWidthVariable);
 
     {
         double sumSq = 0.0;
@@ -95,6 +103,9 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
         lastFitMismatch = fitMismatch(std::sqrt(sumSq / std::max(1, g.quantileRegions)), localReferenceStat);
     }
 
+    if (!isWidthVariable)
+        insertKneeWidths(c, kneesNumber, kneeWidths.data());
+
     auto result = resArrayToVector(c);
     denormalize(result, maxAmp);
     return result;
@@ -106,7 +117,7 @@ void CompParamsCalculatorNoEnv::calculateFunctional(
     double& func, 
     void* ptr)
 {
-    func = calculateFunctionalAndGradient(c, x);
+    func = ((const CompParamsCalculatorNoEnv*)ptr)->calculateFunctionalAndGradient(c, x);
 }
 
 void CompParamsCalculatorNoEnv::calculateGradient(
@@ -116,21 +127,23 @@ void CompParamsCalculatorNoEnv::calculateGradient(
     alglib::real_1d_array& grad, 
     void* ptr)
 {
-    func = calculateFunctionalAndGradient(c, x, &grad);
+    func = ((const CompParamsCalculatorNoEnv*)ptr)->calculateFunctionalAndGradient(c, x, &grad);
 }
 
 double CompParamsCalculatorNoEnv::calculateFunctionalAndGradient(
     const alglib::real_1d_array& c, 
     const alglib::real_1d_array& x, 
-    alglib::real_1d_array* gradPtr)
+    alglib::real_1d_array* gradPtr) const
 {
-    //c : Gain, [Threshold, 1/Ratio, Knee weight] * n
+    //c : Gain, [Threshold, 1/Ratio (, Knee weight)] * n
     double func = c[0] + FuncAndGradCalculator::calculateWithoutGain(
         juce::Decibels::gainToDecibels(x[0], minusInfinityDb),
         c.getcontent(),
-        (c.length() - 1) / 3,
+        kneesNumber,
         false,
-        gradPtr != nullptr ? gradPtr->getcontent() : nullptr);
+        gradPtr != nullptr ? gradPtr->getcontent() : nullptr,
+        kneeWidths.empty() ? nullptr : kneeWidths.data(),
+        kneeWidths.empty() ? nullptr : dKneeWidthDThreshold.data());
     if (gradPtr != nullptr)
         (*gradPtr)[0] = 1.0;
     dbToGain(c.length(), func, gradPtr);
