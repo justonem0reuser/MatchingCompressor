@@ -334,6 +334,7 @@ void CompParamsCalculatorEnv::paramsToC(
 {
     const int stride = getStride(isWidthVariable);
     jassert(c.length() == getVectorLength(kneesNumber, stride));
+    jassert((int)params.size() >= getVectorLength(kneesNumber, paramsPerKnee));
     const double thrOffsetDb =
         (maxAmp <= 0.f || maxAmp == 1.f) ? 0.0 : 20.0 * std::log10(maxAmp);
     c[0] = params[0];
@@ -392,6 +393,10 @@ float CompParamsCalculatorEnv::scoreAgainstReference(const std::vector<float>& p
 
     quantileRegionsNumber = (int)refTarget.size();
     calculatedFunctions.clear();
+
+    nominalKneeWidths.clear();
+    kneeWidths.clear();
+    dKneeWidthDThreshold.clear();
 
     alglib::real_1d_array c;
     c.setlength(getVectorLength(kneesNumber, paramsPerKnee));

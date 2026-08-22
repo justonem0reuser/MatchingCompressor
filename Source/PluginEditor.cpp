@@ -473,9 +473,10 @@ bool MatchCompressorAudioProcessorEditor::requestReferenceScore()
 
 void MatchCompressorAudioProcessorEditor::onStructuralConfigChanged()
 {
+    const bool isRefreshed = audioProcessor.getFixationController().refreshConfig();
     if (mode != Mode::normal)
         return;
-    if (audioProcessor.getFixationController().refreshConfig() && !restoringCalculatedData)
+    if (isRefreshed && !restoringCalculatedData)
         requestReferenceScore();
 }
 
@@ -546,8 +547,9 @@ void MatchCompressorAudioProcessorEditor::createController()
 void MatchCompressorAudioProcessorEditor::toolButtonClicked()
 {
     juce::NullCheckedInvocation::invoke(ToolButtonClicked);
-    matchWindow->toFront(true);
     matchWindow->setVisible(true);
+    matchWindow->toFront(true);
+    matchWindow->enterModalState(true, nullptr, false);
 }
 
 void MatchCompressorAudioProcessorEditor::themeButtonClicked()

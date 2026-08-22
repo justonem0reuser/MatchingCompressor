@@ -13,7 +13,7 @@ class FixationController
 {
 public:
     explicit FixationController(MatchCompressorAudioProcessor& processor)
-        : processor(processor) 
+        : processor(processor)
     {}
 
     std::function<void(float fixationMismatch)> FixationApplied;
@@ -81,6 +81,7 @@ public:
 
     void requestScore()
     {
+        refreshConfig();
         if (getHasSessionReference())
             worker->requestScore(getCurrentCompParams(), getCurrentAttack(), getCurrentRelease());
     }
@@ -92,6 +93,7 @@ public:
         if (matchingData.calculatedCompParams.size() < 4)
             return false;
 
+        refreshConfig();
         if (getHasSessionReference())
         {
             worker->requestRearm(getCurrentCompParams(), getCurrentAttack(), getCurrentRelease());
@@ -126,6 +128,7 @@ public:
     {
         if (worker == nullptr)
             return;
+        refreshConfig();
         if (getHasSessionReference())
             worker->requestRearm(getCurrentCompParams(), getCurrentAttack(), getCurrentRelease());
         else

@@ -30,5 +30,7 @@ private:
 
 	void calculateCompressorParameters();
 
+	void closeMatchWindow();
+
 	void syncPropertiesFromState();
 };

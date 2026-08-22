@@ -14,9 +14,9 @@ MatchController::MatchController(
         { 
             try
             {
-                calculateCompressorParameters(); 
+                calculateCompressorParameters();
                 this->matchingData.initProperties.copyPropertiesFrom(this->matchingData.properties, nullptr);
-                dynamic_cast<juce::Component*>(this->matchView)->getParentComponent()->setVisible(false);
+                closeMatchWindow();
                 juce::NullCheckedInvocation::invoke(MatchViewClosed);
             }
             catch (const std::exception& e)
@@ -28,9 +28,16 @@ MatchController::MatchController(
         [this] 
         { 
             this->matchingData.properties.copyPropertiesFrom(this->matchingData.initProperties, nullptr);
-            dynamic_cast<juce::Component*>(this->matchView)->getParentComponent()->setVisible(false);
+            closeMatchWindow();
             juce::NullCheckedInvocation::invoke(MatchViewClosed);
         };
+}
+
+void MatchController::closeMatchWindow()
+{
+    auto* window = dynamic_cast<juce::Component*>(matchView)->getParentComponent();
+    window->exitModalState(0);
+    window->setVisible(false);
 }
 
 DataReceiverController& MatchController::getDataReceiverController()
