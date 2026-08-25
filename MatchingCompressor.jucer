@@ -153,6 +153,8 @@
               resource="0" file="Source/ParamsCalculator/CompParamsCalculatorNoEnv.cpp"/>
         <FILE id="UW2qpK" name="CompParamsCalculatorNoEnv.h" compile="0" resource="0"
               file="Source/ParamsCalculator/CompParamsCalculatorNoEnv.h"/>
+        <FILE id="UhaU33" name="EnvelopeHistogram.h" compile="0" resource="0"
+              file="Source/ParamsCalculator/EnvelopeHistogram.h"/>
         <FILE id="lB0Fm0" name="FuncAndGradCalculator.cpp" compile="1" resource="0"
               file="Source/ParamsCalculator/FuncAndGradCalculator.cpp"/>
         <FILE id="mcvX1F" name="FuncAndGradCalculator.h" compile="0" resource="0"
@@ -165,6 +167,8 @@
               file="Source/ParamsCalculator/QuantilesCalculator.cpp"/>
         <FILE id="sKS0HW" name="QuantilesCalculator.h" compile="0" resource="0"
               file="Source/ParamsCalculator/QuantilesCalculator.h"/>
+        <FILE id="x7tfTa" name="ReferenceQuantiles.h" compile="0" resource="0"
+              file="Source/ParamsCalculator/ReferenceQuantiles.h"/>
       </GROUP>
       <GROUP id="{7624D45F-E0B8-6F87-A0C4-F8B8115C91D8}" name="Components">
         <FILE id="ELQOIs" name="BaseMainView.h" compile="0" resource="0" file="Source/Components/BaseMainView.h"/>

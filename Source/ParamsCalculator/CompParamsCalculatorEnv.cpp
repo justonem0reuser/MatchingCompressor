@@ -134,36 +134,18 @@ void CompParamsCalculatorEnv::prepare(
 
     const int allRefSamplesNumber = refSamples.size() * refSamples[0].size();
     
-    auto refDensity = QuantilesCalculator::calculateDensityFunc(refNormalized, gainRegionsNumber);
-    int nonEmptyBinsNumber = 0;
-    for (double d : refDensity)
-        if (d > 0.0)
-            nonEmptyBinsNumber++;
-    quantileRegionsNumber = GranularityCalculator::capQuantilesNumberByOccupancy(
+    referenceQuantiles.build(
+        refNormalized, 
+        gainRegionsNumber, 
         quantileRegionsNumber,
-        nonEmptyBinsNumber);
-    referenceDensityFunction =
-        QuantilesCalculator::density2Quantiles(
-            refDensity,
-            quantileRegionsNumber,
-            allRefSamplesNumber);
+        allRefSamplesNumber);
+    quantileRegionsNumber = (int)referenceQuantiles.get().size();
     if (kneeType == KneeType::soft)
-    {
-        refDensity = QuantilesCalculator::calculateDensityFunc(
-            refNormalized,
-            gainRegionsNumberSoft);
-        nonEmptyBinsNumber = 0;
-        for (double d : refDensity)
-            if (d > 0.0)
-                nonEmptyBinsNumber++;
-        quantileRegionsNumberSoft = GranularityCalculator::capQuantilesNumberByOccupancy(
-            quantileRegionsNumberSoft,
-            nonEmptyBinsNumber);
-        referenceDensityFunctionSoft = QuantilesCalculator::density2Quantiles(
-            refDensity,
-            quantileRegionsNumberSoft,
+        referenceQuantilesSoft.build(
+            refNormalized, 
+            gainRegionsNumberSoft, 
+            quantileRegionsNumberSoft, 
             allRefSamplesNumber);
-    }
 }
 
 void CompParamsCalculatorEnv::updateBallistics(float attackMs, float releaseMs)
@@ -178,7 +160,7 @@ void CompParamsCalculatorEnv::updateBallistics(float attackMs, float releaseMs)
 
 std::vector<float> CompParamsCalculatorEnv::solve()
 {
-    return solve(referenceDensityFunction, referenceDensityFunctionSoft);
+    return solve(referenceQuantiles.get(), referenceQuantilesSoft.get());
 }
 
 std::vector<float> CompParamsCalculatorEnv::solve(
@@ -211,8 +193,7 @@ std::vector<float> CompParamsCalculatorEnv::solve(
 
     kneeWidths.assign(kneesNumber, 0.0);
     dKneeWidthDThreshold.assign(kneesNumber, 0.0);
-    activeEnvTable = &xEnvTable;
-    activeEnvDbByCol = &envDbByCol;
+    activeHistogram = &histogram;
     quantileRegionsNumber = (int)target.size();
     x.setlength(quantileRegionsNumber, 1);
     y.setlength(quantileRegionsNumber);
@@ -254,8 +235,7 @@ std::vector<float> CompParamsCalculatorEnv::solve(
         if (kneeType == KneeType::soft && warmStart == nullptr)
         {
             calculatedFunctions.clear();
-            activeEnvTable = &xEnvTableSoft;
-            activeEnvDbByCol = &envDbByColSoft;
+            activeHistogram = &histogramSoft;
             quantileRegionsNumber = (int)targetSoft.size();
             x.setlength(quantileRegionsNumber, 1);
             y.setlength(quantileRegionsNumber);
@@ -353,8 +333,7 @@ std::vector<float> CompParamsCalculatorEnv::calculateQuantilesFor(const std::vec
     c.setlength(getVectorLength(kneesNumber, paramsPerKneeDerivedWidth));
     paramsToC(params, c, false);
 
-    activeEnvTable = &xEnvTable;
-    activeEnvDbByCol = &envDbByCol;
+    activeHistogram = &histogram;
     calculatedFunctions.clear();
 
     jassert((int)fixationNominalWidths.size() == kneesNumber);
@@ -386,10 +365,9 @@ void CompParamsCalculatorEnv::captureNominalKneeWidths(const std::vector<float>&
 float CompParamsCalculatorEnv::scoreAgainstReference(const std::vector<float>& params)
 {
     const bool soft = (kneeType == KneeType::soft);
-    activeEnvTable = soft ? &xEnvTableSoft : &xEnvTable;
-    activeEnvDbByCol = soft ? &envDbByColSoft : &envDbByCol;
-    const auto& refTarget = soft ? referenceDensityFunctionSoft : referenceDensityFunction;
-    jassert(!refTarget.empty()); 
+    activeHistogram = soft ? &histogramSoft : &histogram;
+    const auto& refTarget = soft ? referenceQuantilesSoft.get() : referenceQuantiles.get();
+    jassert(!refTarget.empty());
 
     quantileRegionsNumber = (int)refTarget.size();
     calculatedFunctions.clear();
@@ -452,7 +430,7 @@ std::vector<float> CompParamsCalculatorEnv::calculateFunction(
     if (jacobian != nullptr)
     {
         const int parLength = parameters.length();
-        const int binCount = (int)activeEnvDbByCol->size(); // == histogram columns
+        const int binCount = activeHistogram->getSide();
         dBinsPtr = &dBins;
         dBins.assign(parLength, std::vector<double>(binCount, 0.0));
         jacobian->assign(parLength, std::vector<double>(quantileRegionsNumber, 0.0));
@@ -469,24 +447,9 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
     float attackMs,
     float releaseMs)
 {
-    xEnvTable.assign((size_t)(gainRegionsNumber * gainRegionsNumber), 0);
-
-    const double delta = 1.0 / gainRegionsNumber;
-    envDbByCol.resize(gainRegionsNumber);
-    for (int j = 0; j < gainRegionsNumber; j++)
-        envDbByCol[j] = juce::Decibels::gainToDecibels(
-            (j + 0.5) * delta, DynamicShaper<double>::minusInfinityDb);
-
+    histogram.prepare(gainRegionsNumber);
     if (kneeType == KneeType::soft)
-    {
-        xEnvTableSoft.assign((size_t)(gainRegionsNumberSoft * gainRegionsNumberSoft), 0);
-
-        const double deltaSoft = 1.0 / gainRegionsNumberSoft;
-        envDbByColSoft.resize(gainRegionsNumberSoft);
-        for (int j = 0; j < gainRegionsNumberSoft; j++)
-            envDbByColSoft[j] = juce::Decibels::gainToDecibels(
-                (j + 0.5) * deltaSoft, DynamicShaper<double>::minusInfinityDb);
-    }
+        histogramSoft.prepare(gainRegionsNumberSoft);
 
     auto numChannels = samples.size();
     auto numSamples = samples[0].size();
@@ -513,15 +476,9 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
             float sample = samples[0][i];
             float sAbs = std::fabs(sample);
             float env = dynamicProcessor.calculateEnv(0, sample);
-            int i1 = std::min((int)(sAbs * gainRegionsNumber), gainRegionsNumber - 1);
-            int i2 = std::min((int)(env * gainRegionsNumber), gainRegionsNumber - 1);
-            xEnvTable[i1 * gainRegionsNumber + i2]++;
+            histogram.add(sAbs, env);
             if (kneeType == KneeType::soft)
-            {
-                i1 = std::min((int)(sAbs * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
-                i2 = std::min((int)(env * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
-                xEnvTableSoft[i1 * gainRegionsNumberSoft + i2]++;
-            }
+                histogramSoft.add(sAbs, env);
         }
     }
     else
@@ -534,33 +491,25 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
             float sAbs1 = std::fabs(sample1);
             float out0, out1;
             dynamicProcessor.calculateStereoEnv(sample0, sample1, out0, out1);
-            int i1 = std::min((int)(sAbs0 * gainRegionsNumber), gainRegionsNumber - 1);
-            int i2 = std::min((int)(out0 * gainRegionsNumber), gainRegionsNumber - 1);
-            xEnvTable[i1 * gainRegionsNumber + i2]++;
-            i1 = std::min((int)(sAbs1 * gainRegionsNumber), gainRegionsNumber - 1);
-            i2 = std::min((int)(out1 * gainRegionsNumber), gainRegionsNumber - 1);
-            xEnvTable[i1 * gainRegionsNumber + i2]++;
+            histogram.add(sAbs0, out0);
+            histogram.add(sAbs1, out1);
             if (kneeType == KneeType::soft)
             {
-                i1 = std::min((int)(sAbs0 * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
-                i2 = std::min((int)(out0 * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
-                xEnvTableSoft[i1 * gainRegionsNumberSoft + i2]++;
-                i1 = std::min((int)(sAbs1 * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
-                i2 = std::min((int)(out1 * gainRegionsNumberSoft), gainRegionsNumberSoft - 1);
-                xEnvTableSoft[i1 * gainRegionsNumberSoft + i2]++;
+                histogramSoft.add(sAbs0, out0);
+                histogramSoft.add(sAbs1, out1);
             }
         }
     }
     dynamicProcessor.reset();
-    activeEnvTable = &xEnvTable;
-    activeEnvDbByCol = &envDbByCol;
+
+    activeHistogram = &histogram;
 }
 
 std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
     const alglib::real_1d_array& params,
     std::vector<std::vector<double>>* dBins)
 {
-    auto size = (int)activeEnvDbByCol->size(); // one entry per histogram column
+    auto size = activeHistogram->getSide();
     float delta = 1.f / size;
     std::vector<double> res(size, 0.0);
 
@@ -576,14 +525,14 @@ std::vector<double> CompParamsCalculatorEnv::calculateYDensity(
     for (auto i = 0; i < size; i++)
     {
         float x = (i + 0.5f) * delta; // recalculate each step to increase precision
-        const std::int32_t* row = activeEnvTable->data() + i * size;
+        const std::int32_t* row = activeHistogram->getRow(i);
         for (auto j = 0; j < size; j++)
         {
             auto weight = row[j];
             if (weight == 0)
                 continue;
 
-            double envDb = (*activeEnvDbByCol)[j];
+            double envDb = activeHistogram->getEnvDb(j);
 
             double yDb = FuncAndGradCalculator::calculateWithoutGain(
                 envDb, 

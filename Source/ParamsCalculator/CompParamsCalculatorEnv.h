@@ -2,6 +2,8 @@
 #include <cstdint>
 #include "CompParamsCalculator.h"
 #include "../DSP/DynamicShaper.h"
+#include "EnvelopeHistogram.h"
+#include "ReferenceQuantiles.h"
 #include "HashEqualStructures.h"
 
 using ChannelAggregationType = DynamicShaper<float>::ChannelAggregationType;
@@ -70,7 +72,7 @@ private:
     int kneesNumber = 1;
     double sampleRate = 0.;
     float maxAmp = 1.f;
-    std::vector<float> referenceDensityFunction, referenceDensityFunctionSoft;
+    ReferenceQuantiles referenceQuantiles, referenceQuantilesSoft;
 
     /// <summary>
     /// Container for storing and reusing functional calculation results.
@@ -80,16 +82,8 @@ private:
     DynamicShaper<float> dynamicProcessor;
     juce::dsp::ProcessSpec spec;
 
-    // Square histogram of (input amplitude bin) x (envelope bin):
-    // (i, j) is [i * columns + j]. 
-    std::vector<std::int32_t> xEnvTable, xEnvTableSoft;
-
-    // envDbByCol[j] = envelope (in dB) at the center of grid column j.
-    // One entry per column, so its size is also the side of the (square) histogram above.
-    std::vector<double> envDbByCol, envDbByColSoft;
-
-    std::vector<std::int32_t>* activeEnvTable = &xEnvTable;
-    std::vector<double>* activeEnvDbByCol = &envDbByCol;
+    EnvelopeHistogram histogram, histogramSoft;
+    const EnvelopeHistogram* activeHistogram = &histogram;
 
     // Non-empty while the knee widths follow the thresholds instead of being optimized.
     std::vector<double> nominalKneeWidths, kneeWidths, dKneeWidthDThreshold;
