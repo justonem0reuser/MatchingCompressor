@@ -20,6 +20,8 @@ public:
 
     std::function<void(float referenceMismatch)> ReferenceScored;
 
+    std::function<void()> SessionEnded;
+
     void beginSession()
     {
         endSession();
@@ -76,8 +78,12 @@ public:
 
     void endSession()
     {
+        const bool wasScoring = getHasSessionReference();
         worker.reset();
         hasSessionReference = false;
+        sessionToken++;
+        if (wasScoring)
+            juce::NullCheckedInvocation::invoke(SessionEnded);
     }
 
     bool getHasSessionReference() const { return worker != nullptr && hasSessionReference; }
@@ -178,26 +184,29 @@ private:
     void wireCallbacks()
     {
         juce::WeakReference<FixationController> weak(this);
+        const int token = sessionToken;
         worker->onParamsReady =
-            [weak](float a, float r, const std::vector<float>& params, float fixationMismatch)
+            [weak, token](float a, float r, const std::vector<float>& params, float fixationMismatch)
             {
-                // worker thread -> message thread (async, never blocking).
-                juce::MessageManager::callAsync([weak, a, r, params, fixationMismatch]
+                // worker thread -> message thread (async, never blocking: see stop()).
+                juce::MessageManager::callAsync([weak, token, a, r, params, fixationMismatch]
                     {
                         if (auto* self = weak.get())
-                        {
-                            self->applyFixationParams(a, r, params);
-                            juce::NullCheckedInvocation::invoke(self->FixationApplied, fixationMismatch);
-                        }
+                            if (self->sessionToken == token)
+                            {
+                                self->applyFixationParams(a, r, params);
+                                juce::NullCheckedInvocation::invoke(self->FixationApplied, fixationMismatch);
+                            }
                     });
             };
         worker->onScoreReady =
-            [weak](float referenceMismatch)
+            [weak, token](float referenceMismatch)
             {
-                juce::MessageManager::callAsync([weak, referenceMismatch]
+                juce::MessageManager::callAsync([weak, token, referenceMismatch]
                     {
                         if (auto* self = weak.get())
-                            juce::NullCheckedInvocation::invoke(self->ReferenceScored, referenceMismatch);
+                            if (self->sessionToken == token)
+                                juce::NullCheckedInvocation::invoke(self->ReferenceScored, referenceMismatch);
                     });
             };
     }
@@ -240,6 +249,7 @@ private:
     std::unique_ptr<FixationWorker> worker;
     bool hasSessionReference = false;
     int preparedKneesNumber = 0, preparedBalFilterType = 0, preparedChannelAggregationType = 0;
+    int sessionToken = 0;
 
     JUCE_DECLARE_WEAK_REFERENCEABLE(FixationController)
 };

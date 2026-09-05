@@ -542,6 +542,13 @@ void MatchCompressorAudioProcessorEditor::createController()
             if (auto* self = safeThis.getComponent())
                 self->freeFormCurve->setReferenceFitMismatch(referenceMismatch);
         };
+
+    audioProcessor.getFixationController().SessionEnded =
+        [safeThis]
+        {
+            if (auto* self = safeThis.getComponent())
+                self->freeFormCurve->setFitIndicatorEmpty();
+        };
 }
 
 void MatchCompressorAudioProcessorEditor::toolButtonClicked()
