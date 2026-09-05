@@ -435,7 +435,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout MatchCompressorAudioProcesso
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
     layout.add(std::make_unique<juce::AudioParameterInt>(
-        kneesNumberId, "Knees number", (int)kneesNumberRange.start, (int)kneesNumberRange.end, 1));
+        kneesNumberId, "Number of knees", (int)kneesNumberRange.start, (int)kneesNumberRange.end, 1));
     layout.add(std::make_unique<juce::AudioParameterInt>(
         balFilterTypeId, "Envelope type", (int)envelopeTypeRange.start, (int)envelopeTypeRange.end, 1));
     layout.add(std::make_unique<juce::AudioParameterInt>(

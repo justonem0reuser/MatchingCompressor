@@ -26,12 +26,14 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     groupRect(0.f, 0.f, 0.f, 0.f),
     attackReleaseRect(0.f, 0.f, 0.f, 0.f),
     laf(std::make_unique<MCAltLookAndFeel>()),
+    tooltipWindow(std::make_unique<juce::TooltipWindow>(this, 700)),
     standardRotaryParameters(gainSlider.getRotaryParameters())
 {
     juce::LookAndFeel::setDefaultLookAndFeel(laf.get());
     
     laf->setupToolButton(toolButton);
     toolButton.onClick = [this] { toolButtonClicked(); };
+    toolButton.setTooltip("Match/Learn");
 
     // Index 0 = minimal (MCAltLookAndFeel), index 1 = brutal (MCDefaultLookAndFeel).
     themeButtons.onChange = [this] { themeButtonClicked(); };
@@ -285,10 +287,14 @@ void MatchCompressorAudioProcessorEditor::resetToCalculatedData()
     // given the current version of ButtonChoiceComponent,
     // enabling all buttons is necessary.
     // If ButtonChoiceComponent behavior is changed, this will become redundant.
+    bool areKneesNumberButtonsEnabled = kneesNumberButtons.isEnabled();
+    kneesNumberButtons.setEnabled(true);
     for (int i = 1; i <= kneesNumberButtons.getNumItems(); i++)
         kneesNumberButtons.setItemEnabled(i, true);
 
     juce::NullCheckedInvocation::invoke(ResetButtonClicked);
+
+    kneesNumberButtons.setEnabled(areKneesNumberButtonsEnabled);
 
     auto& matchingData = audioProcessor.getMatchingData();
     int kneesNumber = matchingData.properties.getProperty(setKneesNumberId);

@@ -72,6 +72,7 @@ private:
         balFilterTypeButtons,
         channelAggregationTypeButtons;
     std::unique_ptr<CurvePlotComponent> freeFormCurve;
+    std::unique_ptr<juce::TooltipWindow> tooltipWindow;
 
     Mode mode = Mode::normal;
     bool restoringCalculatedData = false;

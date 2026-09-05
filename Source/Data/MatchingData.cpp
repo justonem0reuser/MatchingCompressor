@@ -11,7 +11,7 @@ MatchingData::MatchingData():
         kneesNumberChoices.add(juce::String(i));
 
     parameterInfos.push_back(ParameterInfo(
-        setKneesNumberId, "Knees number", 1, kneesNumberChoices));
+        setKneesNumberId, "Number of knees", 1, kneesNumberChoices));
     parameterInfos.push_back(ParameterInfo(
         setKneeTypeId, "Knee type", 1, kneeTypes));
     parameterInfos.push_back(ParameterInfo(
