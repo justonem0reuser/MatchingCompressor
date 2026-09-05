@@ -386,7 +386,7 @@ void MatchCompressorAudioProcessor::updateCompressorParameters()
     }
 
     float balFilterTypeFloat = balFilterTypeParam->load(std::memory_order_relaxed);
-    auto newBalFilterType = balFilterTypeFloat ?
+    auto newBalFilterType = balFilterTypeFloat == 1 ?
         EnvCalculationType::peak :
         EnvCalculationType::RMS;
     if (newBalFilterType != balFilterType)

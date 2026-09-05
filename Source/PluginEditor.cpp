@@ -515,6 +515,12 @@ void MatchCompressorAudioProcessorEditor::createController()
             if (!isParametersCalculated())
                 return;
 
+            if (mode == Mode::fixed)
+            {
+                audioProcessor.getFixationController().endSession();
+                modeButtons.setSelectedItemIndex(0, juce::sendNotificationSync);
+            }
+
             updateStateFromMatchingData();
 
             if (audioProcessor.getMatchingData().matchedWithReference)

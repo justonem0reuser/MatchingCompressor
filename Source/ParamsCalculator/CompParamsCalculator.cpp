@@ -147,11 +147,13 @@ void CompParamsCalculator::setInitGuessAndBounds(
     alglib::real_1d_array& c,
     alglib::real_1d_array& bndl, 
     alglib::real_1d_array& bndu,
-    bool isWidthVariable)
+    bool isWidthVariable,
+    float maxAmp)
 {
     // c: Gain, [Threshold, 1/Ratio (, Knee weight)] * kneesNumber
 
     const int stride = getStride(isWidthVariable);
+    const double thrOffsetDb = getThresholdOffsetDb(maxAmp);
     int cLength = getVectorLength(kneesNumber, stride);
     c.setlength(cLength);
     bndl.setlength(cLength);
@@ -163,9 +165,9 @@ void CompParamsCalculator::setInitGuessAndBounds(
 
     for (int i = 0; i < kneesNumber; i++)
     {
-        bndl[getThresholdIndex(i, stride)] = thresholdRange.start;
-        bndu[getThresholdIndex(i, stride)] = thresholdRange.end;
-        c[getThresholdIndex(i, stride)] = thresholdRange.start +
+        bndl[getThresholdIndex(i, stride)] = thresholdRange.start - thrOffsetDb;
+        bndu[getThresholdIndex(i, stride)] = thresholdRange.end - thrOffsetDb;
+        c[getThresholdIndex(i, stride)] = thresholdRange.start - thrOffsetDb +
             (thresholdRange.end - thresholdRange.start) * 
             (i + 1) / (kneesNumber + 1);
         bndl[getRatioInverseIndex(i, stride)] = ratioInverseRange.start;
@@ -218,9 +220,9 @@ float CompParamsCalculator::fitMismatch(double rmsError, const std::vector<float
 
 void CompParamsCalculator::denormalize(std::vector<float>& result, float maxAmp)
 {
-    if (maxAmp <= 0.f || maxAmp == 1.f)
+    const float thresholdOffsetDb = getThresholdOffsetDb(maxAmp);
+    if (thresholdOffsetDb == 0.f)
         return;
-    const float thresholdOffsetDb = 20.f * std::log10(maxAmp);
     const int kneesNumber = ((int)result.size() - 1) / 3;
     for (int k = 0; k < kneesNumber; ++k)
         result[1 + 3 * k] += thresholdOffsetDb;

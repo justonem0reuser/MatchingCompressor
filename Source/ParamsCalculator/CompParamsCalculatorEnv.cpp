@@ -189,7 +189,7 @@ std::vector<float> CompParamsCalculatorEnv::solve(
     kneeWidths.clear();
     dKneeWidthDThreshold.clear();
 
-    setInitGuessAndBounds(kneesNumber, c, bndl, bndu, false);
+    setInitGuessAndBounds(kneesNumber, c, bndl, bndu, false, maxAmp);
     if (warmStart != nullptr)
     {
         jassert((int)warmStart->size() == getVectorLength(kneesNumber, paramsPerKnee));
@@ -260,13 +260,14 @@ std::vector<float> CompParamsCalculatorEnv::solve(
             bndl.setlength(c.length());
             bndu.setlength(c.length());
             s.setlength(c.length());
+            const double thrOffsetDb = getThresholdOffsetDb(maxAmp);
             bndl[0] = gainRange.start;
             bndu[0] = gainRange.end;
             s[0] = 1.;
             for (int i = 0; i < kneesNumber; i++)
             {
-                bndl[getThresholdIndex(i, paramsPerKnee)] = thresholdRange.start;
-                bndu[getThresholdIndex(i, paramsPerKnee)] = thresholdRange.end;
+                bndl[getThresholdIndex(i, paramsPerKnee)] = thresholdRange.start - thrOffsetDb;
+                bndu[getThresholdIndex(i, paramsPerKnee)] = thresholdRange.end - thrOffsetDb;
                 bndl[getRatioInverseIndex(i, paramsPerKnee)] = ratioInverseRange.start;
                 bndu[getRatioInverseIndex(i, paramsPerKnee)] = ratioInverseRange.end;
                 bndl[getKneeWidthIndex(i)] = kneeWidthRange.start;
@@ -327,8 +328,7 @@ void CompParamsCalculatorEnv::paramsToC(
     const int stride = getStride(isWidthVariable);
     jassert(c.length() == getVectorLength(kneesNumber, stride));
     jassert((int)params.size() >= getVectorLength(kneesNumber, paramsPerKnee));
-    const double thrOffsetDb =
-        (maxAmp <= 0.f || maxAmp == 1.f) ? 0.0 : 20.0 * std::log10(maxAmp);
+    const double thrOffsetDb = getThresholdOffsetDb(maxAmp);
     c[0] = params[0];
     for (int k = 0; k < kneesNumber; k++)
     {

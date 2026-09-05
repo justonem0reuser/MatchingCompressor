@@ -59,7 +59,7 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
     }
 
     const bool isWidthVariable = (kneeType == KneeType::soft);
-    setInitGuessAndBounds(kneesNumber, c, bndl, bndu, isWidthVariable);
+    setInitGuessAndBounds(kneesNumber, c, bndl, bndu, isWidthVariable, maxAmp);
     kneeWidths.clear();
     dKneeWidthDThreshold.clear();
     if (!isWidthVariable)

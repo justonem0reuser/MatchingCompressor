@@ -77,12 +77,14 @@ protected:
     /// true: optimal widths are defined by the solver;
     /// false: widths are considered nominal unless it violates over-crossing condition
     /// </param>
+    /// <param name="maxAmp">peak the material was scaled by</param>
     void setInitGuessAndBounds(
         int kneesNumber,
         alglib::real_1d_array& c,
         alglib::real_1d_array& bndl,
         alglib::real_1d_array& bndu,
-        bool isWidthVariable);
+        bool isWidthVariable,
+        float maxAmp);
 
     /// <summary>
     /// Converting alglib result vector into std::vector form.
@@ -93,6 +95,8 @@ protected:
 
     static float findMaxAmp(const std::vector<std::vector<float>>& samples);
     static float getScale(float maxAmp) { return maxAmp > 0.f ? 1.f / maxAmp : 1.f; }
+    static float getThresholdOffsetDb(float maxAmp)
+        { return (maxAmp <= 0.f || maxAmp == 1.f) ? 0.f : 20.f * std::log10(maxAmp); }
     static void scaleSamples(
         const std::vector<std::vector<float>>& samples,
         std::vector<std::vector<float>>& scaled,
