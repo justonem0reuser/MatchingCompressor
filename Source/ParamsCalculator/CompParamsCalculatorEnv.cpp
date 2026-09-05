@@ -136,7 +136,7 @@ void CompParamsCalculatorEnv::prepare(
 
 void CompParamsCalculatorEnv::prepareStructure(
     std::vector<std::vector<float>>& refSamples,
-    juce::ValueTree& properties)
+    const juce::ValueTree& properties)
 {
     configure(properties);
 
@@ -159,14 +159,15 @@ void CompParamsCalculatorEnv::prepareStructure(
             scale);
 }
 
-void CompParamsCalculatorEnv::updateBallistics(float attackMs, float releaseMs)
+void CompParamsCalculatorEnv::updateBallistics(float attackMs, float releaseMs, bool isSoftNeeded)
 {
     calculatedFunctions.clear();
     calculateEnvelopeStatistics(
         destSamples,
         sampleRate,
         attackMs,
-        releaseMs);
+        releaseMs,
+        isSoftNeeded);
 }
 
 std::vector<float> CompParamsCalculatorEnv::solve()
@@ -456,10 +457,12 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
     std::vector<std::vector<float>>& samples,
     double sampleRate,
     float attackMs,
-    float releaseMs)
+    float releaseMs,
+    bool isSoftNeeded)
 {
+    const bool isSoftBuilt = isSoftNeeded && kneeType == KneeType::soft;
     histogram.prepare(gainRegionsNumber);
-    if (kneeType == KneeType::soft)
+    if (isSoftBuilt)
         histogramSoft.prepare(gainRegionsNumberSoft);
 
     auto numChannels = samples.size();
@@ -488,7 +491,7 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
             float sAbs = std::fabs(sample);
             float env = dynamicProcessor.calculateEnv(0, sample);
             histogram.add(sAbs, env);
-            if (kneeType == KneeType::soft)
+            if (isSoftBuilt)
                 histogramSoft.add(sAbs, env);
         }
     }
@@ -504,7 +507,7 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
             dynamicProcessor.calculateStereoEnv(sample0, sample1, out0, out1);
             histogram.add(sAbs0, out0);
             histogram.add(sAbs1, out1);
-            if (kneeType == KneeType::soft)
+            if (isSoftBuilt)
             {
                 histogramSoft.add(sAbs0, out0);
                 histogramSoft.add(sAbs1, out1);

@@ -46,14 +46,17 @@ public:
         hasReference = true;
     }
 
-    /// Re-prepare for a changed plugin properties, keeping the audio-derived state.
-    /// The thread must be stopped: only it may touch the estimator while running.
-    void prepareStructure(
+    void requestStructure(
         std::vector<std::vector<float>>& refSamples,
-        juce::ValueTree& properties)
+        const juce::ValueTree& properties)
     {
-        estimator.prepareStructure(refSamples, properties);
-        lastBuiltAttack = lastBuiltRelease = std::numeric_limits<float>::quiet_NaN();
+        {
+            const juce::SpinLock::ScopedLockType lock(pendingLock);
+            pendingStructureRef = &refSamples;
+            pendingStructureProperties = properties;
+        }
+        structureGen.fetch_add(1, std::memory_order_release);
+        notify();
     }
 
     bool isReferenceAvailable() const { return hasReference; }
@@ -61,7 +64,7 @@ public:
     // Enter fixation. Message thread, before start().
     void arm(float attackMs, float releaseMs, const std::vector<float>& currentParams)
     {
-        estimator.updateBallistics(attackMs, releaseMs);
+        estimator.updateBallistics(attackMs, releaseMs, false);
         lastBuiltAttack = attackMs;
         lastBuiltRelease = releaseMs;
         estimator.captureNominalKneeWidths(currentParams);
@@ -131,14 +134,28 @@ public:
     }
 
 private:
-    void rebuildIfNeeded(float attackMs, float releaseMs)
+    void rebuildIfNeeded(float attackMs, float releaseMs, bool isSoftNeeded)
     {
-        if (attackMs != lastBuiltAttack || releaseMs != lastBuiltRelease)
+        const bool isHardStale = attackMs != lastBuiltAttack || releaseMs != lastBuiltRelease;
+        const bool isSoftStale = isSoftNeeded
+            && (attackMs != lastBuiltSoftAttack || releaseMs != lastBuiltSoftRelease);
+        if (!isHardStale && !isSoftStale)
+            return;
+
+        estimator.updateBallistics(attackMs, releaseMs, isSoftNeeded);
+        lastBuiltAttack = attackMs;
+        lastBuiltRelease = releaseMs;
+        if (isSoftNeeded)
         {
-            estimator.updateBallistics(attackMs, releaseMs);
-            lastBuiltAttack = attackMs;
-            lastBuiltRelease = releaseMs;
+            lastBuiltSoftAttack = attackMs;
+            lastBuiltSoftRelease = releaseMs;
         }
+    }
+
+    void markHistogramsStale()
+    {
+        lastBuiltAttack = lastBuiltRelease = std::numeric_limits<float>::quiet_NaN();
+        lastBuiltSoftAttack = lastBuiltSoftRelease = std::numeric_limits<float>::quiet_NaN();
     }
 
     void run() override
@@ -149,10 +166,25 @@ private:
 
             while (!threadShouldExit())
             {
-                // 1st priority: envelope settings.
-                // Everything below reads the histogram, and these invalidate it. 
-                // Marking the built ballistics unknown 
-                // makes rebuildIfNeeded() rebuild it on the next request.
+                const uint64_t stg = structureGen.load(std::memory_order_acquire);
+                if (stg != structureProcessed.load())
+                {
+                    std::vector<std::vector<float>>* refSamples;
+                    juce::ValueTree properties;
+                    {
+                        const juce::SpinLock::ScopedLockType lock(pendingLock);
+                        refSamples = pendingStructureRef;
+                        properties = pendingStructureProperties;
+                    }
+                    if (refSamples != nullptr)
+                    {
+                        estimator.prepareStructure(*refSamples, properties);
+                        markHistogramsStale();
+                    }
+                    structureProcessed.store(stg);
+                    continue;
+                }
+
                 const uint64_t eg = envGen.load(std::memory_order_acquire);
                 if (eg != envProcessed.load())
                 {
@@ -163,7 +195,7 @@ private:
                         aggregation = pendingChannelAggregation;
                     }
                     estimator.updateEnvSettings(bal, aggregation);
-                    lastBuiltAttack = lastBuiltRelease = std::numeric_limits<float>::quiet_NaN();
+                    markHistogramsStale();
                     envProcessed.store(eg);
                     continue;
                 }
@@ -183,7 +215,7 @@ private:
                     }
                     if (!params.empty())
                     {
-                        rebuildIfNeeded(a, r);
+                        rebuildIfNeeded(a, r, false);
                         estimator.captureNominalKneeWidths(params);
                         target = estimator.calculateQuantilesFor(params);
                         lastResult = params;
@@ -207,7 +239,7 @@ private:
                     }
                     if (hasReference && !params.empty())
                     {
-                        rebuildIfNeeded(a, r);
+                        rebuildIfNeeded(a, r, true);
                         if (scoreGen.load() != sg)
                             continue; // a newer score request arrived
                         const float q = estimator.scoreAgainstReference(params);
@@ -241,7 +273,7 @@ private:
                     continue;
                 }
 
-                rebuildIfNeeded(attackMs, releaseMs);
+                rebuildIfNeeded(attackMs, releaseMs, false);
                 if (requestGen.load() != gen)
                     continue; // a newer request arrived
 
@@ -274,12 +306,16 @@ private:
     std::vector<float> lastResult;
     float lastBuiltAttack = std::numeric_limits<float>::quiet_NaN();
     float lastBuiltRelease = std::numeric_limits<float>::quiet_NaN();
+    float lastBuiltSoftAttack = std::numeric_limits<float>::quiet_NaN();
+    float lastBuiltSoftRelease = std::numeric_limits<float>::quiet_NaN();
 
     // Single-slot coalescing mailbox.
     juce::SpinLock pendingLock;
     float pendingAttack = 0.f, pendingRelease = 0.f;
     std::vector<float> pendingArmParams;
     float pendingArmAttack = 0.f, pendingArmRelease = 0.f;
+    std::vector<std::vector<float>>* pendingStructureRef = nullptr;
+    juce::ValueTree pendingStructureProperties;
     std::vector<float> pendingScoreParams;
     float pendingScoreAttack = 0.f, pendingScoreRelease = 0.f;
     int pendingBalFilter = 0, pendingChannelAggregation = 0;
@@ -291,4 +327,6 @@ private:
     std::atomic<uint64_t> scoreProcessed{ 0 };
     std::atomic<uint64_t> envGen{ 0 };
     std::atomic<uint64_t> envProcessed{ 0 };
+    std::atomic<uint64_t> structureGen{ 0 };
+    std::atomic<uint64_t> structureProcessed{ 0 };
 };

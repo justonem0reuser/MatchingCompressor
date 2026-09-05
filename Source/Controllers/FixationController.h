@@ -55,9 +55,7 @@ public:
         if (preparedKneesNumber != getCurrentKneesNumber())
         {
             juce::ValueTree tree = getCurrentParamsTree();
-            worker->stop();
-            worker->prepareStructure(processor.getMatchingData().refSamples, tree);
-            worker->start();
+            worker->requestStructure(processor.getMatchingData().refSamples, tree);
             preparedKneesNumber = (int)tree.getProperty(setKneesNumberId);
             preparedBalFilterType = (int)tree.getProperty(setBalFilterTypeId);
             preparedChannelAggregationType = (int)tree.getProperty(setChannelAggregationTypeId);

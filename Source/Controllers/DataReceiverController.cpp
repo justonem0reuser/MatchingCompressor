@@ -1,5 +1,6 @@
 #include "DataReceiverController.h"
 #include "../ParamsCalculator/GranularityCalculator.h"
+#include "FixationController.h"
 #include "../Data/Messages.h"
 #include <limits>
 
@@ -69,6 +70,8 @@ void DataReceiverController::checkAndSaveData(
             for (int i = 1; i < samples.size(); i++)
                 if (samples[i].size() != samples[0].size())
                     throw std::runtime_error(corruptedChannelExStr.toStdString());
+
+        processor.getFixationController().endSession();
 
         if (isRef)
         {

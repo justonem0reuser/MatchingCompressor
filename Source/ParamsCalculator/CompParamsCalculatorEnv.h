@@ -31,14 +31,14 @@ public:
 
     void prepareStructure(
         std::vector<std::vector<float>>& refSamples,
-        juce::ValueTree& properties);
+        const juce::ValueTree& properties);
 
     void prepareForFixation(
         std::vector<std::vector<float>>& destSamples,
         double destSampleRate,
         juce::ValueTree& properties);
 
-    void updateBallistics(float attackMs, float releaseMs); // prepare() should be called before
+    void updateBallistics(float attackMs, float releaseMs, bool isSoftNeeded = true);
 
     void updateEnvSettings(int balFilterTypeInt, int channelAggregationTypeInt);
 
@@ -116,7 +116,8 @@ private:
         std::vector<std::vector<float>>& samples,
         double sampleRate,
         float attackMs,
-        float releaseMs);
+        float releaseMs,
+        bool isSoftNeeded);
     std::vector<float> calculateFunction(
         std::vector<std::vector<float>>& samples,
         const alglib::real_1d_array& parameters,
