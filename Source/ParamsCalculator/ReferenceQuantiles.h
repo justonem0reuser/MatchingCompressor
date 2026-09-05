@@ -10,9 +10,10 @@ public:
         std::vector<std::vector<float>>& samples,
         int gainRegionsNumber,
         int quantileRegionsNumber,
-        int samplesNumber)
+        int samplesNumber,
+        float scale)
     {
-        auto density = QuantilesCalculator::calculateDensityFunc(samples, gainRegionsNumber);
+        auto density = QuantilesCalculator::calculateDensityFunc(samples, gainRegionsNumber, scale);
         int nonEmptyBeansNumber = 0;
         for (double d : density)
             if (d > 0.0)

@@ -185,30 +185,24 @@ std::vector<float> CompParamsCalculator::resArrayToVector(const alglib::real_1d_
     return { data, data + c.length() };
 }
 
-float CompParamsCalculator::normalize(
-    const std::vector<std::vector<float>>& refSamples,
-    const std::vector<std::vector<float>>& destSamples,
-    std::vector<std::vector<float>>& refNormalized,
-    std::vector<std::vector<float>>& destNormalized)
+float CompParamsCalculator::findMaxAmp(const std::vector<std::vector<float>>& samples)
 {
     float maxAmp = 0.f;
-    for (auto& ch : refSamples)
+    for (auto& ch : samples)
         for (float sample : ch)
             maxAmp = std::max(maxAmp, std::fabs(sample));
-    for (auto& ch : destSamples)
-        for (float sample : ch)
-            maxAmp = std::max(maxAmp, std::fabs(sample));
-
-    const float scale = maxAmp > 0.f ? 1.f / maxAmp : 1.f;
-    refNormalized = refSamples;
-    destNormalized = destSamples;
-    for (auto& ch : refNormalized)
-        for (auto& sample : ch)
-            sample *= scale;
-    for (auto& ch : destNormalized)
-        for (auto& sample : ch)
-            sample *= scale;
     return maxAmp;
+}
+
+void CompParamsCalculator::scaleSamples(
+    const std::vector<std::vector<float>>& samples,
+    std::vector<std::vector<float>>& scaled,
+    float scale)
+{
+    scaled = samples;
+    for (auto& ch : scaled)
+        for (auto& sample : ch)
+            sample *= scale;
 }
 
 float CompParamsCalculator::fitMismatch(double rmsError, const std::vector<float>& target)

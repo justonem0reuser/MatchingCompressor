@@ -46,6 +46,16 @@ public:
         hasReference = true;
     }
 
+    /// Re-prepare for a changed plugin properties, keeping the audio-derived state.
+    /// The thread must be stopped: only it may touch the estimator while running.
+    void prepareStructure(
+        std::vector<std::vector<float>>& refSamples,
+        juce::ValueTree& properties)
+    {
+        estimator.prepareStructure(refSamples, properties);
+        lastBuiltAttack = lastBuiltRelease = std::numeric_limits<float>::quiet_NaN();
+    }
+
     bool isReferenceAvailable() const { return hasReference; }
 
     // Enter fixation. Message thread, before start().

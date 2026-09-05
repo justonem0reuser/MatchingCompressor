@@ -91,12 +91,12 @@ protected:
     /// <returns>std::vector result</returns>
     static std::vector<float> resArrayToVector(const alglib::real_1d_array& c);
 
-    // required for audio data taken from buses as it can exceed [-1; 1] boundaries
-    static float normalize(
-        const std::vector<std::vector<float>>& refSamples,
-        const std::vector<std::vector<float>>& destSamples,
-        std::vector<std::vector<float>>& refNormalized,
-        std::vector<std::vector<float>>& destNormalized);
+    static float findMaxAmp(const std::vector<std::vector<float>>& samples);
+    static float getScale(float maxAmp) { return maxAmp > 0.f ? 1.f / maxAmp : 1.f; }
+    static void scaleSamples(
+        const std::vector<std::vector<float>>& samples,
+        std::vector<std::vector<float>>& scaled,
+        float scale);
 
     static void denormalize(std::vector<float>& result, float maxAmp);
 };

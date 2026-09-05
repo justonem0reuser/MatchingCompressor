@@ -22,10 +22,10 @@ public:
         int weight,
         std::vector<double>* grad = nullptr,
         std::vector<std::vector<double>>* dBins = nullptr);
-
     static std::vector<double> calculateDensityFunc(
         std::vector<std::vector<float>>& samples,
-        int binCount);
+        int binCount,
+        float scale = 1.f);
 
 private:
     static constexpr int kernelSupport = 3; // quadratic B-spline

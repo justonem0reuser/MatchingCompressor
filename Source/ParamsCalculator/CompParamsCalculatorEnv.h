@@ -29,6 +29,10 @@ public:
         double refSampleRate,
         juce::ValueTree& properties);
 
+    void prepareStructure(
+        std::vector<std::vector<float>>& refSamples,
+        juce::ValueTree& properties);
+
     void prepareForFixation(
         std::vector<std::vector<float>>& destSamples,
         double destSampleRate,

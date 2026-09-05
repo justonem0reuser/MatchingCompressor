@@ -134,13 +134,14 @@ void QuantilesCalculator::putToBins(
 
 std::vector<double> QuantilesCalculator::calculateDensityFunc(
     std::vector<std::vector<float>>& samples,
-    int binCount)
+    int binCount,
+    float scale)
 {
     std::vector<double> densFunc(binCount, 0.0);
     auto numChannels = samples.size();
     auto numSamples = samples[0].size();
     for (auto i = 0; i < numChannels; i++)
         for (auto j = 0; j < numSamples; j++)
-            putToBins(samples[i][j], densFunc, 1);
+            putToBins(samples[i][j] * scale, densFunc, 1);
     return densFunc;
 }

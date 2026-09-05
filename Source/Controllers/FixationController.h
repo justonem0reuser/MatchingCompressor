@@ -52,10 +52,15 @@ public:
         if (!getHasSessionReference())
             return false;
 
-        // A full re-prepare (expensive, on the message thread).
         if (preparedKneesNumber != getCurrentKneesNumber())
         {
-            beginSession();
+            juce::ValueTree tree = getCurrentParamsTree();
+            worker->stop();
+            worker->prepareStructure(processor.getMatchingData().refSamples, tree);
+            worker->start();
+            preparedKneesNumber = (int)tree.getProperty(setKneesNumberId);
+            preparedBalFilterType = (int)tree.getProperty(setBalFilterTypeId);
+            preparedChannelAggregationType = (int)tree.getProperty(setChannelAggregationTypeId);
             return true;
         }
 

@@ -31,11 +31,9 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
         kneeType == KneeType::soft);
 
     std::vector<std::vector<float>> refNormalized, destNormalized;
-    const float maxAmp = normalize(
-        refSamples, 
-        destSamples, 
-        refNormalized, 
-        destNormalized);
+    const float maxAmp = std::max(findMaxAmp(refSamples), findMaxAmp(destSamples));
+    scaleSamples(refSamples, refNormalized, getScale(maxAmp));
+    scaleSamples(destSamples, destNormalized, getScale(maxAmp));
 
     std::vector<float> localReferenceStat, localDestStat;
     localReferenceStat = QuantilesCalculator::calculateQuantiles(

@@ -113,8 +113,8 @@ void CompParamsCalculatorEnv::prepareForFixation(
 {
     configure(properties);
     this->sampleRate = destSampleRate;
-    std::vector<std::vector<float>> emptyRef, unusedRefNormalized;
-    maxAmp = normalize(emptyRef, destSamples, unusedRefNormalized, this->destSamples);
+    maxAmp = findMaxAmp(destSamples);
+    scaleSamples(destSamples, this->destSamples, getScale(maxAmp));
     spec.maximumBlockSize = 1000; // will not be used
 }
 
@@ -124,28 +124,39 @@ void CompParamsCalculatorEnv::prepare(
     double destSampleRate,
     juce::ValueTree& properties)
 {
-    configure(properties);
     this->sampleRate = destSampleRate;
 
-    std::vector<std::vector<float>> refNormalized;
-    maxAmp = normalize(refSamples, destSamples, refNormalized, this->destSamples);
+    maxAmp = std::max(findMaxAmp(refSamples), findMaxAmp(destSamples));
+    scaleSamples(destSamples, this->destSamples, getScale(maxAmp));
 
     spec.maximumBlockSize = 1000; // will not be used
 
+    prepareStructure(refSamples, properties);
+}
+
+void CompParamsCalculatorEnv::prepareStructure(
+    std::vector<std::vector<float>>& refSamples,
+    juce::ValueTree& properties)
+{
+    configure(properties);
+
     const int allRefSamplesNumber = refSamples.size() * refSamples[0].size();
-    
+
+    const float scale = getScale(maxAmp);
     referenceQuantiles.build(
-        refNormalized, 
+        refSamples, 
         gainRegionsNumber, 
-        quantileRegionsNumber,
-        allRefSamplesNumber);
+        quantileRegionsNumber, 
+        allRefSamplesNumber, 
+        scale);
     quantileRegionsNumber = (int)referenceQuantiles.get().size();
     if (kneeType == KneeType::soft)
         referenceQuantilesSoft.build(
-            refNormalized, 
+            refSamples, 
             gainRegionsNumberSoft, 
             quantileRegionsNumberSoft, 
-            allRefSamplesNumber);
+            allRefSamplesNumber, 
+            scale);
 }
 
 void CompParamsCalculatorEnv::updateBallistics(float attackMs, float releaseMs)
