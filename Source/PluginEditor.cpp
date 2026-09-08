@@ -22,7 +22,7 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     releaseSlider(audioProcessor.apvts, releaseId),
     toolButton("matchButton"),
     themeButtons({ minimalThemeStr, brutalThemeStr }, ButtonChoiceComponent::Orientation::vertical),
-    modeButtons({ normalModeStr, fixationModeStr }, ButtonChoiceComponent::Orientation::vertical),
+    modeButtons({ normalModeStr, fixationModeStr, fixationModeKWeightingStr }, ButtonChoiceComponent::Orientation::vertical),
     groupRect(0.f, 0.f, 0.f, 0.f),
     attackReleaseRect(0.f, 0.f, 0.f, 0.f),
     laf(std::make_unique<MCAltLookAndFeel>()),
@@ -30,7 +30,7 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     standardRotaryParameters(gainSlider.getRotaryParameters())
 {
     juce::LookAndFeel::setDefaultLookAndFeel(laf.get());
-    
+
     laf->setupToolButton(toolButton);
     toolButton.onClick = [this] { toolButtonClicked(); };
     toolButton.setTooltip("Match/Learn");
@@ -44,9 +44,9 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     modeButtons.setSelectedItemIndex(0, juce::dontSendNotification);
 
     ComponentInitializerHelper::initTextButton(
-        this, 
-        resetButton, 
-        resetBtnStr, 
+        this,
+        resetButton,
+        resetBtnStr,
         [this] { resetToCalculatedData(); });
 
     const std::string btnName = "kneeIndex";
@@ -66,7 +66,7 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     }
 
     freeFormCurve = std::make_unique<CurvePlotComponent>();
-    
+
     thresholdSlider.onValueChange = [this]
         {
             if (thresholdSlider.getIsParameterChanging())
@@ -138,7 +138,7 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
 
     kneeIndexButtons[0]->setToggleState(true, true);
 
-    setSize (leftPanelWidth + rightPanelWidth, 550);
+    setSize(leftPanelWidth + rightPanelWidth, 550);
 
     matchWindow.reset(new MatchWindow(
         audioProcessor.getMatchingData().properties,
@@ -197,7 +197,7 @@ void MatchCompressorAudioProcessorEditor::resized()
     rightPanelBounds.removeFromTop(margin);
     rightPanelBounds.removeFromBottom(margin);
     auto paramCurveBounds = rightPanelBounds.removeFromBottom(rightPanelWidth);
-    freeFormCurve->setBounds(paramCurveBounds); 
+    freeFormCurve->setBounds(paramCurveBounds);
 
     rightPanelBounds.removeFromLeft(freeFormCurve->margin + freeFormCurve->plotMargin);
     rightPanelBounds.removeFromRight(freeFormCurve->margin + freeFormCurve->plotMargin);
@@ -214,18 +214,18 @@ void MatchCompressorAudioProcessorEditor::resized()
     channelAggregationTypeButtons.setBounds(rightPanelBounds.getX(), y, rightPanelControlWidth, comboBoxHeight);
 
     // Left panel
-    
+
     bounds.removeFromLeft(margin);
     bounds.removeFromRight(margin);
     bounds.removeFromTop(margin);
 
-    toolButton.setBounds(bounds.getRight() - matchButtonSize, bounds.getY(), matchButtonSize, matchButtonSize);
+    toolButton.setBounds(bounds.getRight() - matchButtonSize, bounds.getY() + (themeButtonHeight - matchButtonSize) / 2, matchButtonSize, matchButtonSize);
 
-    themeButtons.setBounds(bounds.getX(), bounds.getY(), themeButtonWidth, matchButtonSize);
+    themeButtons.setBounds(bounds.getX(), bounds.getY(), themeButtonWidth, themeButtonHeight);
 
-    modeButtons.setBounds(bounds.getCentreX() - themeButtonWidth / 2, bounds.getY(), themeButtonWidth, matchButtonSize);
+    modeButtons.setBounds(bounds.getCentreX() - fixationButtonWidth / 2, bounds.getY(), fixationButtonWidth, themeButtonHeight);
 
-    bounds.removeFromTop(matchButtonSize + 2 * margin);
+    bounds.removeFromTop(themeButtonHeight + 2 * margin);
     groupRect.setX(bounds.getX() - margin + 1);
     groupRect.setY(bounds.getY() - margin + 1);
 
@@ -397,14 +397,14 @@ void MatchCompressorAudioProcessorEditor::updateSlidersBounds(
     const float prevIndexBound =
         fromIndex == 0 ?
         10.f * thresholdRange.start : // much less than it can really be
-        *apvts.getRawParameterValue(thresholdId + std::to_string(fromIndex - 1)) + 
+        *apvts.getRawParameterValue(thresholdId + std::to_string(fromIndex - 1)) +
         *apvts.getRawParameterValue(kneeWidthId + std::to_string(fromIndex - 1)) * 0.5f;
     const float nextIndexBound =
         fromIndex == kneesNumberButtons.getSelectedId() - 1 ?
         -10.f * thresholdRange.start : // much more than it can really be
-        *apvts.getRawParameterValue(thresholdId + std::to_string(fromIndex + 1)) - 
+        *apvts.getRawParameterValue(thresholdId + std::to_string(fromIndex + 1)) -
         *apvts.getRawParameterValue(kneeWidthId + std::to_string(fromIndex + 1)) * 0.5f;
-    
+
     float currentThreshold =
         *apvts.getRawParameterValue(thresholdId + std::to_string(fromIndex));
     float currentKneeWidth =
@@ -462,7 +462,7 @@ void MatchCompressorAudioProcessorEditor::onBallisticsSliderChanged()
     else
     {
         freeFormCurve->setFitIndicatorComputing();
-        audioProcessor.getFixationController().setTarget(
+        audioProcessor.getFixationController().requestUpdate(
             (float)attackSlider.getValue(), (float)releaseSlider.getValue());
     }
 }
@@ -507,9 +507,9 @@ void MatchCompressorAudioProcessorEditor::setBallisticsCallbacks(bool enabled)
 void MatchCompressorAudioProcessorEditor::createController()
 {
     mainController = std::make_unique<MainController>(
-        this, 
+        this,
         audioProcessor);
-    
+
     mainController->getMatchController().CompParamsCalculated = [this]
         {
             if (!isParametersCalculated())
@@ -590,12 +590,14 @@ void MatchCompressorAudioProcessorEditor::modeButtonClicked()
 
     if (mode == Mode::fixed)
     {
-        if (!audioProcessor.getFixationController().enterFixation())
+        if (!audioProcessor.getFixationController().enterFixation(
+            modeButtons.getSelectedItemIndex() == 2))
         {
             mode = prevMode;
             modeButtons.setSelectedItemIndex(0, juce::dontSendNotification);
             return;
         }
+        modeButtons.setItemEnabled(modeButtons.getSelectedId() == 2 ? 3 : 2, false);
         freeFormCurve->setFitIndicatorEmpty();
         attackSlider.detach();
         releaseSlider.detach();
@@ -609,6 +611,8 @@ void MatchCompressorAudioProcessorEditor::modeButtonClicked()
         setBallisticsCallbacks(true);
         if (!requestReferenceScore())
             freeFormCurve->setFitIndicatorEmpty();
+        modeButtons.setItemEnabled(2, true);
+        modeButtons.setItemEnabled(3, true);
     }
 
     gainSlider.setEnabled(isNormal);

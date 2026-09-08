@@ -14,7 +14,8 @@ const juce::String
 	refSetFromBusStr = "Reference is set from sidechain bus",
 	destSetFromBusStr = "Destination is set from main bus",
 	normalModeStr = "Normal mode",
-	fixationModeStr = "Fixation mode",
+	fixationModeStr = "Fixation mode (K-weighting off)",
+	fixationModeKWeightingStr = "Fixation mode (K-weighting on)",
 	minimalThemeStr = "Minimal style",
 	brutalThemeStr = "Brutal style";
 	

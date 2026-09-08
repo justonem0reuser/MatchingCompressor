@@ -41,7 +41,9 @@ private:
     const int comboBoxHeight = 25;
     const int labelWidth = 50;
     const int resetButtonHeight = 30;
+    const int themeButtonHeight = 78;
     const int themeButtonWidth = 100;
+    const int fixationButtonWidth = 200;
 
     MatchCompressorAudioProcessor& audioProcessor;
 

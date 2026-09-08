@@ -28,9 +28,16 @@ public:
     void prepare(
         std::vector<std::vector<float>>& destSamples,
         double destSampleRate,
-        juce::ValueTree& properties)
+        juce::ValueTree& properties,
+        bool isKWeightingUsed)
     {
-        estimator.prepareForFixation(destSamples, destSampleRate, properties);
+        this->isKWeightingUsed = isKWeightingUsed;
+        if (isKWeightingUsed)
+            weightedDest = CompParamsCalculator::applyKWeighting(destSamples, destSampleRate);
+        estimator.prepareForFixation(
+            isKWeightingUsed ? weightedDest : destSamples,
+            destSampleRate,
+            properties);
         hasReference = false;
     }
 
@@ -41,9 +48,10 @@ public:
         std::vector<std::vector<float>>& destSamples,
         double refSampleRate,
         double destSampleRate,
-        juce::ValueTree& properties)
+        juce::ValueTree& properties,
+        bool isKWeightingUsed)
     {
-        isKWeightingUsed = CompParamsCalculator::isKWeightingUsed(properties);
+        this->isKWeightingUsed = isKWeightingUsed;
         if (isKWeightingUsed)
         {
             weightedRef = CompParamsCalculator::applyKWeighting(refSamples, refSampleRate);
@@ -63,14 +71,35 @@ public:
     {
         {
             const juce::SpinLock::ScopedLockType lock(pendingLock);
-            pendingStructureRef = isKWeightingUsed ? &weightedRef : &refSamples;
+            pendingStructureRef = &refSamples;
             pendingStructureProperties = properties;
         }
         structureGen.fetch_add(1, std::memory_order_release);
         notify();
     }
 
-    bool isReferenceAvailable() const { return hasReference; }
+    void requestMaterial(
+        std::vector<std::vector<float>>& refSamples,
+        std::vector<std::vector<float>>& destSamples,
+        double refSampleRate,
+        double destSampleRate,
+        const juce::ValueTree& properties,
+        bool isKWeightingUsed)
+    {
+        {
+            const juce::SpinLock::ScopedLockType lock(pendingLock);
+            pendingMaterialRef = &refSamples;
+            pendingMaterialDest = &destSamples;
+            pendingMaterialRefSampleRate = refSampleRate;
+            pendingMaterialDestSampleRate = destSampleRate;
+            pendingMaterialProperties = properties;
+            pendingMaterialKWeighting = isKWeightingUsed;
+        }
+        materialGen.fetch_add(1, std::memory_order_release);
+        notify();
+    }
+
+    bool isReferenceAvailable() const { return hasReference.load(); }
 
     // Enter fixation. Message thread, before start().
     void arm(float attackMs, float releaseMs, const std::vector<float>& currentParams)
@@ -177,6 +206,35 @@ private:
 
             while (!threadShouldExit())
             {
+                // 1st priority: K-weighting on/off
+                const uint64_t mg = materialGen.load(std::memory_order_acquire);
+                if (mg != materialProcessed.load())
+                {
+                    std::vector<std::vector<float>>* refSamples;
+                    std::vector<std::vector<float>>* destSamples;
+                    double refSampleRate, destSampleRate;
+                    juce::ValueTree properties;
+                    bool isWeighted;
+                    {
+                        const juce::SpinLock::ScopedLockType lock(pendingLock);
+                        refSamples = pendingMaterialRef;
+                        destSamples = pendingMaterialDest;
+                        refSampleRate = pendingMaterialRefSampleRate;
+                        destSampleRate = pendingMaterialDestSampleRate;
+                        properties = pendingMaterialProperties;
+                        isWeighted = pendingMaterialKWeighting;
+                    }
+                    if (refSamples != nullptr && destSamples != nullptr)
+                    {
+                        prepare(*refSamples, *destSamples, refSampleRate, destSampleRate,
+                            properties, isWeighted);
+                        markHistogramsStale();
+                    }
+                    materialProcessed.store(mg);
+                    continue;
+                }
+
+                // 2nd priority: number of knees
                 const uint64_t stg = structureGen.load(std::memory_order_acquire);
                 if (stg != structureProcessed.load())
                 {
@@ -189,13 +247,16 @@ private:
                     }
                     if (refSamples != nullptr)
                     {
-                        estimator.prepareStructure(*refSamples, properties);
+                        estimator.prepareStructure(
+                            isKWeightingUsed ? weightedRef : *refSamples,
+                            properties);
                         markHistogramsStale();
                     }
                     structureProcessed.store(stg);
                     continue;
                 }
 
+                // 3rd priority: the envelope or stereo processing type
                 const uint64_t eg = envGen.load(std::memory_order_acquire);
                 if (eg != envProcessed.load())
                 {
@@ -211,8 +272,7 @@ private:
                     continue;
                 }
 
-                // 2nd priority: re-arm. 
-                // It redefines the target quantiles array.
+                // 4th priority: the target quantiles array
                 const uint64_t ag = armGen.load(std::memory_order_acquire);
                 if (ag != armProcessed.load())
                 {
@@ -235,8 +295,7 @@ private:
                     continue;
                 }
 
-                // 3rd priority: score.
-                // No solve, only the histogram needs a rebuild.
+                // 5th priority: score (histogram rebuilding, no solve)
                 const uint64_t sg = scoreGen.load(std::memory_order_acquire);
                 if (sg != scoreProcessed.load())
                 {
@@ -265,7 +324,7 @@ private:
                     continue;
                 }
 
-                // 4th priority: new attack/release parameters.
+                // 6th priority: attack/release values
                 const uint64_t gen = requestGen.load(std::memory_order_acquire);
                 if (gen == processedGen.load())
                     break; // nothing new
@@ -310,7 +369,7 @@ private:
     }
 
     CompParamsCalculatorEnv estimator;
-    bool hasReference = false;
+    std::atomic<bool> hasReference{ false };
 
     bool isKWeightingUsed = false;
     std::vector<std::vector<float>> weightedRef, weightedDest;
@@ -330,6 +389,11 @@ private:
     float pendingArmAttack = 0.f, pendingArmRelease = 0.f;
     std::vector<std::vector<float>>* pendingStructureRef = nullptr;
     juce::ValueTree pendingStructureProperties;
+    std::vector<std::vector<float>>* pendingMaterialRef = nullptr;
+    std::vector<std::vector<float>>* pendingMaterialDest = nullptr;
+    double pendingMaterialRefSampleRate = 0., pendingMaterialDestSampleRate = 0.;
+    juce::ValueTree pendingMaterialProperties;
+    bool pendingMaterialKWeighting = false;
     std::vector<float> pendingScoreParams;
     float pendingScoreAttack = 0.f, pendingScoreRelease = 0.f;
     int pendingBalFilter = 0, pendingChannelAggregation = 0;
@@ -343,4 +407,6 @@ private:
     std::atomic<uint64_t> envProcessed{ 0 };
     std::atomic<uint64_t> structureGen{ 0 };
     std::atomic<uint64_t> structureProcessed{ 0 };
+    std::atomic<uint64_t> materialGen{ 0 };
+    std::atomic<uint64_t> materialProcessed{ 0 };
 };

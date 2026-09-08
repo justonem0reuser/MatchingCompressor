@@ -14,7 +14,8 @@ class FixationController
 public:
     explicit FixationController(MatchCompressorAudioProcessor& processor)
         : processor(processor)
-    {}
+    {
+    }
 
     std::function<void(float fixationMismatch)> FixationApplied;
 
@@ -24,30 +25,7 @@ public:
 
     void beginSession()
     {
-        endSession();
-
-        auto& matchingData = processor.getMatchingData();
-        auto& refSamples = matchingData.refSamples;
-        auto& destSamples = matchingData.destSamples;
-        if (refSamples.empty() || refSamples[0].empty()
-            || destSamples.empty() || destSamples[0].empty()
-            || matchingData.calculatedCompParams.size() < 4)
-            return; // no reference or no data: scoring is not possible
-
-        worker = std::make_unique<FixationWorker>();
-        juce::ValueTree paramsTree = getCurrentParamsTree();
-        worker->prepare(
-            refSamples,
-            destSamples,
-            matchingData.refSampleRate,
-            matchingData.destSampleRate,
-            paramsTree);
-        preparedKneesNumber = (int)paramsTree.getProperty(setKneesNumberId);
-        preparedBalFilterType = (int)paramsTree.getProperty(setBalFilterTypeId);
-        preparedChannelAggregationType = (int)paramsTree.getProperty(setChannelAggregationTypeId);
-        hasSessionReference = true;
-        wireCallbacks();
-        worker->start();
+        beginSession(getIsMatchingKWeightingUsed());
     }
 
     /// Re-prepare the scoring session 
@@ -101,11 +79,14 @@ public:
     }
 
     /// Enter fixation mode. Returns false if there is no match / no source audio.
-    bool enterFixation()
+    bool enterFixation(bool isKWeightingUsed)
     {
         auto& matchingData = processor.getMatchingData();
         if (matchingData.calculatedCompParams.size() < 4)
             return false;
+
+        if (getHasSessionReference() && isKWeightingUsed != isSessionKWeightingUsed)
+            requestMaterial(isKWeightingUsed);
 
         refreshConfig();
         if (getHasSessionReference())
@@ -121,7 +102,8 @@ public:
 
         worker = std::make_unique<FixationWorker>();
         juce::ValueTree config = getCurrentParamsTree();
-        worker->prepare(destSamples, matchingData.destSampleRate, config);
+        worker->prepare(destSamples, matchingData.destSampleRate, config, isKWeightingUsed);
+        isSessionKWeightingUsed = isKWeightingUsed;
         hasSessionReference = false;
         worker->arm(getCurrentAttack(), getCurrentRelease(), getCurrentCompParams());
         wireCallbacks();
@@ -132,7 +114,11 @@ public:
     void exitFixation()
     {
         if (getHasSessionReference())
+        {
+            if (isSessionKWeightingUsed != getIsMatchingKWeightingUsed())
+                requestMaterial(getIsMatchingKWeightingUsed());
             return;   // keep the persistent scoring worker alive
+        }
         endSession(); // Learn: drop the dest-only fixation worker
     }
 
@@ -147,18 +133,71 @@ public:
             worker->requestRearm(getCurrentCompParams(), getCurrentAttack(), getCurrentRelease());
         else
         {
+            const bool isKWeightingUsed = isSessionKWeightingUsed;
             exitFixation();
-            enterFixation();
+            enterFixation(isKWeightingUsed);
         }
     }
 
-    void setTarget(float attackMs, float releaseMs)
+    void requestUpdate(float attackMs, float releaseMs)
     {
         if (worker != nullptr)
             worker->requestUpdate(attackMs, releaseMs);
     }
 
 private:
+    void beginSession(bool isKWeightingUsed)
+    {
+        endSession();
+
+        auto& matchingData = processor.getMatchingData();
+        auto& refSamples = matchingData.refSamples;
+        auto& destSamples = matchingData.destSamples;
+        if (refSamples.empty() || refSamples[0].empty()
+            || destSamples.empty() || destSamples[0].empty()
+            || matchingData.calculatedCompParams.size() < 4)
+            return; // no reference or no data: scoring is not possible
+
+        worker = std::make_unique<FixationWorker>();
+        juce::ValueTree paramsTree = getCurrentParamsTree();
+        worker->prepare(
+            refSamples,
+            destSamples,
+            matchingData.refSampleRate,
+            matchingData.destSampleRate,
+            paramsTree,
+            isKWeightingUsed);
+        preparedKneesNumber = (int)paramsTree.getProperty(setKneesNumberId);
+        preparedBalFilterType = (int)paramsTree.getProperty(setBalFilterTypeId);
+        preparedChannelAggregationType = (int)paramsTree.getProperty(setChannelAggregationTypeId);
+        isSessionKWeightingUsed = isKWeightingUsed;
+        hasSessionReference = true;
+        wireCallbacks();
+        worker->start();
+    }
+
+    void requestMaterial(bool isKWeightingUsed)
+    {
+        auto& matchingData = processor.getMatchingData();
+        juce::ValueTree paramsTree = getCurrentParamsTree();
+        worker->requestMaterial(
+            matchingData.refSamples,
+            matchingData.destSamples,
+            matchingData.refSampleRate,
+            matchingData.destSampleRate,
+            paramsTree,
+            isKWeightingUsed);
+        preparedKneesNumber = (int)paramsTree.getProperty(setKneesNumberId);
+        preparedBalFilterType = (int)paramsTree.getProperty(setBalFilterTypeId);
+        preparedChannelAggregationType = (int)paramsTree.getProperty(setChannelAggregationTypeId);
+        isSessionKWeightingUsed = isKWeightingUsed;
+    }
+
+    bool getIsMatchingKWeightingUsed() const
+    {
+        return CompParamsCalculator::isKWeightingUsed(processor.getMatchingData().properties);
+    }
+
     float getCurrentAttack() const { return *processor.apvts.getRawParameterValue(attackId); }
     float getCurrentRelease() const { return *processor.apvts.getRawParameterValue(releaseId); }
     int getCurrentKneesNumber() const
@@ -253,6 +292,7 @@ private:
     MatchCompressorAudioProcessor& processor;
     std::unique_ptr<FixationWorker> worker;
     bool hasSessionReference = false;
+    bool isSessionKWeightingUsed = false;
     int preparedKneesNumber = 0, preparedBalFilterType = 0, preparedChannelAggregationType = 0;
     int sessionToken = 0;
 
