@@ -62,9 +62,7 @@ public:
     void endSession()
     {
         const bool wasScoring = getHasSessionReference();
-        worker.reset();
-        hasSessionReference = false;
-        sessionToken++;
+        dropSession();
         if (wasScoring)
             juce::NullCheckedInvocation::invoke(SessionEnded);
     }
@@ -146,9 +144,17 @@ public:
     }
 
 private:
+    void dropSession()
+    {
+        worker.reset();
+        hasSessionReference = false;
+        sessionToken++;
+    }
+
     void beginSession(bool isKWeightingUsed)
     {
-        endSession();
+        const bool wasScoring = getHasSessionReference();
+        dropSession();
 
         auto& matchingData = processor.getMatchingData();
         auto& refSamples = matchingData.refSamples;
@@ -156,7 +162,11 @@ private:
         if (refSamples.empty() || refSamples[0].empty()
             || destSamples.empty() || destSamples[0].empty()
             || matchingData.calculatedCompParams.size() < 4)
+        {
+            if (wasScoring)
+                juce::NullCheckedInvocation::invoke(SessionEnded);
             return; // no reference or no data: scoring is not possible
+        }
 
         worker = std::make_unique<FixationWorker>();
         juce::ValueTree paramsTree = getCurrentParamsTree();
