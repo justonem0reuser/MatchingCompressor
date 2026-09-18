@@ -49,12 +49,13 @@ CompParamsCalculatorEnv::FunctionAndJacobian& CompParamsCalculatorEnv::getYAndJ(
 }
 
 std::vector<float> CompParamsCalculatorEnv::calculateCompressorParameters(
-    std::vector<std::vector<float>>& refSamples, 
-    std::vector<std::vector<float>>& destSamples, 
+    std::vector<std::vector<float>>& refSamples,
+    std::vector<std::vector<float>>& destSamples,
     double destSampleRate,
-    juce::ValueTree& properties)
+    juce::ValueTree& properties,
+    const std::vector<std::vector<float>>* destDetectorSamples)
 {
-    prepare(refSamples, destSamples, destSampleRate, properties);
+    prepare(refSamples, destSamples, destSampleRate, properties, destDetectorSamples);
     updateBallistics(properties.getProperty(setAttackId), properties.getProperty(setReleaseId));
     return solve();
 }
@@ -109,12 +110,19 @@ void CompParamsCalculatorEnv::configure(const juce::ValueTree& properties)
 void CompParamsCalculatorEnv::prepareForFixation(
     std::vector<std::vector<float>>& destSamples,
     double destSampleRate,
-    juce::ValueTree& properties)
+    juce::ValueTree& properties,
+    const std::vector<std::vector<float>>* destDetectorSamples)
 {
     configure(properties);
     this->sampleRate = destSampleRate;
     maxAmp = findMaxAmp(destSamples);
+    if (destDetectorSamples != nullptr)
+        maxAmp = std::max(maxAmp, findMaxAmp(*destDetectorSamples));
     scaleSamples(destSamples, this->destSamples, getScale(maxAmp));
+    if (destDetectorSamples != nullptr)
+        scaleSamples(*destDetectorSamples, this->destDetectorSamples, getScale(maxAmp));
+    else
+        this->destDetectorSamples.clear();
     spec.maximumBlockSize = 1000; // will not be used
 }
 
@@ -122,12 +130,19 @@ void CompParamsCalculatorEnv::prepare(
     std::vector<std::vector<float>>& refSamples,
     std::vector<std::vector<float>>& destSamples,
     double destSampleRate,
-    juce::ValueTree& properties)
+    juce::ValueTree& properties,
+    const std::vector<std::vector<float>>* destDetectorSamples)
 {
     this->sampleRate = destSampleRate;
 
     maxAmp = std::max(findMaxAmp(refSamples), findMaxAmp(destSamples));
+    if (destDetectorSamples != nullptr)
+        maxAmp = std::max(maxAmp, findMaxAmp(*destDetectorSamples));
     scaleSamples(destSamples, this->destSamples, getScale(maxAmp));
+    if (destDetectorSamples != nullptr)
+        scaleSamples(*destDetectorSamples, this->destDetectorSamples, getScale(maxAmp));
+    else
+        this->destDetectorSamples.clear();
 
     spec.maximumBlockSize = 1000; // will not be used
 
@@ -164,6 +179,7 @@ void CompParamsCalculatorEnv::updateBallistics(float attackMs, float releaseMs, 
     calculatedFunctions.clear();
     calculateEnvelopeStatistics(
         destSamples,
+        destDetectorSamples.empty() ? destSamples : destDetectorSamples,
         sampleRate,
         attackMs,
         releaseMs,
@@ -455,6 +471,7 @@ std::vector<float> CompParamsCalculatorEnv::calculateFunction(
 
 void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
     std::vector<std::vector<float>>& samples,
+    const std::vector<std::vector<float>>& detectorSamples,
     double sampleRate,
     float attackMs,
     float releaseMs,
@@ -487,9 +504,8 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
     {
         for (size_t i = 0; i < numSamples; i++)
         {
-            float sample = samples[0][i];
-            float sAbs = std::fabs(sample);
-            float env = dynamicProcessor.calculateEnv(0, sample);
+            float sAbs = std::fabs(samples[0][i]);
+            float env = dynamicProcessor.calculateEnv(0, detectorSamples[0][i]);
             histogram.add(sAbs, env);
             if (isSoftBuilt)
                 histogramSoft.add(sAbs, env);
@@ -499,12 +515,11 @@ void CompParamsCalculatorEnv::calculateEnvelopeStatistics(
     {
         for (size_t i = 0; i < numSamples; i++)
         {
-            float sample0 = samples[0][i];
-            float sample1 = samples[1][i];
-            float sAbs0 = std::fabs(sample0);
-            float sAbs1 = std::fabs(sample1);
+            float sAbs0 = std::fabs(samples[0][i]);
+            float sAbs1 = std::fabs(samples[1][i]);
             float out0, out1;
-            dynamicProcessor.calculateStereoEnv(sample0, sample1, out0, out1);
+            dynamicProcessor.calculateStereoEnv(
+                detectorSamples[0][i], detectorSamples[1][i], out0, out1);
             histogram.add(sAbs0, out0);
             histogram.add(sAbs1, out1);
             if (isSoftBuilt)

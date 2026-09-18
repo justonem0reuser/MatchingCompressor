@@ -75,7 +75,8 @@ void MatchController::calculateCompressorParameters()
     matchingData.calculatedCompParams = calculator->calculateCompressorParameters(
         matchingRef,
         matchingDest, matchingData.destSampleRate,
-        matchingData.properties);
+        matchingData.properties,
+        isKWeightingUsed ? &destSamples : nullptr);
     matchingData.fitMismatch = calculator->getLastFitMismatch();
     matchingData.matchedWithReference = true;
     juce::NullCheckedInvocation::invoke(CompParamsCalculated);

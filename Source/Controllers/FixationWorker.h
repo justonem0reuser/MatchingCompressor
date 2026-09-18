@@ -37,7 +37,8 @@ public:
         estimator.prepareForFixation(
             isKWeightingUsed ? weightedDest : destSamples,
             destSampleRate,
-            properties);
+            properties,
+            isKWeightingUsed ? &destSamples : nullptr);
         hasReference = false;
     }
 
@@ -61,7 +62,8 @@ public:
             isKWeightingUsed ? weightedRef : refSamples,
             isKWeightingUsed ? weightedDest : destSamples,
             destSampleRate,
-            properties);
+            properties,
+            isKWeightingUsed ? &destSamples : nullptr);
         hasReference = true;
     }
 

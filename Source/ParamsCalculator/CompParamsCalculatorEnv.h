@@ -21,13 +21,15 @@ public:
         std::vector<std::vector<float>>& refSamples, 
         std::vector<std::vector<float>>& destSamples, 
         double destSampleRate,
-        juce::ValueTree& properties) override;
+        juce::ValueTree& properties,
+        const std::vector<std::vector<float>>* destDetectorSamples = nullptr) override;
 
     void prepare(
         std::vector<std::vector<float>>& refSamples,
         std::vector<std::vector<float>>& destSamples,
         double refSampleRate,
-        juce::ValueTree& properties);
+        juce::ValueTree& properties,
+        const std::vector<std::vector<float>>* destDetectorSamples = nullptr);
 
     void prepareStructure(
         std::vector<std::vector<float>>& refSamples,
@@ -36,7 +38,8 @@ public:
     void prepareForFixation(
         std::vector<std::vector<float>>& destSamples,
         double destSampleRate,
-        juce::ValueTree& properties);
+        juce::ValueTree& properties,
+        const std::vector<std::vector<float>>* destDetectorSamples = nullptr);
 
     void updateBallistics(float attackMs, float releaseMs, bool isSoftNeeded = true);
 
@@ -68,6 +71,7 @@ private:
     const alglib::ae_int_t maxits = 0;
     
     std::vector<std::vector<float>> destSamples;
+    std::vector<std::vector<float>> destDetectorSamples; // the detector uses destSamples if empty
     int gainRegionsNumber, gainRegionsNumberSoft;
     int quantileRegionsNumber, quantileRegionsNumberSoft;
     EnvCalculationType balFilterType;
@@ -114,6 +118,7 @@ private:
 
     void calculateEnvelopeStatistics(
         std::vector<std::vector<float>>& samples,
+        const std::vector<std::vector<float>>& detectorSamples,
         double sampleRate,
         float attackMs,
         float releaseMs,

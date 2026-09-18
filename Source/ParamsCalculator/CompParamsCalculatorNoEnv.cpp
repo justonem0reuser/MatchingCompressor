@@ -9,7 +9,8 @@ std::vector<float> CompParamsCalculatorNoEnv::calculateCompressorParameters(
     std::vector<std::vector<float>>& refSamples, 
     std::vector<std::vector<float>>& destSamples, 
     double destSampleRate,
-    juce::ValueTree& properties)
+    juce::ValueTree& properties,
+    const std::vector<std::vector<float>>*)
 {
     int kneeTypeInt = properties.getProperty(setKneeTypeId);
     float attackMs = properties.getProperty(setAttackId);

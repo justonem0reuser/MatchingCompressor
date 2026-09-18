@@ -17,7 +17,8 @@ public:
         std::vector<std::vector<float>>& refSamples, 
         std::vector<std::vector<float>>& destSamples, 
         double destSampleRate,
-        juce::ValueTree& properties) override;
+        juce::ValueTree& properties,
+        const std::vector<std::vector<float>>* destDetectorSamples = nullptr) override;
 
 private:
     const double epsx = 0.000001;

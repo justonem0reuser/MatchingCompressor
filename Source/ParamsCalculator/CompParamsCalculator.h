@@ -19,12 +19,14 @@ public:
     /// <param name="destSamples">destination audio</param>
     /// <param name="destSampleRate">destination sample rate</param>
     /// <param name="properties">calculation properties</param>
+    /// <param name="destDetectorSamples">destination audio for the envelope detector (nullptr - destSamples)</param>
     /// <returns>best match compressing parameters vector</returns>
     virtual std::vector<float> calculateCompressorParameters(
         std::vector<std::vector<float>>& refSamples,
         std::vector<std::vector<float>>& destSamples,
         double destSampleRate,
-        juce::ValueTree& properties) = 0;
+        juce::ValueTree& properties,
+        const std::vector<std::vector<float>>* destDetectorSamples = nullptr) = 0;
 
     float getLastFitMismatch() const { return lastFitMismatch; }
 
