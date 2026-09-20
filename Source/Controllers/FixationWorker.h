@@ -3,7 +3,7 @@
 #include <JuceHeader.h>
 #include <atomic>
 #include <vector>
-#include "../ParamsCalculator/CompParamsCalculatorEnv.h"
+#include "../ParamsCalculator/CompParamsCalculator.h"
 
 /// <summary>
 /// Background driver for the real-time fixation mode.
@@ -370,7 +370,7 @@ private:
         }
     }
 
-    CompParamsCalculatorEnv estimator;
+    CompParamsCalculator estimator;
     std::atomic<bool> hasReference{ false };
 
     bool isKWeightingUsed = false;

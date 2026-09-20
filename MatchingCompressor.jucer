@@ -147,16 +147,6 @@
               file="Source/ParamsCalculator/CompParamsCalculator.cpp"/>
         <FILE id="uK2WEX" name="CompParamsCalculator.h" compile="0" resource="0"
               file="Source/ParamsCalculator/CompParamsCalculator.h"/>
-        <FILE id="MSGQZo" name="CompParamsCalculatorEnv.cpp" compile="1" resource="0"
-              file="Source/ParamsCalculator/CompParamsCalculatorEnv.cpp"/>
-        <FILE id="ivCHfh" name="CompParamsCalculatorEnv.h" compile="0" resource="0"
-              file="Source/ParamsCalculator/CompParamsCalculatorEnv.h"/>
-        <FILE id="jAWFNV" name="CompParamsCalculatorFactory.h" compile="0"
-              resource="0" file="Source/ParamsCalculator/CompParamsCalculatorFactory.h"/>
-        <FILE id="UvM34d" name="CompParamsCalculatorNoEnv.cpp" compile="1"
-              resource="0" file="Source/ParamsCalculator/CompParamsCalculatorNoEnv.cpp"/>
-        <FILE id="UW2qpK" name="CompParamsCalculatorNoEnv.h" compile="0" resource="0"
-              file="Source/ParamsCalculator/CompParamsCalculatorNoEnv.h"/>
         <FILE id="UhaU33" name="EnvelopeHistogram.h" compile="0" resource="0"
               file="Source/ParamsCalculator/EnvelopeHistogram.h"/>
         <FILE id="lB0Fm0" name="FuncAndGradCalculator.cpp" compile="1" resource="0"

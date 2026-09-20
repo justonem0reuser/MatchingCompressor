@@ -1,5 +1,6 @@
 #include "MatchController.h"
-#include "../ParamsCalculator/CompParamsCalculatorFactory.h"
+#include "../ParamsCalculator/CompParamsCalculator.h"
+#include "../Data/Messages.h"
 
 MatchController::MatchController(
     BaseMatchView* matchView,
@@ -71,13 +72,13 @@ void MatchController::calculateCompressorParameters()
     auto& matchingRef = isKWeightingUsed ? weightedRef : refSamples;
     auto& matchingDest = isKWeightingUsed ? weightedDest : destSamples;
 
-    auto calculator = CompParamsCalculatorFactory::create(matchingDest, matchingData.properties);
-    matchingData.calculatedCompParams = calculator->calculateCompressorParameters(
+    CompParamsCalculator calculator;
+    matchingData.calculatedCompParams = calculator.calculateCompressorParameters(
         matchingRef,
         matchingDest, matchingData.destSampleRate,
         matchingData.properties,
         isKWeightingUsed ? &destSamples : nullptr);
-    matchingData.fitMismatch = calculator->getLastFitMismatch();
+    matchingData.fitMismatch = calculator.getLastFitMismatch();
     matchingData.matchedWithReference = true;
     juce::NullCheckedInvocation::invoke(CompParamsCalculated);
 }
