@@ -15,6 +15,7 @@ public:
 	/// </summary>
 	std::vector<std::vector<float>> refSamples, destSamples;
 	double refSampleRate = 0, destSampleRate = 0;
+	std::vector<bool> isDestSampleKept;
 
 	/// <summary>
 	/// New reference and destination audio snaps received from buses 

@@ -1,28 +1,29 @@
 #include "DataReceiverController.h"
 #include "../ParamsCalculator/GranularityCalculator.h"
+#include "../ParamsCalculator/CompParamsCalculator.h"
 #include "FixationController.h"
 #include "../Data/Messages.h"
 #include <limits>
 
 DataReceiverController::DataReceiverController(
-	BaseDataReceiver* dataReceiver,
-	MatchingData& matchingData,
+    BaseDataReceiver* dataReceiver,
+    MatchingData& matchingData,
     MatchCompressorAudioProcessor& processor) :
-	matchingData(matchingData),
+    matchingData(matchingData),
     dataReceiver(dataReceiver),
     processor(processor)
 {
-    this->dataReceiver->onFileChosen = [this](juce::File& file, bool isRef) 
-        { 
-            setFromFile(file, isRef); 
+    this->dataReceiver->onFileChosen = [this](juce::File& file, bool isRef)
+        {
+            setFromFile(file, isRef);
         };
-    this->dataReceiver->onRefReceivedFromBus = [this] 
-        { 
-            checkAndSaveData(this->matchingData.newRefSamples, this->matchingData.newRefSampleRate, false, true); 
+    this->dataReceiver->onRefReceivedFromBus = [this]
+        {
+            checkAndSaveData(this->matchingData.newRefSamples, this->matchingData.newRefSampleRate, false, true);
         };
-    this->dataReceiver->onDestReceivedFromBus = [this] 
-        { 
-            checkAndSaveData(this->matchingData.newDestSamples, this->matchingData.newDestSampleRate, false, false); 
+    this->dataReceiver->onDestReceivedFromBus = [this]
+        {
+            checkAndSaveData(this->matchingData.newDestSamples, this->matchingData.newDestSampleRate, false, false);
         };
     this->dataReceiver->onCollectFromBusStateChanged = [this](bool mainBus, bool sidechain)
         {
@@ -31,9 +32,9 @@ DataReceiverController::DataReceiverController(
 }
 
 void DataReceiverController::setFromDataCollector(
-    std::vector<std::vector<float>>& refSamples, 
-    double refSampleRate, 
-    std::vector<std::vector<float>>& destSamples, 
+    std::vector<std::vector<float>>& refSamples,
+    double refSampleRate,
+    std::vector<std::vector<float>>& destSamples,
     double destSampleRate)
 {
     if (dataReceiver->isReadRefFromStreamEnabled())
@@ -51,10 +52,10 @@ void DataReceiverController::setFromDataCollector(
 }
 
 void DataReceiverController::checkAndSaveData(
-	std::vector<std::vector<float>> samples, 
-	double sampleRate, 
-	bool isFile, 
-	bool isRef)
+    std::vector<std::vector<float>> samples,
+    double sampleRate,
+    bool isFile,
+    bool isRef)
 {
     try
     {
@@ -71,17 +72,24 @@ void DataReceiverController::checkAndSaveData(
                 if (samples[i].size() != samples[0].size())
                     throw std::runtime_error(corruptedChannelExStr.toStdString());
 
+        auto isSampleKept = CompParamsCalculator::calculateGateMask(samples, sampleRate);
+        const auto keptSamplesNumber = (size_t)std::count(isSampleKept.begin(), isSampleKept.end(), true);
+        if (keptSamplesNumber <= GranularityCalculator::calculateMinSamplesNumber())
+            throw std::runtime_error(samplesNumberIsTooSmall.toStdString());
+
         processor.getFixationController().endSession();
 
         if (isRef)
         {
-            matchingData.refSamples = samples;
+            matchingData.refSamples =
+                CompParamsCalculator::removeGatedSamples(samples, isSampleKept, keptSamplesNumber);
             matchingData.refSampleRate = sampleRate;
         }
         else
         {
             matchingData.destSamples = samples;
             matchingData.destSampleRate = sampleRate;
+            matchingData.isDestSampleKept = isSampleKept;
         }
     }
     catch (const std::exception& e)

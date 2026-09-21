@@ -31,6 +31,7 @@ const juce::String
 	sampleRateIsNullExStr = "Sample rate is null",
 	samplesNumberIsTooLarge = "Samples number is too large",
 	samplesNumberIsTooSmall = "Samples number is too small",
+	tooShortOrSilentExStr = "Audio is too short or silent",
 
 	numRegionsTooBigExStr = "Samples number must exceed regions number",
 	cannotCalculateErrStr = "Cannot calculate compression parameters for these files and settings";

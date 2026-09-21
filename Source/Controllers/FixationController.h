@@ -100,7 +100,12 @@ public:
 
         worker = std::make_unique<FixationWorker>();
         juce::ValueTree config = getCurrentParamsTree();
-        worker->prepare(destSamples, matchingData.destSampleRate, config, isKWeightingUsed);
+        worker->prepare(
+            destSamples,
+            matchingData.destSampleRate,
+            config,
+            isKWeightingUsed,
+            &matchingData.isDestSampleKept);
         isSessionKWeightingUsed = isKWeightingUsed;
         hasSessionReference = false;
         worker->arm(getCurrentAttack(), getCurrentRelease(), getCurrentCompParams());
@@ -176,7 +181,8 @@ private:
             matchingData.refSampleRate,
             matchingData.destSampleRate,
             paramsTree,
-            isKWeightingUsed);
+            isKWeightingUsed,
+            &matchingData.isDestSampleKept);
         preparedKneesNumber = (int)paramsTree.getProperty(setKneesNumberId);
         preparedBalFilterType = (int)paramsTree.getProperty(setBalFilterTypeId);
         preparedChannelAggregationType = (int)paramsTree.getProperty(setChannelAggregationTypeId);
@@ -196,7 +202,8 @@ private:
             matchingData.refSampleRate,
             matchingData.destSampleRate,
             paramsTree,
-            isKWeightingUsed);
+            isKWeightingUsed,
+            &matchingData.isDestSampleKept);
         preparedKneesNumber = (int)paramsTree.getProperty(setKneesNumberId);
         preparedBalFilterType = (int)paramsTree.getProperty(setBalFilterTypeId);
         preparedChannelAggregationType = (int)paramsTree.getProperty(setChannelAggregationTypeId);

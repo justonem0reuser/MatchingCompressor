@@ -38,6 +38,67 @@ std::vector<std::vector<float>> CompParamsCalculator::applyKWeighting(
     return weighted;
 }
 
+std::vector<bool> CompParamsCalculator::calculateGateMask(
+    const std::vector<std::vector<float>>& samples,
+    double sampleRate)
+{
+    const size_t numChannels = samples.size();
+    const size_t numSamples = samples[0].size();
+    const size_t blockLength = (size_t)juce::roundToInt(gateBlockLengthMs * 0.001 * sampleRate);
+    const size_t blockStep = (size_t)juce::roundToInt(gateBlockStepMs * 0.001 * sampleRate);
+    if (numSamples < blockLength)
+        throw std::runtime_error(tooShortOrSilentExStr.toStdString());
+
+    const size_t blocksNumber = (numSamples - blockLength + blockStep - 1) / blockStep + 1;
+    std::vector<double> blockPowers(blocksNumber, 0.0);
+    for (size_t i = 0; i < blocksNumber; i++)
+    {
+        const size_t end = std::min(i * blockStep + blockLength, numSamples);
+        for (size_t j = 0; j < numChannels; j++)
+            for (size_t k = i * blockStep; k < end; k++)
+                blockPowers[i] += (double)samples[j][k] * samples[j][k];
+        blockPowers[i] /= (double)(numChannels * blockLength);
+    }
+
+    std::vector<double> powers(blockPowers);
+    const size_t percentileIndex = std::min(
+        blocksNumber - 1,
+        (size_t)std::ceil(gatePercentile * 0.01 * blocksNumber) - 1);
+    std::nth_element(powers.begin(), powers.begin() + percentileIndex, powers.end());
+    const double thresholdPower =
+        powers[percentileIndex] * std::pow(10.0, 0.1 * gateRelativeThresholdDb);
+
+    std::vector<bool> isSampleKept(numSamples, false);
+    bool isAnyKept = false;
+    for (size_t i = 0; i < blocksNumber; i++)
+    {
+        if (blockPowers[i] <= thresholdPower)
+            continue;
+        isAnyKept = true;
+        const size_t end = std::min(i * blockStep + blockLength, numSamples);
+        for (size_t j = i * blockStep; j < end; j++)
+            isSampleKept[j] = true;
+    }
+    if (!isAnyKept)
+        throw std::runtime_error(tooShortOrSilentExStr.toStdString());
+    return isSampleKept;
+}
+
+std::vector<std::vector<float>> CompParamsCalculator::removeGatedSamples(
+    const std::vector<std::vector<float>>& samples,
+    const std::vector<bool>& isSampleKept,
+    size_t keptSamplesNumber)
+{
+    std::vector<std::vector<float>> kept(samples.size());
+    for (auto& ch : kept)
+        ch.reserve(keptSamplesNumber);
+    for (size_t i = 0; i < isSampleKept.size(); i++)
+        if (isSampleKept[i])
+            for (size_t j = 0; j < samples.size(); j++)
+                kept[j].push_back(samples[j][i]);
+    return kept;
+}
+
 void CompParamsCalculator::setKneeConstraints(
     alglib::lsfitstate& state,
     int kneesNumber,
@@ -309,9 +370,10 @@ std::vector<float> CompParamsCalculator::calculateCompressorParameters(
     std::vector<std::vector<float>>& destSamples,
     double destSampleRate,
     juce::ValueTree& properties,
-    const std::vector<std::vector<float>>* destDetectorSamples)
+    const std::vector<std::vector<float>>* destDetectorSamples,
+    const std::vector<bool>* isDestSampleKept)
 {
-    prepare(refSamples, destSamples, destSampleRate, properties, destDetectorSamples);
+    prepare(refSamples, destSamples, destSampleRate, properties, destDetectorSamples, isDestSampleKept);
     updateBallistics(properties.getProperty(setAttackId), properties.getProperty(setReleaseId));
     return solve();
 }
@@ -363,11 +425,28 @@ void CompParamsCalculator::configure(const juce::ValueTree& properties)
     }
 }
 
+void CompParamsCalculator::setDestMask(const std::vector<bool>* isDestSampleKept)
+{
+    if (isDestSampleKept != nullptr)
+    {
+        jassert(isDestSampleKept->size() == destSamples[0].size());
+        this->isDestSampleKept = *isDestSampleKept;
+        keptDestSamplesNumber = (size_t)std::count(
+            isDestSampleKept->begin(), isDestSampleKept->end(), true);
+    }
+    else
+    {
+        this->isDestSampleKept.clear();
+        keptDestSamplesNumber = destSamples[0].size();
+    }
+}
+
 void CompParamsCalculator::prepareForFixation(
     std::vector<std::vector<float>>& destSamples,
     double destSampleRate,
     juce::ValueTree& properties,
-    const std::vector<std::vector<float>>* destDetectorSamples)
+    const std::vector<std::vector<float>>* destDetectorSamples,
+    const std::vector<bool>* isDestSampleKept)
 {
     configure(properties);
     this->sampleRate = destSampleRate;
@@ -379,6 +458,7 @@ void CompParamsCalculator::prepareForFixation(
         scaleSamples(*destDetectorSamples, this->destDetectorSamples, getScale(maxAmp));
     else
         this->destDetectorSamples.clear();
+    setDestMask(isDestSampleKept);
     spec.maximumBlockSize = 1000; // will not be used
 }
 
@@ -387,7 +467,8 @@ void CompParamsCalculator::prepare(
     std::vector<std::vector<float>>& destSamples,
     double destSampleRate,
     juce::ValueTree& properties,
-    const std::vector<std::vector<float>>* destDetectorSamples)
+    const std::vector<std::vector<float>>* destDetectorSamples,
+    const std::vector<bool>* isDestSampleKept)
 {
     this->sampleRate = destSampleRate;
 
@@ -399,6 +480,7 @@ void CompParamsCalculator::prepare(
         scaleSamples(*destDetectorSamples, this->destDetectorSamples, getScale(maxAmp));
     else
         this->destDetectorSamples.clear();
+    setDestMask(isDestSampleKept);
 
     spec.maximumBlockSize = 1000; // will not be used
 
@@ -707,7 +789,7 @@ std::vector<float> CompParamsCalculator::calculateFunction(
     const alglib::real_1d_array& parameters,
     std::vector<std::vector<double>>* jacobian)
 {
-    auto samplesCount = samples.size() * samples[0].size();
+    auto samplesCount = samples.size() * keptDestSamplesNumber;
     std::vector<std::vector<double>> dBins;
     std::vector<std::vector<double>>* dBinsPtr = nullptr;
 
@@ -756,15 +838,19 @@ void CompParamsCalculator::calculateEnvelopeStatistics(
         channelAggregationType);
     dynamicProcessor.prepare(spec);
 
+    const bool isAllKept = isDestSampleKept.empty();
     if (numChannels == 1)
     {
         for (size_t i = 0; i < numSamples; i++)
         {
             float sAbs = std::fabs(samples[0][i]);
             float env = dynamicProcessor.calculateEnv(0, detectorSamples[0][i]);
-            histogram.add(sAbs, env);
-            if (isSoftBuilt)
-                histogramSoft.add(sAbs, env);
+            if (isAllKept || isDestSampleKept[i])
+            {
+                histogram.add(sAbs, env);
+                if (isSoftBuilt)
+                    histogramSoft.add(sAbs, env);
+            }
         }
     }
     else
@@ -776,12 +862,15 @@ void CompParamsCalculator::calculateEnvelopeStatistics(
             float out0, out1;
             dynamicProcessor.calculateStereoEnv(
                 detectorSamples[0][i], detectorSamples[1][i], out0, out1);
-            histogram.add(sAbs0, out0);
-            histogram.add(sAbs1, out1);
-            if (isSoftBuilt)
+            if (isAllKept || isDestSampleKept[i])
             {
-                histogramSoft.add(sAbs0, out0);
-                histogramSoft.add(sAbs1, out1);
+                histogram.add(sAbs0, out0);
+                histogram.add(sAbs1, out1);
+                if (isSoftBuilt)
+                {
+                    histogramSoft.add(sAbs0, out0);
+                    histogramSoft.add(sAbs1, out1);
+                }
             }
         }
     }

@@ -27,20 +27,23 @@ public:
     /// <param name="destSampleRate">destination sample rate</param>
     /// <param name="properties">calculation properties</param>
     /// <param name="destDetectorSamples">destination audio for the envelope detector (nullptr - destSamples)</param>
+    /// <param name="isDestSampleKept">destination audio samples mask (should a sample be used for the statistics)</param>
     /// <returns>best match compressing parameters vector</returns>
     std::vector<float> calculateCompressorParameters(
         std::vector<std::vector<float>>& refSamples,
         std::vector<std::vector<float>>& destSamples,
         double destSampleRate,
         juce::ValueTree& properties,
-        const std::vector<std::vector<float>>* destDetectorSamples = nullptr);
+        const std::vector<std::vector<float>>* destDetectorSamples = nullptr,
+        const std::vector<bool>* isDestSampleKept = nullptr);
 
     void prepare(
         std::vector<std::vector<float>>& refSamples,
         std::vector<std::vector<float>>& destSamples,
         double refSampleRate,
         juce::ValueTree& properties,
-        const std::vector<std::vector<float>>* destDetectorSamples = nullptr);
+        const std::vector<std::vector<float>>* destDetectorSamples = nullptr,
+        const std::vector<bool>* isDestSampleKept = nullptr);
 
     void prepareStructure(
         std::vector<std::vector<float>>& refSamples,
@@ -50,7 +53,8 @@ public:
         std::vector<std::vector<float>>& destSamples,
         double destSampleRate,
         juce::ValueTree& properties,
-        const std::vector<std::vector<float>>* destDetectorSamples = nullptr);
+        const std::vector<std::vector<float>>* destDetectorSamples = nullptr,
+        const std::vector<bool>* isDestSampleKept = nullptr);
 
     void updateBallistics(float attackMs, float releaseMs, bool isSoftNeeded = true);
 
@@ -77,6 +81,15 @@ public:
     static std::vector<std::vector<float>> applyKWeighting(
         const std::vector<std::vector<float>>& samples,
         double sampleRate);
+
+    static std::vector<bool> calculateGateMask(
+        const std::vector<std::vector<float>>& samples,
+        double sampleRate);
+
+    static std::vector<std::vector<float>> removeGatedSamples(
+        const std::vector<std::vector<float>>& samples,
+        const std::vector<bool>& isSampleKept,
+        size_t keptSamplesNumber);
 
 protected:
     constexpr static int paramsPerKnee = 3;
@@ -166,11 +179,18 @@ private:
         bool hasJacobian = false;
     };
 
-    const double epsx = 0.001;
-    const alglib::ae_int_t maxits = 0;
+    static constexpr double epsx = 0.001;
+    static constexpr alglib::ae_int_t maxits = 0;
+
+    static constexpr double gateBlockLengthMs = 400.0;
+    static constexpr double gateBlockStepMs = 100.0;
+    static constexpr double gatePercentile = 95.0;
+    static constexpr double gateRelativeThresholdDb = -30.0;
 
     std::vector<std::vector<float>> destSamples;
     std::vector<std::vector<float>> destDetectorSamples; // the detector uses destSamples if empty
+    std::vector<bool> isDestSampleKept;
+    std::size_t keptDestSamplesNumber = 0;
     int gainRegionsNumber, gainRegionsNumberSoft;
     int quantileRegionsNumber, quantileRegionsNumberSoft;
     EnvCalculationType balFilterType;
@@ -231,6 +251,8 @@ private:
     void paramsToC(const std::vector<float>& params, alglib::real_1d_array& c, bool isWidthVariable);
 
     void configure(const juce::ValueTree& properties);
+
+    void setDestMask(const std::vector<bool>* isDestSampleKept);
 
     float fitMismatchAt(const alglib::real_1d_array& c, const std::vector<float>& target);
 };

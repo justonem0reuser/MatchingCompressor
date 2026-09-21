@@ -29,7 +29,8 @@ public:
         std::vector<std::vector<float>>& destSamples,
         double destSampleRate,
         juce::ValueTree& properties,
-        bool isKWeightingUsed)
+        bool isKWeightingUsed,
+        const std::vector<bool>* isDestSampleKept)
     {
         this->isKWeightingUsed = isKWeightingUsed;
         if (isKWeightingUsed)
@@ -38,7 +39,8 @@ public:
             isKWeightingUsed ? weightedDest : destSamples,
             destSampleRate,
             properties,
-            isKWeightingUsed ? &destSamples : nullptr);
+            isKWeightingUsed ? &destSamples : nullptr,
+            isDestSampleKept);
         hasReference = false;
     }
 
@@ -50,7 +52,8 @@ public:
         double refSampleRate,
         double destSampleRate,
         juce::ValueTree& properties,
-        bool isKWeightingUsed)
+        bool isKWeightingUsed,
+        const std::vector<bool>* isDestSampleKept)
     {
         this->isKWeightingUsed = isKWeightingUsed;
         if (isKWeightingUsed)
@@ -63,7 +66,8 @@ public:
             isKWeightingUsed ? weightedDest : destSamples,
             destSampleRate,
             properties,
-            isKWeightingUsed ? &destSamples : nullptr);
+            isKWeightingUsed ? &destSamples : nullptr,
+            isDestSampleKept);
         hasReference = true;
     }
 
@@ -86,7 +90,8 @@ public:
         double refSampleRate,
         double destSampleRate,
         const juce::ValueTree& properties,
-        bool isKWeightingUsed)
+        bool isKWeightingUsed,
+        const std::vector<bool>* isDestSampleKept)
     {
         {
             const juce::SpinLock::ScopedLockType lock(pendingLock);
@@ -96,6 +101,7 @@ public:
             pendingMaterialDestSampleRate = destSampleRate;
             pendingMaterialProperties = properties;
             pendingMaterialKWeighting = isKWeightingUsed;
+            pendingMaterialDestMask = isDestSampleKept;
         }
         materialGen.fetch_add(1, std::memory_order_release);
         notify();
@@ -217,6 +223,7 @@ private:
                     double refSampleRate, destSampleRate;
                     juce::ValueTree properties;
                     bool isWeighted;
+                    const std::vector<bool>* isDestSampleKept;
                     {
                         const juce::SpinLock::ScopedLockType lock(pendingLock);
                         refSamples = pendingMaterialRef;
@@ -225,11 +232,12 @@ private:
                         destSampleRate = pendingMaterialDestSampleRate;
                         properties = pendingMaterialProperties;
                         isWeighted = pendingMaterialKWeighting;
+                        isDestSampleKept = pendingMaterialDestMask;
                     }
                     if (refSamples != nullptr && destSamples != nullptr)
                     {
                         prepare(*refSamples, *destSamples, refSampleRate, destSampleRate,
-                            properties, isWeighted);
+                            properties, isWeighted, isDestSampleKept);
                         markHistogramsStale();
                     }
                     materialProcessed.store(mg);
@@ -396,6 +404,7 @@ private:
     double pendingMaterialRefSampleRate = 0., pendingMaterialDestSampleRate = 0.;
     juce::ValueTree pendingMaterialProperties;
     bool pendingMaterialKWeighting = false;
+    const std::vector<bool>* pendingMaterialDestMask = nullptr;
     std::vector<float> pendingScoreParams;
     float pendingScoreAttack = 0.f, pendingScoreRelease = 0.f;
     int pendingBalFilter = 0, pendingChannelAggregation = 0;
