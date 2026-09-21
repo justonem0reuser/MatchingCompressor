@@ -106,7 +106,7 @@ void DataReceiverController::setFromFile(juce::File& file, bool isRef)
 {
     std::vector<std::vector<float>> newSamples;
     double newSampleRate;
-    audioFileReader.readFromFile(file, true, newSamples, newSampleRate);
+    audioFileReader.readFromFile(file, newSamples, newSampleRate);
     checkAndSaveData(newSamples, newSampleRate, true, isRef);
     if (isRef)
         dataReceiver->setRefDataState(BaseDataReceiver::SetDataState::SetFromFile);
