@@ -108,9 +108,9 @@ public:
             &matchingData.isDestSampleKept);
         isSessionKWeightingUsed = isKWeightingUsed;
         hasSessionReference = false;
-        worker->arm(getCurrentAttack(), getCurrentRelease(), getCurrentCompParams());
         wireCallbacks();
         worker->start();
+        worker->requestRearm(getCurrentCompParams(), getCurrentAttack(), getCurrentRelease());
         return true;
     }
 

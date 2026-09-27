@@ -8,7 +8,7 @@
 /// <summary>
 /// Background driver for the real-time fixation mode.
 /// Contract:
-/// - prepare() and arm() run on the caller (message) thread BEFORE start().
+/// - prepare() runs on the caller (message) thread BEFORE start().
 /// - once the thread runs, only the worker thread touches the estimator.
 /// - requestUpdate() is called from any thread.
 /// - onParamsReady is invoked from the WORKER thread.
@@ -24,7 +24,7 @@ public:
     std::function<void(float referenceMismatch)> onScoreReady;
 
     /// Preparation without a reference, only for fixation.
-    /// Message thread, before arm()/start().
+    /// Message thread, before start().
     void prepare(
         std::vector<std::vector<float>>& destSamples,
         double destSampleRate,
@@ -45,7 +45,7 @@ public:
     }
 
     // Preparation with a reference, enabling scoreAgainstReference.
-    // Message thread, before arm()/start().
+    // Message thread, before start().
     void prepare(
         std::vector<std::vector<float>>& refSamples,
         std::vector<std::vector<float>>& destSamples,
@@ -108,20 +108,6 @@ public:
     }
 
     bool isReferenceAvailable() const { return hasReference.load(); }
-
-    // Enter fixation. Message thread, before start().
-    void arm(float attackMs, float releaseMs, const std::vector<float>& currentParams)
-    {
-        estimator.updateBallistics(attackMs, releaseMs, false);
-        lastBuiltAttack = attackMs;
-        lastBuiltRelease = releaseMs;
-        estimator.captureNominalKneeWidths(currentParams);
-        target = estimator.calculateQuantilesFor(currentParams);
-        lastResult = currentParams;
-        pendingAttack = attackMs;
-        pendingRelease = releaseMs;
-        processedGen.store(requestGen.load());
-    }
 
     void start()
     {
@@ -348,7 +334,7 @@ private:
 
                 if (target.empty())
                 {
-                    jassertfalse; // requestUpdate() before arm()
+                    jassertfalse; // requestUpdate() before requestRearm()
                     processedGen.store(gen);
                     continue;
                 }
