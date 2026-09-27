@@ -2,7 +2,7 @@
 #include "Messages.h"
 #include "Ranges.h"
 
-MatchingData::MatchingData():
+MatchingData::MatchingData() :
     properties("properties"),
     initProperties(properties.getType())
 {
@@ -11,7 +11,7 @@ MatchingData::MatchingData():
         kneesNumberChoices.add(juce::String(i));
 
     parameterInfos.push_back(ParameterInfo(
-        setUseKWeightingId, "Use K-weighting filter", 1, useKWeighting));
+        setUseKWeightingId, "K-weighting", 1, onOff));
     parameterInfos.push_back(ParameterInfo(
         setKneesNumberId, "Number of knees", 1, kneesNumberChoices));
     parameterInfos.push_back(ParameterInfo(
@@ -20,6 +20,10 @@ MatchingData::MatchingData():
         setBalFilterTypeId, "Envelope type", 1, balFilterTypes));
     parameterInfos.push_back(ParameterInfo(
         setChannelAggregationTypeId, "Stereo processing", 1, channelAggregationTypes));
+    parameterInfos.push_back(ParameterInfo(
+        setUseHpfId, "HPF", 1, onOff));
+    parameterInfos.push_back(ParameterInfo(
+        setHpfFrequencyId, "HPF frequency (Hz)", 100.f, hpfRange.start, hpfRange.end, hpfRange.interval, false, true));
     parameterInfos.push_back(ParameterInfo(
         setAttackId, "Attack (ms)", 10.f, attackRange.start, attackRange.end, attackRange.interval, false, true));
     parameterInfos.push_back(ParameterInfo(

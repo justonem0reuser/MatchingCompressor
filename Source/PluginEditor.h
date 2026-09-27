@@ -31,12 +31,13 @@ private:
     enum class Mode { normal, fixed };
 
     const int margin = 10;
-    const int leftPanelWidth = 446;
+    const int leftPanelWidth = 586;
     const int rightPanelWidth = 300;
     const int sliderImageWidth = 128;
     const int sliderWidth = 140;
     const int sliderHeight = sliderImageWidth + 30;
-    const int matchButtonSize = 60;
+    const int hpfButtonsHeight = 20;
+    const int matchButtonSize = 75;
     const int kneeIndexButtonSize = 46;
     const int comboBoxHeight = 25;
     const int labelWidth = 50;
@@ -44,6 +45,7 @@ private:
     const int themeButtonHeight = 78;
     const int themeButtonWidth = 100;
     const int fixationButtonWidth = 200;
+    const int editorHeight = 580;
 
     MatchCompressorAudioProcessor& audioProcessor;
 
@@ -67,12 +69,14 @@ private:
         gainSlider, 
         kneeWidthSlider, 
         ratioSlider, 
+        hpfSlider,
         attackSlider, 
         releaseSlider;
     ButtonChoiceWithAttachment
         kneesNumberButtons,
         balFilterTypeButtons,
-        channelAggregationTypeButtons;
+        channelAggregationTypeButtons,
+        hpfButtons;
     std::unique_ptr<CurvePlotComponent> freeFormCurve;
     std::unique_ptr<juce::TooltipWindow> tooltipWindow;
 

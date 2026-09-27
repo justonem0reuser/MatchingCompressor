@@ -831,7 +831,9 @@ void CompParamsCalculator::calculateEnvelopeStatistics(
     jassert((long long)numChannels * (long long)numSamples
         <= (long long)std::numeric_limits<std::int32_t>::max());
 
-    dynamicProcessor.setEnvParameters(
+    dynamicProcessor.setEnvParameters( // TODO: add HPF settings
+        false,
+        100.f,
         attackMs,
         releaseMs,
         balFilterType,

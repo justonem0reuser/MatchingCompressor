@@ -31,7 +31,7 @@ public:
     /// (called from AudioProcessor prepareToPlay method).
     /// </summary>
     virtual void prepare(const juce::dsp::ProcessSpec& spec);
-    
+
     void reset();
 
     /// <summary>
@@ -54,6 +54,8 @@ public:
             return;
         }
 
+        const bool isListenOn = isHpfEnabled && isHpfListenOn;
+
         if (channelsNumber == 1)
         {
             auto* inputSamples = inputBlock.getChannelPointer(0);
@@ -63,8 +65,9 @@ public:
             for (auto i = 0; i < numSamples; i++)
             {
                 gainSmoothed.getNextValue();
-                env = envelopeFilter.processSample(0, inputSamples[i]);
-                outputSamples[i] = calculateGain(inputSamples[i], env);
+                SampleType envInput = calculateEnvInput(0, inputSamples[i]);
+                env = envelopeFilter.processSample(0, envInput);
+                outputSamples[i] = isListenOn ? envInput : calculateGain(inputSamples[i], env);
             }
             lastEnv0 = lastEnv1 = env;
         }
@@ -83,10 +86,12 @@ public:
                 for (auto i = 0; i < numSamples; i++)
                 {
                     gainSmoothed.getNextValue();
-                    env0 = envelopeFilter.processSample(0, inputSamples0[i]);
-                    env1 = envelopeFilter.processSample(1, inputSamples1[i]);
-                    outputSamples0[i] = calculateGain(inputSamples0[i], env0);
-                    outputSamples1[i] = calculateGain(inputSamples1[i], env1);
+                    SampleType envInput0 = calculateEnvInput(0, inputSamples0[i]);
+                    SampleType envInput1 = calculateEnvInput(1, inputSamples1[i]);
+                    env0 = envelopeFilter.processSample(0, envInput0);
+                    env1 = envelopeFilter.processSample(1, envInput1);
+                    outputSamples0[i] = isListenOn ? envInput0 : calculateGain(inputSamples0[i], env0);
+                    outputSamples1[i] = isListenOn ? envInput1 : calculateGain(inputSamples1[i], env1);
                 }
                 lastEnv0 = env0;
                 lastEnv1 = env1;
@@ -98,9 +103,10 @@ public:
                 for (auto i = 0; i < numSamples; i++)
                 {
                     gainSmoothed.getNextValue();
-                    env = calculateStereoEnvMax(inputSamples0[i], inputSamples1[i]);
-                    outputSamples0[i] = calculateGain(inputSamples0[i], env);
-                    outputSamples1[i] = calculateGain(inputSamples1[i], env);
+                    SampleType envInput0, envInput1;
+                    env = calculateStereoEnvMax(inputSamples0[i], inputSamples1[i], envInput0, envInput1);
+                    outputSamples0[i] = isListenOn ? envInput0 : calculateGain(inputSamples0[i], env);
+                    outputSamples1[i] = isListenOn ? envInput1 : calculateGain(inputSamples1[i], env);
                 }
                 lastEnv0 = lastEnv1 = env;
                 break;
@@ -111,9 +117,10 @@ public:
                 for (auto i = 0; i < numSamples; i++)
                 {
                     gainSmoothed.getNextValue();
-                    env = calculateStereoEnvMean(inputSamples0[i], inputSamples1[i]);
-                    outputSamples0[i] = calculateGain(inputSamples0[i], env);
-                    outputSamples1[i] = calculateGain(inputSamples1[i], env);
+                    SampleType envInput0, envInput1;
+                    env = calculateStereoEnvMean(inputSamples0[i], inputSamples1[i], envInput0, envInput1);
+                    outputSamples0[i] = isListenOn ? envInput0 : calculateGain(inputSamples0[i], env);
+                    outputSamples1[i] = isListenOn ? envInput1 : calculateGain(inputSamples1[i], env);
                 }
                 lastEnv0 = lastEnv1 = env;
                 break;
@@ -123,15 +130,21 @@ public:
     }
 
     // envelope parameters setters
+    void setHpfEnabled(bool newIsHpfEnabled);
+    void setHpfFrequency(SampleType newHpfFrequency);
     void setAttack(SampleType newAttack);
     void setRelease(SampleType newRelease);
     void setBallisticFilterType(EnvCalculationType newType);
     void setChannelAggregationType(ChannelAggregationType newType);
     void setEnvParameters(
+        bool newIsHpfEnabled,
+        SampleType newHpfFrequency,
         SampleType newAttack,
         SampleType newRelease,
         EnvCalculationType newBalFilterType,
         ChannelAggregationType newChannelAggregationType);
+
+    void setHpfListen(bool newIsHpfListenOn);
 
     void setGainSmoothingTime(SampleType newTimeMs);
 
@@ -151,24 +164,26 @@ public:
 
     // processing
     inline SampleType calculateGain(SampleType inputValue, SampleType envValue);
-    
+
     // for non-realtime calls
     SampleType calculateEnv(int channel, SampleType inputValue);
     void calculateStereoEnv(SampleType inputValue0, SampleType inputValue1, SampleType& env0, SampleType& env1);
 
 private:
-    constexpr static SampleType zero = (SampleType) 0.0;
-    constexpr static SampleType half = (SampleType) 0.5;
-    constexpr static SampleType one = (SampleType) 1.0;
+    constexpr static SampleType zero = (SampleType)0.0;
+    constexpr static SampleType half = (SampleType)0.5;
+    constexpr static SampleType one = (SampleType)1.0;
 
-    constexpr static SampleType dbToGainCoeff = (SampleType) 0.1660964047443681;
+    constexpr static SampleType dbToGainCoeff = (SampleType)0.1660964047443681;
 
-    constexpr static SampleType silenceGain = (SampleType) 1.0e-6;
+    constexpr static SampleType silenceGain = (SampleType)1.0e-6;
 
     int size = 0;
     int channelsNumber = 0;
     double sampleRate = 44100.0;
-    SampleType attackTime = 10.0, releaseTime = 100.0, gainDb = 0.0;
+    bool isHpfEnabled = false;
+    bool isHpfListenOn = false;
+    SampleType attackTime = 10.0, releaseTime = 100.0, gainDb = 0.0, hpfFrequency = 100.0;
     SampleType gainSmoothingTimeMs = 0.0;
     EnvCalculationType balFilterType = EnvCalculationType::peak;
     ChannelAggregationType channelAggregationType = ChannelAggregationType::separate;
@@ -180,8 +195,8 @@ private:
 
     KneesArray
         gain,
-        threshold, 
-        thresholdInverse, 
+        threshold,
+        thresholdInverse,
         ratioInverseMinusOne,
         powCoeff,
         kneeLeftBoundDb,
@@ -192,6 +207,7 @@ private:
         kneeQuadCoeff;
 
     juce::dsp::BallisticsFilter<SampleType> envelopeFilter;
+    juce::dsp::StateVariableTPTFilter<SampleType> hpf;
 
     void updateOneKneeGain(int kneeIndex, bool updateNextGains);
     void updateOneKneeParameters(
@@ -200,8 +216,38 @@ private:
         SampleType newWidthDb,
         int kneeIndex);
 
-    inline SampleType calculateStereoEnvMax(SampleType inputValue0, SampleType inputValue1);
-    inline SampleType calculateStereoEnvMean(SampleType inputValue0, SampleType inputValue1);
+    inline SampleType calculateStereoEnvMax(
+        SampleType inputValue0,
+        SampleType inputValue1,
+        SampleType& envInput0,
+        SampleType& envInput1)
+    {
+        envInput0 = calculateEnvInput(0, inputValue0);
+        envInput1 = calculateEnvInput(1, inputValue1);
+        SampleType maxValue = std::fmax(std::fabs(envInput0), std::fabs(envInput1));
+        return envelopeFilter.processSample(0, maxValue);
+    }
+
+    inline SampleType calculateStereoEnvMean(
+        SampleType inputValue0,
+        SampleType inputValue1,
+        SampleType& envInput0,
+        SampleType& envInput1)
+    {
+        envInput0 = calculateEnvInput(0, inputValue0);
+        envInput1 = calculateEnvInput(1, inputValue1);
+        SampleType meanValue =
+            balFilterType == EnvCalculationType::peak ?
+            half * (std::fabs(envInput0) + std::fabs(envInput1)) :
+            std::sqrt(half * (envInput0 * envInput0 + envInput1 * envInput1));
+        return envelopeFilter.processSample(0, meanValue);
+    }
+
+    inline SampleType calculateEnvInput(int channel, SampleType inputValue)
+    {
+        SampleType filtered = hpf.processSample(channel, inputValue);
+        return isHpfEnabled ? filtered : inputValue;
+    }
 
     void seedEnvelopeFilter(SampleType envValue0, SampleType envValue1);
     SampleType aggregateLastEnv(ChannelAggregationType type) const;

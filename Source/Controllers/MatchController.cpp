@@ -96,6 +96,9 @@ void MatchController::syncPropertiesFromState()
         juce::roundToInt(apvts.getRawParameterValue(channelAggrerationTypeId)->load()), nullptr);
     p.setProperty(setAttackId, apvts.getRawParameterValue(attackId)->load(), nullptr);
     p.setProperty(setReleaseId, apvts.getRawParameterValue(releaseId)->load(), nullptr);
+    p.setProperty(setUseHpfId,
+        std::min(juce::roundToInt(apvts.getRawParameterValue(hpfModeId)->load()), 2), nullptr); // 3 is "listen hpf" and isn't used
+    p.setProperty(setHpfFrequencyId, apvts.getRawParameterValue(hpfFrequencyId)->load(), nullptr);
 }
 
 std::vector<float> MatchController::getCurrentCompParams(

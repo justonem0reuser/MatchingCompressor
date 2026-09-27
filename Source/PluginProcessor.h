@@ -111,6 +111,8 @@ private:
     std::atomic<float>* kneesNumberParam;
     std::atomic<float>* attackParam;
     std::atomic<float>* releaseParam;
+    std::atomic<float>* hpfFrequencyParam;
+    std::atomic<float>* hpfModeParam;
     std::atomic<float>* balFilterTypeParam;
     std::atomic<float>* channelAggrerationTypeParam;
     ParamsArray thresholdParams;
@@ -123,7 +125,7 @@ private:
     KneesArray thresholdDbs, ratios, widthDbs; // initial values are not necessary because of the initial kneesNumber 
 
     // for checking compressor parameters
-    float attackMs = -1.f, releaseMs = -1.f;
+    float attackMs = -1.f, releaseMs = -1.f, hpfFrequency = 100.f;
     EnvCalculationType balFilterType = EnvCalculationType::peak;
     ChannelAggregationType channelAggregationType = ChannelAggregationType::separate;
 

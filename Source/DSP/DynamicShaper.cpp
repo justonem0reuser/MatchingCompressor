@@ -3,6 +3,8 @@
 template <typename SampleType>
 DynamicShaper<SampleType>::DynamicShaper()
 {
+    hpf.setType(juce::dsp::StateVariableTPTFilterType::highpass);
+    hpf.setCutoffFrequency(hpfFrequency);
     envelopeFilter.setAttackTime(attackTime);
     envelopeFilter.setReleaseTime(releaseTime);
     envelopeFilter.setLevelCalculationType(balFilterType);
@@ -17,6 +19,7 @@ void DynamicShaper<SampleType>::prepare(const juce::dsp::ProcessSpec& spec)
 
     sampleRate = spec.sampleRate;
     channelsNumber = spec.numChannels;
+    hpf.prepare(spec);
     envelopeFilter.prepare(spec);
     lastEnv0 = lastEnv1 = zero;
     gainSmoothed.reset(sampleRate, gainSmoothingTimeMs * 0.001);
@@ -25,6 +28,7 @@ void DynamicShaper<SampleType>::prepare(const juce::dsp::ProcessSpec& spec)
 template <typename SampleType>
 void DynamicShaper<SampleType>::reset()
 {
+    hpf.reset();
     envelopeFilter.reset();
     lastEnv0 = lastEnv1 = zero;
     gainSmoothed.setCurrentAndTargetValue(gainSmoothed.getTargetValue());
@@ -38,6 +42,19 @@ void DynamicShaper<SampleType>::setGainSmoothingTime(SampleType newTimeMs)
 }
 
 // envelope parameters setters
+
+template<typename SampleType>
+void DynamicShaper<SampleType>::setHpfEnabled(bool newIsHpfEnabled)
+{
+    isHpfEnabled = newIsHpfEnabled;
+}
+
+template<typename SampleType>
+void DynamicShaper<SampleType>::setHpfFrequency(SampleType newHpfFrequency)
+{
+    hpfFrequency = newHpfFrequency;
+    hpf.setCutoffFrequency(hpfFrequency);
+}
 
 template <typename SampleType>
 void DynamicShaper<SampleType>::setAttack(SampleType newAttack)
@@ -78,15 +95,25 @@ void DynamicShaper<SampleType>::setChannelAggregationType(
 
 template<typename SampleType>
 void DynamicShaper<SampleType>::setEnvParameters(
+    bool newIsHpfEnabled,
+    SampleType newHpfFrequency,
     SampleType newAttack,
     SampleType newRelease,
     EnvCalculationType newBalFilterType,
     ChannelAggregationType newChannelAggregationType)
 {
+    setHpfEnabled(newIsHpfEnabled);
+    setHpfFrequency(newHpfFrequency);
     setAttack(newAttack);
     setRelease(newRelease);
     setBallisticFilterType(newBalFilterType);
     setChannelAggregationType(newChannelAggregationType);
+}
+
+template<typename SampleType>
+void DynamicShaper<SampleType>::setHpfListen(bool newIsHpfListenOn)
+{
+    isHpfListenOn = newIsHpfListenOn;
 }
 
 // compression parameters setters
@@ -143,7 +170,8 @@ SampleType DynamicShaper<SampleType>::calculateEnv(
     int channel,
     SampleType inputValue)
 {
-    SampleType env = envelopeFilter.processSample(channel, inputValue);
+    SampleType envInput = calculateEnvInput(channel, inputValue);
+    SampleType env = envelopeFilter.processSample(channel, envInput);
     if (channel == 0)
         lastEnv0 = env;
     else
@@ -158,44 +186,27 @@ void DynamicShaper<SampleType>::calculateStereoEnv(SampleType inputValue0, Sampl
     {
     case ChannelAggregationType::separate:
     {
-        env0 = envelopeFilter.processSample(0, inputValue0);
-        env1 = envelopeFilter.processSample(1, inputValue1);
+        SampleType envInput0 = calculateEnvInput(0, inputValue0);
+        SampleType envInput1 = calculateEnvInput(1, inputValue1);
+        env0 = envelopeFilter.processSample(0, envInput0);
+        env1 = envelopeFilter.processSample(1, envInput1);
         break;
     }
     case ChannelAggregationType::max:
     {
-        env0 = env1 = calculateStereoEnvMax(inputValue0, inputValue1);
+        SampleType envInput0, envInput1;
+        env0 = env1 = calculateStereoEnvMax(inputValue0, inputValue1, envInput0, envInput1);
         break;
     }
     case ChannelAggregationType::mean:
     {
-        env0 = env1 = calculateStereoEnvMean(inputValue0, inputValue1);
+        SampleType envInput0, envInput1;
+        env0 = env1 = calculateStereoEnvMean(inputValue0, inputValue1, envInput0, envInput1);
         break;
     }
     }
     lastEnv0 = env0;
     lastEnv1 = env1;
-}
-
-template<typename SampleType>
-SampleType DynamicShaper<SampleType>::calculateStereoEnvMax(
-    SampleType inputValue0,
-    SampleType inputValue1)
-{
-    SampleType maxValue = std::fmax(std::fabs(inputValue0), std::fabs(inputValue1));
-    return envelopeFilter.processSample(0, maxValue);
-}
-
-template<typename SampleType>
-SampleType DynamicShaper<SampleType>::calculateStereoEnvMean(
-    SampleType inputValue0,
-    SampleType inputValue1)
-{
-    SampleType meanValue =
-        balFilterType == EnvCalculationType::peak ?
-        half * (std::fabs(inputValue0) + std::fabs(inputValue1)) :
-        std::sqrt(half * (inputValue0 * inputValue0 + inputValue1 * inputValue1));
-    return envelopeFilter.processSample(0, meanValue);
 }
 
 template<typename SampleType>
@@ -205,7 +216,7 @@ SampleType DynamicShaper<SampleType>::calculateGain(
 {
     if (size == 0)
         return inputValue;
-    
+
     SampleType makeUpGain = gainSmoothed.getCurrentValue();
 
     // find knee index

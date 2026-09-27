@@ -3,12 +3,12 @@
 #include "../Data/Ranges.h"
 
 MainController::MainController(
-	BaseMainView* editor, 
-	MatchCompressorAudioProcessor& processor):
-	editor(editor),
-	processor(processor),
-	matchingData(processor.getMatchingData()),
-	matchController(editor->getMatchView(), processor.getMatchingData(), processor)
+    BaseMainView* editor,
+    MatchCompressorAudioProcessor& processor) :
+    editor(editor),
+    processor(processor),
+    matchingData(processor.getMatchingData()),
+    matchController(editor->getMatchView(), processor.getMatchingData(), processor)
 {
     matchController.MatchViewClosed = [this] { onMatchViewClosed(); };
     processor.PrepareToPlay = [this] { onPrepareToPlay(); };
@@ -81,6 +81,8 @@ void MainController::onResetButtonClicked()
     int kneesNumber = matchingData.properties.getProperty(setKneesNumberId);
     int chAggrType = matchingData.properties.getProperty(setChannelAggregationTypeId);
     int filterType = matchingData.properties.getProperty(setBalFilterTypeId);
+    int hpfState = matchingData.properties.getProperty(setUseHpfId);
+    float hpfFreq = matchingData.properties.getProperty(setHpfFrequencyId);
     float attackMs = matchingData.properties.getProperty(setAttackId);
     float releaseMs = matchingData.properties.getProperty(setReleaseId);
     float gain = matchingData.calculatedCompParams[0];
@@ -91,6 +93,8 @@ void MainController::onResetButtonClicked()
     setParameter(attackId, attackRange, attackMs);
     setParameter(releaseId, releaseRange, releaseMs);
     setParameter(gainId, gainRange, gain);
+    setParameter(hpfModeId, hpfModeRange, hpfState);
+    setParameter(hpfFrequencyId, hpfRange, hpfFreq);
 
     for (int i = 0; i < DynamicShaper<float>::maxKneesNumber; i++)
     {
@@ -120,8 +124,8 @@ void MainController::endCollectingData(bool saveData, bool resetButtonsState)
     processor.getCollectedData(mainBusData, mainBusRate, sideChainData, sidechainRate);
     if (saveData)
         matchController
-            .getDataReceiverController()
-            .setFromDataCollector(sideChainData, sidechainRate, mainBusData, mainBusRate);
+        .getDataReceiverController()
+        .setFromDataCollector(sideChainData, sidechainRate, mainBusData, mainBusRate);
     if (resetButtonsState)
     {
         editor->getMatchView()->setBusesConnected(

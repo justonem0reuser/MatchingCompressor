@@ -10,11 +10,11 @@ using ChannelAggregationType = DynamicShaper<float>::ChannelAggregationType;
 //==============================================================================
 MatchCompressorAudioProcessor::MatchCompressorAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
-     : AudioProcessor (BusesProperties()
-         .withInput("Input", juce::AudioChannelSet::stereo(), true)
-         .withOutput("Output", juce::AudioChannelSet::stereo(), true)
-         .withInput("Sidechain", juce::AudioChannelSet::stereo(), false)
-     )
+    : AudioProcessor(BusesProperties()
+        .withInput("Input", juce::AudioChannelSet::stereo(), true)
+        .withOutput("Output", juce::AudioChannelSet::stereo(), true)
+        .withInput("Sidechain", juce::AudioChannelSet::stereo(), false)
+    )
 #endif
 {
     chain.get<ChainPositions::MainBusCollector>().setStartChannelNumber(0);
@@ -22,15 +22,17 @@ MatchCompressorAudioProcessor::MatchCompressorAudioProcessor()
     chain.setBypassed<ChainPositions::MainBusCollector>(true);
     chain.setBypassed<ChainPositions::SidechainCollector>(true);
     chain.setBypassed<ChainPositions::CompressorExpander>(false);
-    chain.get<ChainPositions::MainBusCollector>().onMemoryFull = [this] 
+    chain.get<ChainPositions::MainBusCollector>().onMemoryFull = [this]
         { juce::NullCheckedInvocation::invoke(DataCollectorMemoryFull); };
-    chain.get<ChainPositions::SidechainCollector>().onMemoryFull = [this] 
+    chain.get<ChainPositions::SidechainCollector>().onMemoryFull = [this]
         { juce::NullCheckedInvocation::invoke(DataCollectorMemoryFull); };
 
     gainParam = apvts.getRawParameterValue(gainId);
     kneesNumberParam = apvts.getRawParameterValue(kneesNumberId);
     attackParam = apvts.getRawParameterValue(attackId);
     releaseParam = apvts.getRawParameterValue(releaseId);
+    hpfFrequencyParam = apvts.getRawParameterValue(hpfFrequencyId);
+    hpfModeParam = apvts.getRawParameterValue(hpfModeId);
     balFilterTypeParam = apvts.getRawParameterValue(balFilterTypeId);
     channelAggrerationTypeParam = apvts.getRawParameterValue(channelAggrerationTypeId);
 
@@ -152,29 +154,29 @@ const juce::String MatchCompressorAudioProcessor::getName() const
 
 bool MatchCompressorAudioProcessor::acceptsMidi() const
 {
-   #if JucePlugin_WantsMidiInput
+#if JucePlugin_WantsMidiInput
     return true;
-   #else
+#else
     return false;
-   #endif
+#endif
 }
 
 bool MatchCompressorAudioProcessor::producesMidi() const
 {
-   #if JucePlugin_ProducesMidiOutput
+#if JucePlugin_ProducesMidiOutput
     return true;
-   #else
+#else
     return false;
-   #endif
+#endif
 }
 
 bool MatchCompressorAudioProcessor::isMidiEffect() const
 {
-   #if JucePlugin_IsMidiEffect
+#if JucePlugin_IsMidiEffect
     return true;
-   #else
+#else
     return false;
-   #endif
+#endif
 }
 
 double MatchCompressorAudioProcessor::getTailLengthSeconds() const
@@ -186,7 +188,7 @@ double MatchCompressorAudioProcessor::getTailLengthSeconds() const
 int MatchCompressorAudioProcessor::getNumPrograms()
 {
     return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
-                // so this should be at least 1, even if you're not really implementing programs.
+    // so this should be at least 1, even if you're not really implementing programs.
 }
 
 int MatchCompressorAudioProcessor::getCurrentProgram()
@@ -194,24 +196,28 @@ int MatchCompressorAudioProcessor::getCurrentProgram()
     return 0;
 }
 
-void MatchCompressorAudioProcessor::setCurrentProgram (int index)
+void MatchCompressorAudioProcessor::setCurrentProgram(int index)
 {
 }
 
-const juce::String MatchCompressorAudioProcessor::getProgramName (int index)
+const juce::String MatchCompressorAudioProcessor::getProgramName(int index)
 {
     return {};
 }
 
-void MatchCompressorAudioProcessor::changeProgramName (int index, const juce::String& newName)
+void MatchCompressorAudioProcessor::changeProgramName(int index, const juce::String& newName)
 {
 }
 
 //==============================================================================
-void MatchCompressorAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void MatchCompressorAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     juce::ValueTree tree("PluginState");
-    tree.addChild(apvts.copyState(), -1, nullptr);
+    auto params = apvts.copyState();
+    auto hpfMode = params.getChildWithProperty("id", hpfModeId);
+    if ((int)hpfMode.getProperty("value") == 3)
+        hpfMode.setProperty("value", 2.f, nullptr);
+    tree.addChild(params, -1, nullptr);
     tree.addChild(matchingData.initProperties.createCopy(), -1, nullptr);
     tree.setProperty("version", stateVersion, nullptr);
     tree.setProperty("themeIndex", themeIndex, nullptr);
@@ -307,9 +313,9 @@ void MatchCompressorAudioProcessor::setDataCollectionBuses(bool mainBus, bool si
 }
 
 void MatchCompressorAudioProcessor::getCollectedData(
-    std::vector<std::vector<float>>& mainBusData, 
+    std::vector<std::vector<float>>& mainBusData,
     double& mainBusRate,
-    std::vector<std::vector<float>>& sidechainData, 
+    std::vector<std::vector<float>>& sidechainData,
     double& sidechainRate)
 {
     chain.setBypassed<ChainPositions::MainBusCollector>(true);
@@ -391,6 +397,17 @@ void MatchCompressorAudioProcessor::updateCompressorParameters()
         freeShaper.setRelease(release);
     }
 
+    float newHpfFrequency = hpfFrequencyParam->load(std::memory_order_relaxed);
+    if (newHpfFrequency != hpfFrequency)
+    {
+        hpfFrequency = newHpfFrequency;
+        freeShaper.setHpfFrequency(hpfFrequency);
+    }
+
+    float hpfModeFloat = hpfModeParam->load(std::memory_order_relaxed);
+    freeShaper.setHpfListen(hpfModeFloat == 3.f);
+    freeShaper.setHpfEnabled(hpfModeFloat >= 2.f);
+
     float balFilterTypeFloat = balFilterTypeParam->load(std::memory_order_relaxed);
     auto newBalFilterType = balFilterTypeFloat == 1 ?
         EnvCalculationType::peak :
@@ -454,10 +471,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout MatchCompressorAudioProcesso
         gainId, "Gain", gainRange, 0.f, "dB",
         juce::AudioProcessorParameter::Category::genericParameter,
         dbStringFromValue, dbValueFromString));
+    layout.add(std::make_unique<juce::AudioParameterInt>(
+        hpfModeId, "HPF mode", (int)hpfModeRange.start, (int)hpfModeRange.end, 1));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(
+        hpfFrequencyId, "HPF", hpfRange, 100.f, "Hz"));
     for (int i = 0; i < DynamicShaper<float>::maxKneesNumber; i++)
     {
         layout.add(std::make_unique<juce::AudioParameterFloat>(
-            thresholdId + std::to_string(i), 
+            thresholdId + std::to_string(i),
             "Threshold", thresholdRange, 0.f, "dB",
             juce::AudioProcessorParameter::Category::genericParameter,
             dbStringFromValue, thresholdValueFromString));

@@ -14,6 +14,8 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     kneesNumberButtons(audioProcessor.apvts, kneesNumberId, juce::StringArray(std::vector<juce::String>(kneeIndexButtons.size()).data(), kneeIndexButtons.size())),
     channelAggregationTypeButtons(audioProcessor.apvts, channelAggrerationTypeId, channelAggregationTypes),
     balFilterTypeButtons(audioProcessor.apvts, balFilterTypeId, balFilterTypes),
+    hpfButtons(audioProcessor.apvts, hpfModeId, hpfModes),
+    hpfSlider(audioProcessor.apvts, hpfFrequencyId),
     gainSlider(audioProcessor.apvts, gainId),
     thresholdSlider(audioProcessor.apvts, thresholdId + "0"),
     ratioSlider(audioProcessor.apvts, ratioInverseId + "0"),
@@ -101,6 +103,8 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
             freeFormCurve->updateActualParameters(audioProcessor.apvts, kneesNumberButtons.getSelectedId());
         };
 
+    hpfSlider.setEnabled(hpfButtons.getSelectedItemIndex() != 0);
+
     setBallisticsCallbacks(true);
     kneesNumberButtons.onChange = [this]
         {
@@ -113,6 +117,11 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
         };
     balFilterTypeButtons.onChange = [this] { onStructuralConfigChanged(); };
     channelAggregationTypeButtons.onChange = [this] { onStructuralConfigChanged(); };
+    hpfButtons.onChange = [this]
+        {
+            hpfSlider.setEnabled(hpfButtons.getSelectedItemIndex() != 0);
+            onStructuralConfigChanged();
+        };
 
     int selectedId = kneesNumberButtons.getSelectedId();
     for (int i = 1; i <= kneeIndexButtons.size(); i++)
@@ -126,6 +135,8 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     addAndMakeVisible(kneeWidthSlider);
     addAndMakeVisible(attackSlider);
     addAndMakeVisible(releaseSlider);
+    addAndMakeVisible(hpfSlider);
+    addAndMakeVisible(hpfButtons);
     addAndMakeVisible(kneesNumberButtons);
     addAndMakeVisible(balFilterTypeButtons);
     addAndMakeVisible(channelAggregationTypeButtons);
@@ -138,7 +149,7 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
 
     kneeIndexButtons[0]->setToggleState(true, true);
 
-    setSize(leftPanelWidth + rightPanelWidth, 550);
+    setSize(leftPanelWidth + rightPanelWidth, editorHeight);
 
     matchWindow.reset(new MatchWindow(
         audioProcessor.getMatchingData().properties,
@@ -205,7 +216,7 @@ void MatchCompressorAudioProcessorEditor::resized()
 
     resetButton.setBounds(rightPanelBounds.getX(), rightPanelBounds.getY(), rightPanelControlWidth, resetButtonHeight);
 
-    rightPanelBounds.removeFromTop(resetButton.getHeight() + 4 * margin);
+    rightPanelBounds.removeFromTop(resetButton.getHeight() + 6 * margin);
     auto y = rightPanelBounds.getY();
     kneesNumberButtons.setBounds(rightPanelBounds.getX(), y, rightPanelControlWidth, comboBoxHeight);
     y += comboBoxHeight + 3 * margin;
@@ -226,13 +237,14 @@ void MatchCompressorAudioProcessorEditor::resized()
     modeButtons.setBounds(bounds.getCentreX() - fixationButtonWidth / 2, bounds.getY(), fixationButtonWidth, themeButtonHeight);
 
     bounds.removeFromTop(themeButtonHeight + 2 * margin);
-    groupRect.setX(bounds.getX() - margin + 1);
+
+    groupRect.setX(bounds.getX() - margin + 1 + sliderWidth / 2);
     groupRect.setY(bounds.getY() - margin + 1);
 
     auto buttonsNumber = kneeIndexButtons.size();
-    auto buttonAndLabelWidth = (bounds.getWidth()) / buttonsNumber - margin;
+    auto buttonAndLabelWidth = (bounds.getWidth() - sliderWidth) / buttonsNumber - margin;
     auto labelWidth = buttonAndLabelWidth - kneeIndexButtonSize;
-    auto x = bounds.getX();
+    auto x = bounds.getX() + sliderWidth / 2;
     y = bounds.getY();
     for (int i = 0; i < buttonsNumber; i++)
     {
@@ -243,7 +255,7 @@ void MatchCompressorAudioProcessorEditor::resized()
 
     bounds.removeFromTop(kneeIndexButtonSize + 2 * margin);
 
-    x = bounds.getX();
+    x = bounds.getX() + sliderWidth / 2;
     y = bounds.getY();
     thresholdSlider.setBounds(x, y, sliderWidth, sliderHeight);
     x += sliderWidth;
@@ -251,20 +263,22 @@ void MatchCompressorAudioProcessorEditor::resized()
     x += sliderWidth;
     kneeWidthSlider.setBounds(x, y, sliderWidth, sliderHeight);
 
-    groupRect.setRight(bounds.getRight() + margin - 1);
+    groupRect.setRight(bounds.getRight() + margin - 1 - sliderWidth / 2);
     groupRect.setBottom(kneeWidthSlider.getBottom() + margin);
 
     bounds.removeFromTop(sliderHeight + 4 * margin);
 
-    attackReleaseRect.setX(ratioSlider.getX() - margin + 1);
+    attackReleaseRect.setX(groupRect.getX() + sliderWidth / 2);
     attackReleaseRect.setY(bounds.getY() - margin + 1);
 
-    gainSlider.setBounds(thresholdSlider.getX(), bounds.getY(), sliderWidth, sliderHeight);
-    attackSlider.setBounds(ratioSlider.getX(), bounds.getY(), sliderWidth, sliderHeight);
-    releaseSlider.setBounds(kneeWidthSlider.getX(), bounds.getY(), sliderWidth, sliderHeight);
+    gainSlider.setBounds(thresholdSlider.getX() - sliderWidth / 2, bounds.getY(), sliderWidth, sliderHeight);
+    hpfSlider.setBounds(gainSlider.getX() + sliderWidth, bounds.getY(), sliderWidth, sliderHeight);
+    hpfButtons.setBounds(hpfSlider.getX(), hpfSlider.getBottom() + margin, hpfSlider.getWidth(), hpfButtonsHeight);
+    attackSlider.setBounds(hpfSlider.getX() + sliderWidth, bounds.getY(), sliderWidth, sliderHeight);
+    releaseSlider.setBounds(attackSlider.getX() + sliderWidth, bounds.getY(), sliderWidth, sliderHeight);
 
-    attackReleaseRect.setRight(bounds.getRight() + margin - 1);
-    attackReleaseRect.setBottom(releaseSlider.getBottom() + margin);
+    attackReleaseRect.setRight(groupRect.getRight() + sliderWidth / 2);
+    attackReleaseRect.setBottom(hpfButtons.getBottom() + margin);
 }
 
 BaseMatchView* MatchCompressorAudioProcessorEditor::getMatchView()
@@ -292,9 +306,13 @@ void MatchCompressorAudioProcessorEditor::resetToCalculatedData()
     for (int i = 1; i <= kneesNumberButtons.getNumItems(); i++)
         kneesNumberButtons.setItemEnabled(i, true);
 
+    bool areHpfButtonsEnabled = hpfButtons.isEnabled();
+    hpfButtons.setEnabled(true);
+
     juce::NullCheckedInvocation::invoke(ResetButtonClicked);
 
     kneesNumberButtons.setEnabled(areKneesNumberButtonsEnabled);
+    hpfButtons.setEnabled(areHpfButtonsEnabled);
 
     auto& matchingData = audioProcessor.getMatchingData();
     int kneesNumber = matchingData.properties.getProperty(setKneesNumberId);
@@ -302,11 +320,14 @@ void MatchCompressorAudioProcessorEditor::resetToCalculatedData()
     // double click return value it can be set 
     // only for the sliders that always occupy a full possible range
     gainSlider.setDoubleClickReturnValue(true, matchingData.calculatedCompParams[0]);
+    hpfSlider.setDoubleClickReturnValue(true, matchingData.properties.getProperty(setHpfFrequencyId));
     attackSlider.setDoubleClickReturnValue(true, matchingData.properties.getProperty(setAttackId));
     releaseSlider.setDoubleClickReturnValue(true, matchingData.properties.getProperty(setReleaseId));
 
     if (mode == Mode::fixed)
     {
+        hpfSlider.setValue(
+            matchingData.properties.getProperty(setHpfFrequencyId), juce::dontSendNotification);
         attackSlider.setValue(
             matchingData.properties.getProperty(setAttackId), juce::dontSendNotification);
         releaseSlider.setValue(
@@ -498,6 +519,8 @@ void MatchCompressorAudioProcessorEditor::onUserCurveEdit()
 
 void MatchCompressorAudioProcessorEditor::setBallisticsCallbacks(bool enabled)
 {
+    hpfSlider.onValueChange =
+        enabled ? std::function<void()>([this] { onBallisticsSliderChanged(); }) : nullptr;
     attackSlider.onValueChange =
         enabled ? std::function<void()>([this] { onBallisticsSliderChanged(); }) : nullptr;
     releaseSlider.onValueChange =
@@ -599,6 +622,7 @@ void MatchCompressorAudioProcessorEditor::modeButtonClicked()
         }
         modeButtons.setItemEnabled(modeButtons.getSelectedId() == 2 ? 3 : 2, false);
         freeFormCurve->setFitIndicatorEmpty();
+        hpfSlider.detach();
         attackSlider.detach();
         releaseSlider.detach();
     }
@@ -606,6 +630,7 @@ void MatchCompressorAudioProcessorEditor::modeButtonClicked()
     {
         audioProcessor.getFixationController().exitFixation();
         setBallisticsCallbacks(false);
+        hpfSlider.changeParameter(hpfFrequencyId);
         attackSlider.changeParameter(attackId);
         releaseSlider.changeParameter(releaseId);
         setBallisticsCallbacks(true);
@@ -621,6 +646,7 @@ void MatchCompressorAudioProcessorEditor::modeButtonClicked()
     kneeWidthSlider.setEnabled(isNormal);
     kneesNumberButtons.setEnabled(isNormal);
     balFilterTypeButtons.setEnabled(isNormal);
+    hpfButtons.setEnabled(isNormal);
     channelAggregationTypeButtons.setEnabled(isNormal);
 
     repaint();

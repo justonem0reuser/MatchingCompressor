@@ -6,16 +6,18 @@
 
 // thresholdRange.interval and kneeWidthRange.interval must be 0!
 const juce::NormalisableRange<float>
-	thresholdRange(-60.f, 0.f),
-	gainRange(-50.f, 50.f, 0.01f),
-	kneeWidthRange(0.0f, 20.f),
-	attackRange(0.0f, 200.f, 0.01f),
-	releaseRange(0.0f, 1000.f, 0.1f),
+thresholdRange(-60.f, 0.f),
+gainRange(-50.f, 50.f, 0.01f),
+kneeWidthRange(0.0f, 20.f),
+attackRange(0.0f, 200.f, 0.01f),
+releaseRange(0.0f, 1000.f, 0.1f),
+hpfRange(20.f, 500.f, 1.f),
 
-	// need to be float for
-	envelopeTypeRange(1, 2),
-	channelAggregationTypeRange(1, 3),
-	kneesNumberRange(1, DynamicShaper<float>::maxKneesNumber);
+// need to be float
+hpfModeRange(1, 3),
+envelopeTypeRange(1, 2),
+channelAggregationTypeRange(1, 3),
+kneesNumberRange(1, DynamicShaper<float>::maxKneesNumber);
 
 namespace RatioSliderLaw
 {
@@ -23,7 +25,7 @@ namespace RatioSliderLaw
 		// ratio and ratioInverse share these limits, the range being symmetric
 		maxRatio = 20.f,
 		minRatio = 1.f / maxRatio,
-		
+
 		halfSpan = maxRatio - 1.f,
 		step = 0.01f;
 
