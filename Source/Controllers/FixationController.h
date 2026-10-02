@@ -44,16 +44,19 @@ public:
             preparedKneesNumber = (int)tree.getProperty(setKneesNumberId);
             preparedBalFilterType = (int)tree.getProperty(setBalFilterTypeId);
             preparedChannelAggregationType = (int)tree.getProperty(setChannelAggregationTypeId);
+            preparedUseHpf = (int)tree.getProperty(setUseHpfId);
             return true;
         }
 
         // Just rebuild the histogram on the worker thread.
         if (preparedBalFilterType != getCurrentBalFilterType() ||
-            preparedChannelAggregationType != getCurrentChannelAggrerationType())
+            preparedChannelAggregationType != getCurrentChannelAggrerationType() ||
+            preparedUseHpf != getCurrentUseHpf())
         {
             preparedBalFilterType = getCurrentBalFilterType();
             preparedChannelAggregationType = getCurrentChannelAggrerationType();
-            worker->requestEnvSettings(preparedBalFilterType, preparedChannelAggregationType);
+            preparedUseHpf = getCurrentUseHpf();
+            worker->requestEnvSettings(preparedBalFilterType, preparedChannelAggregationType, preparedUseHpf);
             return true;
         }
         return false;
@@ -73,7 +76,8 @@ public:
     {
         refreshConfig();
         if (getHasSessionReference())
-            worker->requestScore(getCurrentCompParams(), getCurrentAttack(), getCurrentRelease());
+            worker->requestScore(
+                getCurrentCompParams(), getCurrentAttack(), getCurrentRelease(), getCurrentHpfFrequency());
     }
 
     /// Enter fixation mode. Returns false if there is no match / no source audio.
@@ -89,7 +93,8 @@ public:
         refreshConfig();
         if (getHasSessionReference())
         {
-            worker->requestRearm(getCurrentCompParams(), getCurrentAttack(), getCurrentRelease());
+            worker->requestRearm(
+                getCurrentCompParams(), getCurrentAttack(), getCurrentRelease(), getCurrentHpfFrequency());
             return true;
         }
 
@@ -110,7 +115,8 @@ public:
         hasSessionReference = false;
         wireCallbacks();
         worker->start();
-        worker->requestRearm(getCurrentCompParams(), getCurrentAttack(), getCurrentRelease());
+        worker->requestRearm(
+            getCurrentCompParams(), getCurrentAttack(), getCurrentRelease(), getCurrentHpfFrequency());
         return true;
     }
 
@@ -133,7 +139,8 @@ public:
             return;
         refreshConfig();
         if (getHasSessionReference())
-            worker->requestRearm(getCurrentCompParams(), getCurrentAttack(), getCurrentRelease());
+            worker->requestRearm(
+                getCurrentCompParams(), getCurrentAttack(), getCurrentRelease(), getCurrentHpfFrequency());
         else
         {
             const bool isKWeightingUsed = isSessionKWeightingUsed;
@@ -142,10 +149,10 @@ public:
         }
     }
 
-    void requestUpdate(float attackMs, float releaseMs)
+    void requestUpdate(float attackMs, float releaseMs, float hpfFrequency)
     {
         if (worker != nullptr)
-            worker->requestUpdate(attackMs, releaseMs);
+            worker->requestUpdate(attackMs, releaseMs, hpfFrequency);
     }
 
 private:
@@ -186,6 +193,7 @@ private:
         preparedKneesNumber = (int)paramsTree.getProperty(setKneesNumberId);
         preparedBalFilterType = (int)paramsTree.getProperty(setBalFilterTypeId);
         preparedChannelAggregationType = (int)paramsTree.getProperty(setChannelAggregationTypeId);
+        preparedUseHpf = (int)paramsTree.getProperty(setUseHpfId);
         isSessionKWeightingUsed = isKWeightingUsed;
         hasSessionReference = true;
         wireCallbacks();
@@ -207,6 +215,7 @@ private:
         preparedKneesNumber = (int)paramsTree.getProperty(setKneesNumberId);
         preparedBalFilterType = (int)paramsTree.getProperty(setBalFilterTypeId);
         preparedChannelAggregationType = (int)paramsTree.getProperty(setChannelAggregationTypeId);
+        preparedUseHpf = (int)paramsTree.getProperty(setUseHpfId);
         isSessionKWeightingUsed = isKWeightingUsed;
     }
 
@@ -217,6 +226,7 @@ private:
 
     float getCurrentAttack() const { return *processor.apvts.getRawParameterValue(attackId); }
     float getCurrentRelease() const { return *processor.apvts.getRawParameterValue(releaseId); }
+    float getCurrentHpfFrequency() const { return *processor.apvts.getRawParameterValue(hpfFrequencyId); }
     int getCurrentKneesNumber() const
     {
         return juce::roundToInt(processor.apvts.getRawParameterValue(kneesNumberId)->load());
@@ -229,16 +239,18 @@ private:
     {
         return juce::roundToInt(processor.apvts.getRawParameterValue(channelAggrerationTypeId)->load());
     }
+    int getCurrentUseHpf() const
+    {
+        return std::min(juce::roundToInt(processor.apvts.getRawParameterValue(hpfModeId)->load()), 2);
+    }
 
     juce::ValueTree getCurrentParamsTree() const
     {
-        auto& apvts = processor.apvts;
         juce::ValueTree t = processor.getMatchingData().properties.createCopy();
         t.setProperty(setKneesNumberId, getCurrentKneesNumber(), nullptr);
-        t.setProperty(setBalFilterTypeId,
-            juce::roundToInt(apvts.getRawParameterValue(balFilterTypeId)->load()), nullptr);
-        t.setProperty(setChannelAggregationTypeId,
-            juce::roundToInt(apvts.getRawParameterValue(channelAggrerationTypeId)->load()), nullptr);
+        t.setProperty(setBalFilterTypeId, getCurrentBalFilterType(), nullptr);
+        t.setProperty(setChannelAggregationTypeId, getCurrentChannelAggrerationType(), nullptr);
+        t.setProperty(setUseHpfId, getCurrentUseHpf(), nullptr);
         return t;
     }
 
@@ -247,15 +259,15 @@ private:
         juce::WeakReference<FixationController> weak(this);
         const int token = sessionToken;
         worker->onParamsReady =
-            [weak, token](float a, float r, const std::vector<float>& params, float fixationMismatch)
+            [weak, token](float a, float r, float f, const std::vector<float>& params, float fixationMismatch)
             {
                 // worker thread -> message thread (async, never blocking: see stop()).
-                juce::MessageManager::callAsync([weak, token, a, r, params, fixationMismatch]
+                juce::MessageManager::callAsync([weak, token, a, r, f, params, fixationMismatch]
                     {
                         if (auto* self = weak.get())
                             if (self->sessionToken == token)
                             {
-                                self->applyFixationParams(a, r, params);
+                                self->applyFixationParams(a, r, f, params);
                                 juce::NullCheckedInvocation::invoke(self->FixationApplied, fixationMismatch);
                             }
                     });
@@ -278,12 +290,17 @@ private:
         return MatchController::getCurrentCompParams(processor.apvts, getCurrentKneesNumber());
     }
 
-    void applyFixationParams(float attackMs, float releaseMs, const std::vector<float>& params)
+    void applyFixationParams(
+        float attackMs,
+        float releaseMs,
+        float hpfFrequency,
+        const std::vector<float>& params)
     {
         int kneesNumber = ((int)params.size() - 1) / 3;
 
         setParameter(attackId, attackRange, attackMs);
         setParameter(releaseId, releaseRange, releaseMs);
+        setParameter(hpfFrequencyId, hpfRange, hpfFrequency);
         setParameter(gainId, gainRange, params[0]);
         for (int i = 0; i < kneesNumber; i++)
         {
@@ -310,7 +327,7 @@ private:
     std::unique_ptr<FixationWorker> worker;
     bool hasSessionReference = false;
     bool isSessionKWeightingUsed = false;
-    int preparedKneesNumber = 0, preparedBalFilterType = 0, preparedChannelAggregationType = 0;
+    int preparedKneesNumber = 0, preparedBalFilterType = 0, preparedChannelAggregationType = 0, preparedUseHpf = 0;
     int sessionToken = 0;
 
     JUCE_DECLARE_WEAK_REFERENCEABLE(FixationController)

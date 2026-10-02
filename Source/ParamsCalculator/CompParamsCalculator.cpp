@@ -374,13 +374,17 @@ std::vector<float> CompParamsCalculator::calculateCompressorParameters(
     const std::vector<bool>* isDestSampleKept)
 {
     prepare(refSamples, destSamples, destSampleRate, properties, destDetectorSamples, isDestSampleKept);
-    updateBallistics(properties.getProperty(setAttackId), properties.getProperty(setReleaseId));
+    updateBallistics(
+        properties.getProperty(setAttackId),
+        properties.getProperty(setReleaseId),
+        properties.getProperty(setHpfFrequencyId));
     return solve();
 }
 
 void CompParamsCalculator::updateEnvSettings(
     int balFilterTypeInt,
-    int channelAggregationTypeInt)
+    int channelAggregationTypeInt,
+    int useHpfInt)
 {
     this->balFilterType =
         balFilterTypeInt == 1 ?
@@ -392,6 +396,7 @@ void CompParamsCalculator::updateEnvSettings(
         channelAggregationTypeInt == 2 ?
         ChannelAggregationType::max :
         ChannelAggregationType::mean;
+    this->isHpfEnabled = useHpfInt == 2;
 }
 
 void CompParamsCalculator::configure(const juce::ValueTree& properties)
@@ -399,7 +404,8 @@ void CompParamsCalculator::configure(const juce::ValueTree& properties)
     int kneeTypeInt = properties.getProperty(setKneeTypeId);
     updateEnvSettings(
         properties.getProperty(setBalFilterTypeId),
-        properties.getProperty(setChannelAggregationTypeId));
+        properties.getProperty(setChannelAggregationTypeId),
+        properties.getProperty(setUseHpfId));
     this->kneeType =
         kneeTypeInt == 1 ?
         KneeType::hard :
@@ -512,7 +518,11 @@ void CompParamsCalculator::prepareStructure(
             scale);
 }
 
-void CompParamsCalculator::updateBallistics(float attackMs, float releaseMs, bool isSoftNeeded)
+void CompParamsCalculator::updateBallistics(
+    float attackMs,
+    float releaseMs,
+    float hpfFrequency,
+    bool isSoftNeeded)
 {
     calculatedFunctions.clear();
     calculateEnvelopeStatistics(
@@ -521,6 +531,7 @@ void CompParamsCalculator::updateBallistics(float attackMs, float releaseMs, boo
         sampleRate,
         attackMs,
         releaseMs,
+        hpfFrequency,
         isSoftNeeded);
 }
 
@@ -813,6 +824,7 @@ void CompParamsCalculator::calculateEnvelopeStatistics(
     double sampleRate,
     float attackMs,
     float releaseMs,
+    float hpfFrequency,
     bool isSoftNeeded)
 {
     const bool isSoftBuilt = isSoftNeeded && kneeType == KneeType::soft;
@@ -831,9 +843,9 @@ void CompParamsCalculator::calculateEnvelopeStatistics(
     jassert((long long)numChannels * (long long)numSamples
         <= (long long)std::numeric_limits<std::int32_t>::max());
 
-    dynamicProcessor.setEnvParameters( // TODO: add HPF settings
-        false,
-        100.f,
+    dynamicProcessor.setEnvParameters(
+        isHpfEnabled,
+        hpfFrequency,
         attackMs,
         releaseMs,
         balFilterType,

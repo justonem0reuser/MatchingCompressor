@@ -484,7 +484,7 @@ void MatchCompressorAudioProcessorEditor::onBallisticsSliderChanged()
     {
         freeFormCurve->setFitIndicatorComputing();
         audioProcessor.getFixationController().requestUpdate(
-            (float)attackSlider.getValue(), (float)releaseSlider.getValue());
+            (float)attackSlider.getValue(), (float)releaseSlider.getValue(), (float)hpfSlider.getValue());
     }
 }
 
@@ -622,6 +622,8 @@ void MatchCompressorAudioProcessorEditor::modeButtonClicked()
         }
         modeButtons.setItemEnabled(modeButtons.getSelectedId() == 2 ? 3 : 2, false);
         freeFormCurve->setFitIndicatorEmpty();
+        if (hpfButtons.getSelectedItemIndex() == 2)
+            hpfButtons.setSelectedItemIndex(1, juce::sendNotification);
         hpfSlider.detach();
         attackSlider.detach();
         releaseSlider.detach();

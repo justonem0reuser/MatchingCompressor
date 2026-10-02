@@ -56,9 +56,9 @@ public:
         const std::vector<std::vector<float>>* destDetectorSamples = nullptr,
         const std::vector<bool>* isDestSampleKept = nullptr);
 
-    void updateBallistics(float attackMs, float releaseMs, bool isSoftNeeded = true);
+    void updateBallistics(float attackMs, float releaseMs, float hpfFrequency, bool isSoftNeeded = true);
 
-    void updateEnvSettings(int balFilterTypeInt, int channelAggregationTypeInt);
+    void updateEnvSettings(int balFilterTypeInt, int channelAggregationTypeInt, int useHpfInt);
 
     std::vector<float> solve(); // fits the reference target built by prepare()
 
@@ -195,6 +195,7 @@ private:
     int quantileRegionsNumber, quantileRegionsNumberSoft;
     EnvCalculationType balFilterType;
     ChannelAggregationType channelAggregationType;
+    bool isHpfEnabled = false;
     KneeType kneeType = KneeType::hard;
     int kneesNumber = 1;
     double sampleRate = 0.;
@@ -239,6 +240,7 @@ private:
         double sampleRate,
         float attackMs,
         float releaseMs,
+        float hpfFrequency,
         bool isSoftNeeded);
     std::vector<float> calculateFunction(
         std::vector<std::vector<float>>& samples,

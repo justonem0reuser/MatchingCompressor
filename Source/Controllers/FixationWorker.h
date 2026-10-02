@@ -19,7 +19,7 @@ public:
     FixationWorker() : juce::Thread("FixationWorker") {}
     ~FixationWorker() override { stop(); }
 
-    std::function<void(float attackMs, float releaseMs, const std::vector<float>&, float fixedMismatch)> onParamsReady;
+    std::function<void(float attackMs, float releaseMs, float hpfFrequency, const std::vector<float>&, float fixedMismatch)> onParamsReady;
 
     std::function<void(float referenceMismatch)> onScoreReady;
 
@@ -121,68 +121,87 @@ public:
         stopThread(-1);
     }
 
-    void requestUpdate(float attackMs, float releaseMs)
+    void requestUpdate(float attackMs, float releaseMs, float hpfFrequency)
     {
         {
             const juce::SpinLock::ScopedLockType lock(pendingLock);
             pendingAttack = attackMs;
             pendingRelease = releaseMs;
+            pendingHpfFrequency = hpfFrequency;
         }
         requestGen.fetch_add(1, std::memory_order_release);
         notify();
     }
 
-    void requestRearm(const std::vector<float>& currentParams, float attackMs, float releaseMs)
+    void requestRearm(
+        const std::vector<float>& currentParams,
+        float attackMs,
+        float releaseMs,
+        float hpfFrequency)
     {
         {
             const juce::SpinLock::ScopedLockType lock(pendingLock);
             pendingArmParams = currentParams;
             pendingArmAttack = attackMs;
             pendingArmRelease = releaseMs;
+            pendingArmHpfFrequency = hpfFrequency;
         }
         armGen.fetch_add(1, std::memory_order_release);
         notify();
     }
 
-    void requestEnvSettings(int balFilterTypeInt, int channelAggregationTypeInt)
+    void requestEnvSettings(int balFilterTypeInt, int channelAggregationTypeInt, int useHpfInt)
     {
         {
             const juce::SpinLock::ScopedLockType lock(pendingLock);
             pendingBalFilter = balFilterTypeInt;
             pendingChannelAggregation = channelAggregationTypeInt;
+            pendingUseHpf = useHpfInt;
         }
         envGen.fetch_add(1, std::memory_order_release);
         notify();
     }
 
-    void requestScore(const std::vector<float>& params, float attackMs, float releaseMs)
+    void requestScore(
+        const std::vector<float>& params,
+        float attackMs,
+        float releaseMs,
+        float hpfFrequency)
     {
         {
             const juce::SpinLock::ScopedLockType lock(pendingLock);
             pendingScoreParams = params;
             pendingScoreAttack = attackMs;
             pendingScoreRelease = releaseMs;
+            pendingScoreHpfFrequency = hpfFrequency;
         }
         scoreGen.fetch_add(1, std::memory_order_release);
         notify();
     }
 
 private:
-    void rebuildIfNeeded(float attackMs, float releaseMs, bool isSoftNeeded)
+    void rebuildIfNeeded(float attackMs, float releaseMs, float hpfFrequency, bool isSoftNeeded)
     {
-        const bool isHardStale = attackMs != lastBuiltAttack || releaseMs != lastBuiltRelease;
-        const bool isSoftStale = isSoftNeeded
-            && (attackMs != lastBuiltSoftAttack || releaseMs != lastBuiltSoftRelease);
+        const bool isHardStale =
+            attackMs != lastBuiltAttack ||
+            releaseMs != lastBuiltRelease ||
+            hpfFrequency != lastBuiltHpfFrequency;
+        const bool isSoftStale = isSoftNeeded &&
+            (attackMs != lastBuiltSoftAttack ||
+                releaseMs != lastBuiltSoftRelease ||
+                hpfFrequency != lastBuiltSoftHpfFrequency);
         if (!isHardStale && !isSoftStale)
             return;
 
-        estimator.updateBallistics(attackMs, releaseMs, isSoftNeeded);
+        estimator.updateBallistics(attackMs, releaseMs, hpfFrequency, isSoftNeeded);
         lastBuiltAttack = attackMs;
         lastBuiltRelease = releaseMs;
+        lastBuiltHpfFrequency = hpfFrequency;
         if (isSoftNeeded)
         {
             lastBuiltSoftAttack = attackMs;
             lastBuiltSoftRelease = releaseMs;
+            lastBuiltSoftHpfFrequency = hpfFrequency;
         }
     }
 
@@ -252,17 +271,18 @@ private:
                     continue;
                 }
 
-                // 3rd priority: the envelope or stereo processing type
+                // 3rd priority: the envelope or stereo processing type, HPF on/off
                 const uint64_t eg = envGen.load(std::memory_order_acquire);
                 if (eg != envProcessed.load())
                 {
-                    int bal, aggregation;
+                    int bal, aggregation, useHpf;
                     {
                         const juce::SpinLock::ScopedLockType lock(pendingLock);
                         bal = pendingBalFilter;
                         aggregation = pendingChannelAggregation;
+                        useHpf = pendingUseHpf;
                     }
-                    estimator.updateEnvSettings(bal, aggregation);
+                    estimator.updateEnvSettings(bal, aggregation, useHpf);
                     markHistogramsStale();
                     envProcessed.store(eg);
                     continue;
@@ -273,16 +293,17 @@ private:
                 if (ag != armProcessed.load())
                 {
                     std::vector<float> params;
-                    float a, r;
+                    float a, r, f;
                     {
                         const juce::SpinLock::ScopedLockType lock(pendingLock);
                         params = pendingArmParams;
                         a = pendingArmAttack;
                         r = pendingArmRelease;
+                        f = pendingArmHpfFrequency;
                     }
                     if (!params.empty())
                     {
-                        rebuildIfNeeded(a, r, false);
+                        rebuildIfNeeded(a, r, f, false);
                         estimator.captureNominalKneeWidths(params);
                         target = estimator.calculateQuantilesFor(params);
                         lastResult = params;
@@ -296,16 +317,17 @@ private:
                 if (sg != scoreProcessed.load())
                 {
                     std::vector<float> params;
-                    float a, r;
+                    float a, r, f;
                     {
                         const juce::SpinLock::ScopedLockType lock(pendingLock);
                         params = pendingScoreParams;
                         a = pendingScoreAttack;
                         r = pendingScoreRelease;
+                        f = pendingScoreHpfFrequency;
                     }
                     if (hasReference && !params.empty())
                     {
-                        rebuildIfNeeded(a, r, true);
+                        rebuildIfNeeded(a, r, f, true);
                         if (scoreGen.load() != sg)
                             continue; // a newer score request arrived
                         const float q = estimator.scoreAgainstReference(params);
@@ -320,16 +342,17 @@ private:
                     continue;
                 }
 
-                // 6th priority: attack/release values
+                // 6th priority: attack/release/HPF frequency values
                 const uint64_t gen = requestGen.load(std::memory_order_acquire);
                 if (gen == processedGen.load())
                     break; // nothing new
 
-                float attackMs, releaseMs;
+                float attackMs, releaseMs, hpfFrequency;
                 {
                     const juce::SpinLock::ScopedLockType lock(pendingLock);
                     attackMs = pendingAttack;
                     releaseMs = pendingRelease;
+                    hpfFrequency = pendingHpfFrequency;
                 }
 
                 if (target.empty())
@@ -339,7 +362,7 @@ private:
                     continue;
                 }
 
-                rebuildIfNeeded(attackMs, releaseMs, false);
+                rebuildIfNeeded(attackMs, releaseMs, hpfFrequency, false);
                 if (requestGen.load() != gen)
                     continue; // a newer request arrived
 
@@ -359,7 +382,7 @@ private:
                 lastResult = result;
                 processedGen.store(gen);
                 if (onParamsReady)
-                    onParamsReady(attackMs, releaseMs, result, estimator.getLastFitMismatch());
+                    onParamsReady(attackMs, releaseMs, hpfFrequency, result, estimator.getLastFitMismatch());
             }
         }
     }
@@ -377,12 +400,14 @@ private:
     float lastBuiltRelease = std::numeric_limits<float>::quiet_NaN();
     float lastBuiltSoftAttack = std::numeric_limits<float>::quiet_NaN();
     float lastBuiltSoftRelease = std::numeric_limits<float>::quiet_NaN();
+    float lastBuiltHpfFrequency = std::numeric_limits<float>::quiet_NaN();
+    float lastBuiltSoftHpfFrequency = std::numeric_limits<float>::quiet_NaN();
 
     // Single-slot coalescing mailbox.
     juce::SpinLock pendingLock;
-    float pendingAttack = 0.f, pendingRelease = 0.f;
+    float pendingAttack = 0.f, pendingRelease = 0.f, pendingHpfFrequency = 0.f;
     std::vector<float> pendingArmParams;
-    float pendingArmAttack = 0.f, pendingArmRelease = 0.f;
+    float pendingArmAttack = 0.f, pendingArmRelease = 0.f, pendingArmHpfFrequency = 0.f;
     std::vector<std::vector<float>>* pendingStructureRef = nullptr;
     juce::ValueTree pendingStructureProperties;
     std::vector<std::vector<float>>* pendingMaterialRef = nullptr;
@@ -392,8 +417,8 @@ private:
     bool pendingMaterialKWeighting = false;
     const std::vector<bool>* pendingMaterialDestMask = nullptr;
     std::vector<float> pendingScoreParams;
-    float pendingScoreAttack = 0.f, pendingScoreRelease = 0.f;
-    int pendingBalFilter = 0, pendingChannelAggregation = 0;
+    float pendingScoreAttack = 0.f, pendingScoreRelease = 0.f, pendingScoreHpfFrequency = 0.f;
+    int pendingBalFilter = 0, pendingChannelAggregation = 0, pendingUseHpf = 0;
     std::atomic<uint64_t> requestGen{ 0 };
     std::atomic<uint64_t> processedGen{ 0 };
     std::atomic<uint64_t> armGen{ 0 };

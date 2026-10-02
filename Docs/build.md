@@ -1,4 +1,4 @@
-﻿# Building MatchingCompressor
+# Building MatchingCompressor
 
 There are two ways to build the MatchingCompressor VST/AU plugin from source: by using Cmake or Projucer (included in JUCE).
 This document describes both of them.
