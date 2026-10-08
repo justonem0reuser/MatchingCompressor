@@ -152,7 +152,6 @@ target_sources(MatchingCompressor
     "Source/Components/SettingsComponent.cpp"
     "Source/Components/SettingsWithDataReceiver.cpp"
     "Source/Components/SliderWithAttachment.cpp"
-    "Source/Components/ToggleButtonWithAttachment.cpp"
     "Source/Controllers/DataReceiverController.cpp"
     "Source/Controllers/MainController.cpp"
     "Source/Controllers/MatchController.cpp"

@@ -27,11 +27,6 @@ public:
         float sliderPosProportional,
         float rotaryStartAngle, float rotaryEndAngle,
         juce::Slider& slider) override;
-    void drawToggleButton(
-        juce::Graphics& g,
-        juce::ToggleButton& toggleButton,
-        bool shouldDrawButtonAsHighlighted,
-        bool shouldDrawButtonAsDown) override;
     juce::Rectangle<int> getPropertyComponentContentPosition(
         juce::PropertyComponent& component) override;
 

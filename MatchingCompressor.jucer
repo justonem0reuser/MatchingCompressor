@@ -200,10 +200,6 @@
               file="Source/Components/SliderWithAttachment.cpp"/>
         <FILE id="rzDmIv" name="SliderWithAttachment.h" compile="0" resource="0"
               file="Source/Components/SliderWithAttachment.h"/>
-        <FILE id="h2dtkf" name="ToggleButtonWithAttachment.cpp" compile="1"
-              resource="0" file="Source/Components/ToggleButtonWithAttachment.cpp"/>
-        <FILE id="rOMnY8" name="ToggleButtonWithAttachment.h" compile="0" resource="0"
-              file="Source/Components/ToggleButtonWithAttachment.h"/>
       </GROUP>
       <FILE id="zvGHPU" name="MatchWindow.cpp" compile="1" resource="0" file="Source/MatchWindow.cpp"/>
       <FILE id="PsOzHm" name="MatchWindow.h" compile="0" resource="0" file="Source/MatchWindow.h"/>

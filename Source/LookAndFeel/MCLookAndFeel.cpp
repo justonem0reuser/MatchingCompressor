@@ -1,5 +1,4 @@
 #include "MCLookAndFeel.h"
-#include "../Components/ToggleButtonWithAttachment.h"
 
 void MCLookAndFeel::drawRotarySlider(
     juce::Graphics& g,
@@ -46,25 +45,6 @@ void MCLookAndFeel::drawRotarySlider(
     g.setColour(findColour(juce::Label::textColourId));
     g.setFont(juce::Font(18.0f, juce::Font::bold));
     g.drawText(slider.getName(), x, y, width, 15, juce::Justification::centred, false);
-}
-
-void MCLookAndFeel::drawToggleButton(
-    juce::Graphics& g,
-    juce::ToggleButton& toggleButton,
-    bool shouldDrawButtonAsHighlighted,
-    bool shouldDrawButtonAsDown)
-{
-    if (auto* buttonWithAtt = dynamic_cast<ToggleButtonWithAttachment*>(&toggleButton))
-    {
-        const juce::Image& image =
-            toggleButton.getToggleState() ? toggleOffImage : toggleOnImage;
-        auto size = std::min(toggleButton.getWidth(), toggleButton.getHeight());
-        g.drawImage(image, 0, 0, size, size, 0, 0, image.getWidth(), image.getHeight());
-    }
-    else
-    {
-        juce::LookAndFeel_V4::drawToggleButton(g, toggleButton, shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
-    }
 }
 
 juce::Rectangle<int> MCLookAndFeel::getPropertyComponentContentPosition(juce::PropertyComponent& component)
