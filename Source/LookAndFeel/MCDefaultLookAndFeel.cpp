@@ -19,6 +19,8 @@ MCDefaultLookAndFeel::MCDefaultLookAndFeel()
     setColour(juce::Label::textColourId, juce::Colours::white);
     setColour(juce::TextButton::ColourIds::buttonColourId, juce::Colour(0x80392f27));
     setColour(juce::TextButton::ColourIds::buttonOnColourId, juce::Colour(0x50ff7100));
+    setColour(juce::TextButton::ColourIds::textColourOffId, juce::Colour(0xffc8c0b8));
+    setColour(juce::TextButton::ColourIds::textColourOnId, juce::Colours::white);
     setColour(juce::ChoicePropertyComponent::ColourIds::backgroundColourId, juce::Colour(0x408b7460));
     setColour(juce::TooltipWindow::backgroundColourId, juce::Colour(0xff574f4f));
     setColour(juce::TooltipWindow::outlineColourId, juce::Colour(0x00000000));

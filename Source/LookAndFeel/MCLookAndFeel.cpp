@@ -47,6 +47,45 @@ void MCLookAndFeel::drawRotarySlider(
     g.drawText(slider.getName(), x, y, width, 15, juce::Justification::centred, false);
 }
 
+void MCLookAndFeel::drawButtonBackground(
+    juce::Graphics& g,
+    juce::Button& button,
+    const juce::Colour& backgroundColour,
+    bool shouldDrawButtonAsHighlighted,
+    bool shouldDrawButtonAsDown)
+{
+    juce::LookAndFeel_V4::drawButtonBackground(
+        g, button, backgroundColour, shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
+
+    if (!button.getToggleState())
+        return;
+
+    const float thickness = 2.0f;
+    const float cornerSize = 6.0f;
+    auto bounds = button.getLocalBounds().toFloat().reduced(thickness * 0.5f);
+    const bool isConnectedOnLeft = button.isConnectedOnLeft();
+    const bool isConnectedOnRight = button.isConnectedOnRight();
+    const bool isConnectedOnTop = button.isConnectedOnTop();
+    const bool isConnectedOnBottom = button.isConnectedOnBottom();
+
+    juce::Path path;
+    path.addRoundedRectangle(
+        bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(),
+        cornerSize, cornerSize,
+        !(isConnectedOnLeft || isConnectedOnTop),
+        !(isConnectedOnRight || isConnectedOnTop),
+        !(isConnectedOnLeft || isConnectedOnBottom),
+        !(isConnectedOnRight || isConnectedOnBottom));
+
+    g.strokePath(path, juce::PathStrokeType(thickness));
+}
+
+juce::Font MCLookAndFeel::getTextButtonFont(juce::TextButton& button, int buttonHeight)
+{
+    auto font = juce::LookAndFeel_V4::getTextButtonFont(button, buttonHeight);
+    return button.getToggleState() ? font.boldened() : font;
+}
+
 juce::Rectangle<int> MCLookAndFeel::getPropertyComponentContentPosition(juce::PropertyComponent& component)
 {
     auto halfWidth = component.getWidth() / 2;

@@ -19,6 +19,8 @@ MCAltLookAndFeel::MCAltLookAndFeel()
     setColour(juce::Label::textColourId, juce::Colour(0xffe8e8e8));
     setColour(juce::TextButton::ColourIds::buttonColourId, juce::Colour(0xff1e1e1e));
     setColour(juce::TextButton::ColourIds::buttonOnColourId, juce::Colour(0x341de9b6));
+    setColour(juce::TextButton::ColourIds::textColourOffId, juce::Colour(0xffb0b0b0));
+    setColour(juce::TextButton::ColourIds::textColourOnId, juce::Colours::white);
     setColour(juce::ChoicePropertyComponent::ColourIds::backgroundColourId, juce::Colour(0xff1e1e1e));
 
     setColour(ColourIds::controlBackgroundColourId, juce::Colour(0xff1a1a1a));
