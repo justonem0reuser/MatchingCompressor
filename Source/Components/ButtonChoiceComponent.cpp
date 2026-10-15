@@ -19,6 +19,7 @@ ButtonChoiceComponent::ButtonChoiceComponent(
             edges |= isHorizontal ? juce::Button::ConnectedOnRight : juce::Button::ConnectedOnBottom;
         button->setConnectedEdges(edges);
 
+        button->setToggleable(true);
         button->onClick = [this, i] { setSelectedItemIndex(i, juce::sendNotificationSync); };
         addAndMakeVisible(button);
     }

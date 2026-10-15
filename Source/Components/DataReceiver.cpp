@@ -53,23 +53,29 @@ DataReceiver::DataReceiver(
 void DataReceiver::setRefDataState(SetDataState state)
 {
     refDataSet = state != SetDataState::NotSet;
-    refIsSetLabel.setText(
+    const juce::String text =
         state == SetDataState::SetFromBus ? refSetFromBusStr :
         state == SetDataState::SetFromFile ? refSetFromFileStr :
-        "",
-        juce::NotificationType::dontSendNotification);
+        "";
+    refIsSetLabel.setText(text, juce::NotificationType::dontSendNotification);
     refIsSetLabel.repaint();
+    if (text.isNotEmpty())
+        juce::AccessibilityHandler::postAnnouncement(
+            text, juce::AccessibilityHandler::AnnouncementPriority::medium);
 }
 
 void DataReceiver::setDestDataState(SetDataState state)
 {
     destDataSet = state != SetDataState::NotSet;
-    destIsSetLabel.setText(
+    const juce::String text =
         state == SetDataState::SetFromBus ? destSetFromBusStr :
         state == SetDataState::SetFromFile ? destSetFromFileStr :
-        "",
-        juce::NotificationType::dontSendNotification);
+        "";
+    destIsSetLabel.setText(text, juce::NotificationType::dontSendNotification);
     destIsSetLabel.repaint();
+    if (text.isNotEmpty())
+        juce::AccessibilityHandler::postAnnouncement(
+            text, juce::AccessibilityHandler::AnnouncementPriority::medium);
 }
 
 bool DataReceiver::isReadRefFromStreamEnabled()

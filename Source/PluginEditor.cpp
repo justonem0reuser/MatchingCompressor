@@ -36,11 +36,14 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     laf->setupToolButton(toolButton);
     toolButton.onClick = [this] { toolButtonClicked(); };
     toolButton.setTooltip("Match/Learn");
+    toolButton.setTitle("Match/Learn");
 
     // Index 0 = minimal (MCAltLookAndFeel), index 1 = brutal (MCDefaultLookAndFeel).
+    themeButtons.setTitle("Theme");
     themeButtons.onChange = [this] { themeButtonClicked(); };
     addAndMakeVisible(themeButtons);
 
+    modeButtons.setTitle("Mode");
     modeButtons.onChange = [this] { modeButtonClicked(); };
     addAndMakeVisible(modeButtons);
     modeButtons.setSelectedItemIndex(0, juce::dontSendNotification);

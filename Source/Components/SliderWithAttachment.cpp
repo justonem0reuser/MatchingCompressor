@@ -40,4 +40,5 @@ void SliderWithAttachment::setNameFromParameter(juce::RangedAudioParameter* para
     if (label.isNotEmpty())
         name += " (" + label + ")";
     setName(name);
+    setTitle(name);
 }
