@@ -16,7 +16,8 @@
 //==============================================================================
 class MatchCompressorAudioProcessorEditor : 
     public juce::AudioProcessorEditor,                                        
-    public BaseMainView
+    public BaseMainView,
+    private juce::KeyListener
 {
 public:
     MatchCompressorAudioProcessorEditor (MatchCompressorAudioProcessor&);
@@ -24,6 +25,7 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    void parentHierarchyChanged() override;
 
     BaseMatchView* getMatchView() override;
 
@@ -80,6 +82,8 @@ private:
     std::unique_ptr<CurvePlotComponent> freeFormCurve;
     std::unique_ptr<juce::TooltipWindow> tooltipWindow;
 
+    juce::Component::SafePointer<juce::Component> topLevelComponent;
+
     Mode mode = Mode::normal;
     bool restoringCalculatedData = false;
 
@@ -89,6 +93,7 @@ private:
     juce::Rectangle<float> attackReleaseRect;
     juce::Slider::RotaryParameters standardRotaryParameters; // this should be after sliders because of the initializing order
 
+    bool keyPressed(const juce::KeyPress& key, juce::Component* originatingComponent) override;
     void createController();
     void resetToCalculatedData();
     void toolButtonClicked();

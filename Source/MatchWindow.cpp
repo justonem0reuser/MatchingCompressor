@@ -43,3 +43,17 @@ void MatchWindow::closeButtonPressed()
 {
     juce::NullCheckedInvocation::invoke(component.onCancelButtonClicked);
 }
+
+bool MatchWindow::keyPressed(const juce::KeyPress& key)
+{
+    if (!key.isKeyCode(juce::KeyPress::tabKey) || component.hasKeyboardFocus(true))
+        return DocumentWindow::keyPressed(key);
+
+    auto components = juce::KeyboardFocusTraverser().getAllComponents(&component);
+    if (components.empty())
+        return false;
+
+    auto* focusComponent = key.getModifiers().isShiftDown() ? components.back() : components.front();
+    focusComponent->grabKeyboardFocus();
+    return true;
+}

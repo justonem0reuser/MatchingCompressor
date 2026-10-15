@@ -19,4 +19,5 @@ private:
 	SettingsWithDataReceiver component;
 
 	void closeButtonPressed() override;
+	bool keyPressed(const juce::KeyPress& key) override;
 };

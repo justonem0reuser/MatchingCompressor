@@ -147,6 +147,24 @@ MatchCompressorAudioProcessorEditor::MatchCompressorAudioProcessorEditor(
     ComponentInitializerHelper::initLabel(this, balFilterTypeLabel, &balFilterTypeButtons, false);
     ComponentInitializerHelper::initLabel(this, channelAggregationTypeLabel, &channelAggregationTypeButtons, false);
 
+    themeButtons.setExplicitFocusOrder(1);
+    modeButtons.setExplicitFocusOrder(2);
+    toolButton.setExplicitFocusOrder(3);
+    for (auto& kneeIndexButton : kneeIndexButtons)
+        kneeIndexButton->setExplicitFocusOrder(4);
+    thresholdSlider.setExplicitFocusOrder(5);
+    ratioSlider.setExplicitFocusOrder(6);
+    kneeWidthSlider.setExplicitFocusOrder(7);
+    gainSlider.setExplicitFocusOrder(8);
+    hpfSlider.setExplicitFocusOrder(9);
+    hpfButtons.setExplicitFocusOrder(10);
+    attackSlider.setExplicitFocusOrder(11);
+    releaseSlider.setExplicitFocusOrder(12);
+    resetButton.setExplicitFocusOrder(13);
+    kneesNumberButtons.setExplicitFocusOrder(14);
+    balFilterTypeButtons.setExplicitFocusOrder(15);
+    channelAggregationTypeButtons.setExplicitFocusOrder(16);
+
     kneeIndexButtons[0]->setToggleState(true, true);
 
     setSize(leftPanelWidth + rightPanelWidth, editorHeight);
@@ -172,6 +190,8 @@ MatchCompressorAudioProcessorEditor::~MatchCompressorAudioProcessorEditor()
     audioProcessor.PlayHeadStartPlaying = NULL;
     audioProcessor.PlayHeadStopPlaying = NULL;
     audioProcessor.DataCollectorMemoryFull = NULL;
+    if (topLevelComponent != nullptr)
+        topLevelComponent->removeKeyListener(this);
 }
 
 //==============================================================================
@@ -281,9 +301,33 @@ void MatchCompressorAudioProcessorEditor::resized()
     attackReleaseRect.setBottom(hpfButtons.getBottom() + margin);
 }
 
+void MatchCompressorAudioProcessorEditor::parentHierarchyChanged()
+{
+    if (topLevelComponent != nullptr)
+        topLevelComponent->removeKeyListener(this);
+    topLevelComponent = getTopLevelComponent();
+    topLevelComponent->addKeyListener(this);
+}
+
 BaseMatchView* MatchCompressorAudioProcessorEditor::getMatchView()
 {
     return matchWindow->getMatchView();
+}
+
+bool MatchCompressorAudioProcessorEditor::keyPressed(
+    const juce::KeyPress& key,
+    juce::Component*)
+{
+    if (!key.isKeyCode(juce::KeyPress::tabKey) || hasKeyboardFocus(true))
+        return false;
+
+    auto components = juce::KeyboardFocusTraverser().getAllComponents(this);
+    if (components.empty())
+        return false;
+
+    auto* component = key.getModifiers().isShiftDown() ? components.back() : components.front();
+    component->grabKeyboardFocus();
+    return true;
 }
 
 void MatchCompressorAudioProcessorEditor::resetToCalculatedData()

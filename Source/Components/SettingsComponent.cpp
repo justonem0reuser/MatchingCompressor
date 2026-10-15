@@ -10,6 +10,11 @@ SettingsComponent::SettingsComponent(
 {
     propComps = createPropertyComponents(parameterInfos);
     panel.addProperties(propComps, margin);
+    if (auto* viewport = dynamic_cast<juce::Viewport*>(panel.getChildComponent(0)))
+    {
+        viewport->setFocusContainerType(juce::Component::FocusContainerType::none);
+        viewport->setWantsKeyboardFocus(false);
+    }
 
     int currentY = margin;
     addAndMakeVisible(&panel);
