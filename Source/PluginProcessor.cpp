@@ -202,7 +202,7 @@ void MatchCompressorAudioProcessor::setCurrentProgram(int index)
 
 const juce::String MatchCompressorAudioProcessor::getProgramName(int index)
 {
-    return {};
+    return "Default";
 }
 
 void MatchCompressorAudioProcessor::changeProgramName(int index, const juce::String& newName)
