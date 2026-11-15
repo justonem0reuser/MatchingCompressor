@@ -4,6 +4,10 @@
 
 If you have a reference audio signal with your desired dynamic profile and another signal you want to shape similarly, the plugin can analyze both and determine compressor parameters that best match the reference.
 
+**OS**: Linux, Windows, macOS
+
+**Plugin formats**: VST3, AU
+
 ### Key features:
 
 - Standard set of parameters: Gain, Threshold, Ratio, Knee Width, Attack, Release, along with Envelope Type and Stereo Processing mode
@@ -18,7 +22,7 @@ If you have a reference audio signal with your desired dynamic profile and anoth
  
 - Level distribution lock mode that keeps the level distribution unchanged when attack and release are retuned
 
-- 	Optional K-weighting when comparing level distributions
+- Optional K-weighting when comparing level distributions
 
 - Support for both audio files and input buses (main and sidechain) as sources for reference and destination audio 
 

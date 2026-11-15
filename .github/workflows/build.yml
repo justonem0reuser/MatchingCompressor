@@ -32,21 +32,39 @@ jobs:
           echo "JUCE_VERSION=$juce" >> $GITHUB_OUTPUT
           echo "ALGLIB_VERSION=$alglib" >> $GITHUB_OUTPUT
 
-  build-windows:
-    runs-on: windows-latest
+  build:
     needs:
       - set-version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            cache_path: build/_deps
+          - os: ubuntu-22.04
+            cache_path: |
+              build/_deps/alglib-${{ needs.set-version.outputs.alglib_version }}
+              build/_deps/juce-${{ needs.set-version.outputs.juce_version }}/juce-src
+          - os: macos-latest
+            cache_path: build/_deps
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v6
 
+      # Unlike Windows and MacOS cache, Linux cache doesn't include JUCE build files
+      # as building JUCE requires additional dependencies installation,
+      # therefore dependency version conflicts can occur
+      # between JUCE and MatchingCompressor.
+      # That's why this step uses different cache_path. 
       - name: Restore cache
         uses: actions/cache@v5
         with:
-          path: build/_deps
-          key: windows-deps-${{ needs.set-version.outputs.juce_version }}-${{ needs.set-version.outputs.alglib_version }}
+          path: ${{ matrix.cache_path }}
+          key: ${{ runner.os }}-deps-${{ needs.set-version.outputs.juce_version }}-${{ needs.set-version.outputs.alglib_version }}
 
       - name: Download Inno Setup (if not cached)
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $ProgressPreference = 'SilentlyContinue'
@@ -57,25 +75,65 @@ jobs:
               if (-not (Test-Path "$PWD/build/_deps/inno-setup/ISCC.exe")) { throw "Inno Setup install failed" }
           }
 
-      - name: Configure CMake
-        shell: pwsh
+      - name: Install dependencies
+        if: runner.os == 'Linux'
+       
+        # for working inside a container
+        #env: 
+        #  DEBIAN_FRONTEND: noninteractive
+        #  TZ: Etc/UTC
+        
+        # "apt-get" without "sudo" for working inside a container 
+        # "apt-get install -y build-essential cmake" for working inside a container
         run: |
-          New-Item -ItemType Directory -Force -Path build
-          cd build
-          cmake .. -G "Visual Studio 18 2026" -A x64 -DCMAKE_BUILD_TYPE=Release -DVERSION="${{ needs.set-version.outputs.version }}"
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libfreetype6-dev libfontconfig1-dev
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cd build
+            cmake .. -G "Visual Studio 18 2026" -A x64 -DCMAKE_BUILD_TYPE=Release -DVERSION="${{ needs.set-version.outputs.version }}"
+          elif [ "$RUNNER_OS" = "Linux" ]; then
+            mkdir -p build
+            cd build
+            cmake .. -DCMAKE_BUILD_TYPE=Release -DVERSION=${{ needs.set-version.outputs.version }}
+            pkg-config --cflags freetype2
+          else
+            mkdir -p build
+            cd build
+            cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DVERSION=${{ needs.set-version.outputs.version }}
+          fi
 
       - name: Build Project
+        shell: bash
         run: |
-          cd build
-          cmake --build . --config Release --parallel
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cd build
+            cmake --build . --config Release --parallel
+          elif [ "$RUNNER_OS" = "Linux" ]; then
+            cmake --build build --config Release -- -j$(nproc)
+          else
+            cd build
+            cmake --build . --config Release -- -j$(sysctl -n hw.ncpu)
+          fi
 
-      - name: Upload build VST artifact
+      - name: Upload VST artifact
         uses: actions/upload-artifact@v7
         with:
-          name: output-vst3-windows
+          name: output-vst3-${{ runner.os }}
           path: ./build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3
 
+      - name: Upload AU artifact
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v7
+        with:
+          name: output-au-${{ runner.os }}
+          path: ./build/MatchingCompressor_artefacts/Release/AU/MatchingCompressor.component
+
       - name: Set version in Inno Setup script
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $version = "${{ needs.set-version.outputs.version }}"
@@ -89,6 +147,7 @@ jobs:
           #[System.IO.File]::WriteAllText($file, $newContent, [System.Text.Encoding]::UTF8)  
           
       - name: Build Installer
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $issPath = "$PWD/setup.iss"
@@ -99,101 +158,115 @@ jobs:
           & $isccPath /O"$outputDir" $issPath
 
       - name: Upload installer artifact
+        if: runner.os == 'Windows'
         uses: actions/upload-artifact@v7
         with:
-          name: output-ins-windows
+          name: output-ins-${{ runner.os }}
           path: ./build/inno
 
-  build-linux:
-    runs-on: ubuntu-22.04
+  # Plugin is built in Ubuntu 22.04 in order to support this version.
+  # However, pluginval is not compatible with it.
+  # That's why separate job is required.
+  validate:
     needs:
-      - set-version
+      - build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            plugins_to_validate: MatchingCompressor.vst3
+          - os: ubuntu-latest
+            plugins_to_validate: MatchingCompressor.vst3
+          - os: macos-latest
+            plugins_to_validate: |
+              MatchingCompressor.vst3
+              MatchingCompressor.component
+    runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v6
-
-      # Unlike Windows and MacOS cache, Linux cache doesn't include JUCE build files
-      # as building JUCE requires additional dependencies installation,
-      # therefore dependency version conflicts can occur
-      # between JUCE and MatchingCompressor.
-      - name: Restore cache
-        uses: actions/cache@v5
+      - name: Download VST3 artifact
+        uses: actions/download-artifact@v8
         with:
-          path: |
-              build/_deps/alglib-${{ needs.set-version.outputs.alglib_version }}
-              build/_deps/juce-${{ needs.set-version.outputs.juce_version }}/juce-src
-          key: linux-deps-${{ needs.set-version.outputs.juce_version }}-${{ needs.set-version.outputs.alglib_version }}
+          name: output-vst3-${{ runner.os }}
+          path: MatchingCompressor.vst3
 
-      - name: Install dependencies
-        
-        # for working inside a container
-        #env: 
-        #  DEBIAN_FRONTEND: noninteractive
-        #  TZ: Etc/UTC
-        
-        # "apt-get" without "sudo" for working inside a container 
-        # "apt-get install -y build-essential cmake" for working inside a container
+      - name: Download AU artifact
+        if: runner.os == 'macOS'
+        uses: actions/download-artifact@v8
+        with:
+          name: output-au-${{ runner.os }}
+          path: MatchingCompressor.component
+
+      - name: Prepare AU artifact
+        if: runner.os == 'macOS'
+        run: |
+          COMPONENTS=~/Library/Audio/Plug-Ins/Components
+          mkdir -p "$COMPONENTS"
+          cp -R "MatchingCompressor.component" "$COMPONENTS/"
+          killall -9 AudioComponentRegistrar || true
+          auval -v aufx Mtcp Jmor
+          
+      # Required for GUI testing
+      - name: Start X server
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libasound2-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libfreetype6-dev libfontconfig1-dev
+          sudo apt-get install -y xvfb fluxbox
+          Xvfb :99 -screen 0 1280x1024x24 &
+          sleep 2
+          DISPLAY=:99 fluxbox &
+          sleep 2
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
 
-      - name: Configure CMake
+      - name: Validate
+        uses: Tracktion/pluginval/validate@v2.0.0-beta3
+        with:
+          pluginval-version: v2.0.0-beta3
+          plugins: ${{ matrix.plugins_to_validate }}
+          strictness-level: 10
+          args: --verbose
+        env: 
+          TIMEOUT_MS: "60000"
+          OUTPUT_DIR: "pluginval-logs"
+
+      - name: Prepare x86_64 launcher for MacOS (Rosetta)
+        if: runner.os == 'macOS'
         run: |
-          mkdir -p build
-          cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DVERSION=${{ needs.set-version.outputs.version }}
-          pkg-config --cflags freetype2
+          /usr/bin/pgrep -q oahd || sudo softwareupdate --install-rosetta --agree-to-license
+          BIN="$RUNNER_TEMP/pluginval-v2.0.0-beta3/pluginval.app/Contents/MacOS/pluginval"
+          lipo "$BIN" -verify_arch x86_64
+          printf '#!/bin/bash\nexec arch -x86_64 "%s" "$@"\n' "$BIN" > "$RUNNER_TEMP/pluginval-x86_64"
+          chmod +x "$RUNNER_TEMP/pluginval-x86_64"
 
-      - name: Build Project
-        run: cmake --build build --config Release -- -j$(nproc)
-
-      - name: Upload VST3 artifact
+      - name: Validate (x86_64, Rosetta)
+        if: runner.os == 'macOS'
+        uses: Tracktion/pluginval/validate@v2.0.0-beta3
+        with:
+          pluginval-path: ${{ runner.temp }}/pluginval-x86_64
+          plugins: ${{ matrix.plugins_to_validate }}
+          strictness-level: 10
+          args: --verbose
+        env:
+          TIMEOUT_MS: "60000"
+          OUTPUT_DIR: pluginval-logs/macos_x86_64
+          
+      - name: Upload pluginval logs
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: output-vst3-linux
-          path: ./build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3
+          name: pluginval-logs-${{ runner.os }}
+          path: pluginval-logs
 
-  build-macos:
-    runs-on: macos-latest
-    needs:
-      - set-version
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Restore cache
-        uses: actions/cache@v5
-        with:
-          path: build/_deps
-          key: macos-deps-${{ needs.set-version.outputs.juce_version }}-${{ needs.set-version.outputs.alglib_version }}
-
-      - name: Configure CMake
-        run: |
-          mkdir -p build
-          cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DVERSION=${{ needs.set-version.outputs.version }}
-
-      - name: Build Project
-        run: |
-          cd build
-          cmake --build . --config Release -- -j$(sysctl -n hw.ncpu)
-
-      - name: Upload VST3 artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: output-vst3-macos
-          path: ./build/MatchingCompressor_artefacts/Release/VST3/MatchingCompressor.vst3
-
-      - name: Upload AU artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: output-au-macos
-          path: ./build/MatchingCompressor_artefacts/Release/AU/MatchingCompressor.component
-
+  # If a validation test for at least one OS or plugin format fails
+  # then all release jobs should be rejected.
+  # That's why they are not combined with the validation job.
+          
   release-windows:
     needs:
       - set-version
-      - build-windows
+      - build
+      - validate
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
 
     runs-on: windows-latest
@@ -205,13 +278,13 @@ jobs:
       - name: Download VST3 artifact
         uses: actions/download-artifact@v8
         with:
-          name: output-vst3-windows
+          name: output-vst3-${{ runner.os }}
           path: MatchingCompressor.vst3
 
       - name: Download installator artifact
         uses: actions/download-artifact@v8
         with:
-          name: output-ins-windows
+          name: output-ins-${{ runner.os }}
           path: MatchingCompressor-installer
 
       - name: Archive VST3 plugin
@@ -233,7 +306,8 @@ jobs:
   release-linux:
     needs:
       - set-version
-      - build-linux
+      - build
+      - validate
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
 
     runs-on: ubuntu-latest
@@ -245,7 +319,7 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v8
         with:
-          name: output-vst3-linux
+          name: output-vst3-${{ runner.os }}
           path: MatchingCompressor.vst3
 
       - name: Archive VST3 plugin
@@ -263,7 +337,8 @@ jobs:
   release-macos:
     needs:
       - set-version
-      - build-macos
+      - build
+      - validate
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
 
     runs-on: macos-latest
@@ -275,13 +350,13 @@ jobs:
     - name: Download VST3 artifact
       uses: actions/download-artifact@v8
       with:
-        name: output-vst3-macos
+        name: output-vst3-${{ runner.os }}
         path: MatchingCompressor.vst3
 
     - name: Download AU artifact
       uses: actions/download-artifact@v8
       with:
-        name: output-au-macos
+        name: output-au-${{ runner.os }}
         path: MatchingCompressor.component
 
     - name: Create README for dev release
@@ -317,4 +392,3 @@ jobs:
           README-dev.txt
           MatchingCompressor-vst3-macos-${{ needs.set-version.outputs.version }}-alpha.tar.gz
           MatchingCompressor-au-macos-${{ needs.set-version.outputs.version }}-alpha.tar.gz
-
